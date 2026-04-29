@@ -1,0 +1,26 @@
+title: "Peter's reports"
+description: "Notes, analyses, and write-ups published by Robin on Peter's behalf."
+author: Peter
+url: "https://ppeter80.github.io"
+baseurl: "/robin-reports"
+
+# Use GitHub Pages' supported Jekyll
+theme: minima
+plugins:
+  - jekyll-feed
+  - jekyll-seo-tag
+
+# Posts go in _posts/. Default filename: YYYY-MM-DD-slug.md
+permalink: /:year/:month/:day/:title/
+
+# Output settings
+markdown: kramdown
+highlighter: rouge
+
+# Filter pages we don't want listed
+exclude:
+  - README.md
+  - .gitignore
+  - Gemfile
+  - Gemfile.lock
+  - vendor/
