@@ -1,6 +1,6 @@
 ---
 title: "Volkswagen Group (VOW3 / VWAGY) — valuation snapshot, April 2026"
-date: 2026-04-30
+date: 2026-04-30 00:30:00 +0200
 tags: [valuation, equity, automotive, volkswagen]
 summary: "FY25 was a wipe-out year (op profit halved, dividend cut 17%) but cash flow grew, the franchise is intact, and FY26 guidance points to recovery. Probability-weighted FV ≈ €100–115 (+13% to +30%). Patient long, sized small."
 ---
