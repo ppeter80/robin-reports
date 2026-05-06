@@ -10,9 +10,9 @@ body{background:#000 !important;}
 body, .page-content, .wrapper, header.site-header, footer.site-footer{
   background:#000 !important; color:#f0f2f5 !important;
 }
-/* Hide the Jekyll site header ("Peter's reports" + nav) on this page only */
+/* Hide Jekyll site header + footer ("Peter's reports") on this page only */
 header.site-header{display:none !important;}
-footer.site-footer{border-color:#1a1a1a !important;}
+footer.site-footer{display:none !important;}
 /* Hide the post-level title that the Minima theme injects above the body */
 .post-header{display:none !important;}
 
@@ -222,6 +222,6 @@ table.gm-prices{
 </div>
   </div>
   <div class='gm-foot'>
-    Sources: Argus Media European Natural Gas API · © Argus Media — internal use only · private mirror · generated 2026-05-06 12:23 UTC
+    Sources: Argus Media European Natural Gas API · © Argus Media — internal use only · private mirror · generated 2026-05-06 12:25 UTC
   </div>
 </div>
