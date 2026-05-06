@@ -222,6 +222,7 @@ table.gm-prices{
 </div>
   </div>
   <div class='gm-foot'>
-    Sources: Argus Media European Natural Gas API · © Argus Media — internal use only · private mirror · generated 2026-05-06 12:25 UTC
+    Sources: Argus Media European Natural Gas API · © Argus Media — internal use only · private mirror · generated 2026-05-06 12:30 UTC
   </div>
 </div>
+<script>document.title = 'Gas Market Dashboard';</script>
