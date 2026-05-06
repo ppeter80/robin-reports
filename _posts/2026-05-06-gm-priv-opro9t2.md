@@ -5,9 +5,18 @@ unlisted: true
 ---
 
 <style>
+/* Dark out the page chrome around the dashboard */
+body{background:#0b1020 !important;}
+body, .page-content, .wrapper, header.site-header, footer.site-footer{
+  background:#0b1020 !important; color:#dde3ee !important;
+}
+header.site-header, footer.site-footer{border-color:#1a2030 !important;}
+.site-title, .site-title:visited, .page-link, .page-link:visited{color:#dde3ee !important;}
+
 .gm-wrap{
   font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;
-  color:#1a2744;
+  color:#dde3ee;
+  background:#0b1020;
   margin-left:calc(-50vw + 50%);
   margin-right:calc(-50vw + 50%);
   padding:0 28px 40px;
@@ -16,22 +25,22 @@ unlisted: true
 }
 .gm-wrap *{box-sizing:border-box;}
 .gm-hero{
-  border-bottom:2px solid #1a2744;
+  border-bottom:2px solid #2a3550;
   padding:18px 0 14px;
   margin-bottom:22px;
 }
 .gm-hero h1{
   font-size:1.55rem;letter-spacing:-0.01em;margin:0 0 4px;
-  color:#1a2744;font-weight:700;
+  color:#f0f4ff;font-weight:700;
 }
-.gm-hero .sub{font-size:0.88rem;color:#6b7280;letter-spacing:0.02em;}
+.gm-hero .sub{font-size:0.88rem;color:#8a93a6;letter-spacing:0.02em;}
 .gm-section{margin:30px 0 14px;}
 .gm-section h2{
   font-size:0.78rem;text-transform:uppercase;letter-spacing:0.12em;
-  color:#1a2744;font-weight:700;
-  border-left:3px solid #2a5cb8;padding-left:10px;margin:0 0 12px;
+  color:#dde3ee;font-weight:700;
+  border-left:3px solid #4ea5ff;padding-left:10px;margin:0 0 12px;
 }
-.gm-section .note{font-size:0.8rem;color:#6b7280;margin-left:14px;}
+.gm-section .note{font-size:0.8rem;color:#8a93a6;margin-left:14px;font-weight:400;}
 
 /* KPI tiles */
 .gm-kpis{
@@ -40,20 +49,20 @@ unlisted: true
   gap:10px;margin-bottom:6px;
 }
 .gm-kpi{
-  background:#fff;border:1px solid #e5e7eb;border-radius:6px;
+  background:#161c2e;border:1px solid #232b40;border-radius:6px;
   padding:12px 14px;
 }
-.gm-kpi .label{font-size:0.72rem;color:#6b7280;letter-spacing:0.04em;text-transform:uppercase;}
+.gm-kpi .label{font-size:0.72rem;color:#8a93a6;letter-spacing:0.04em;text-transform:uppercase;}
 .gm-kpi .value{
-  font-size:1.55rem;font-weight:600;color:#1a2744;
+  font-size:1.55rem;font-weight:600;color:#f0f4ff;
   font-variant-numeric:tabular-nums;letter-spacing:-0.01em;margin-top:2px;
 }
-.gm-kpi .unit{font-size:0.7rem;color:#9ca3af;margin-left:3px;font-weight:400;}
+.gm-kpi .unit{font-size:0.7rem;color:#5e6678;margin-left:3px;font-weight:400;}
 .gm-kpi .delta{font-size:0.78rem;margin-top:3px;font-variant-numeric:tabular-nums;}
 
 /* Price table */
 .gm-tbl-wrap{
-  background:#fff;border:1px solid #e5e7eb;border-radius:6px;
+  background:#161c2e;border:1px solid #232b40;border-radius:6px;
   overflow-x:auto;margin-bottom:12px;
 }
 table.gm-prices{
@@ -61,29 +70,30 @@ table.gm-prices{
   font-variant-numeric:tabular-nums;
 }
 .gm-prices th{
-  background:#f8fafc;color:#1a2744;font-weight:600;
-  text-align:right;padding:8px 12px;
-  border-bottom:1px solid #e5e7eb;
+  background:#1d2440;color:#aab3c6;font-weight:600;
+  text-align:right;padding:9px 12px;
+  border-bottom:1px solid #2a3252;
   font-size:0.74rem;text-transform:uppercase;letter-spacing:0.05em;
   white-space:nowrap;
 }
 .gm-prices th:first-child,.gm-prices td:first-child{text-align:left;}
 .gm-prices td{
-  padding:8px 12px;border-bottom:1px solid #f1f3f6;
-  text-align:right;white-space:nowrap;
+  padding:9px 12px;border-bottom:1px solid #1d2236;
+  text-align:right;white-space:nowrap;color:#dde3ee;
 }
+.gm-prices tr:nth-child(even) td{background:#13182a;}
 .gm-prices tr:last-child td{border-bottom:none;}
-.gm-prices tr:hover td{background:#f8fafc;}
-.gm-prices td.hub{font-weight:600;color:#1a2744;}
-.gm-prices td.dash{color:#cbd0d6;}
+.gm-prices tr:hover td{background:#1c2440;}
+.gm-prices td.hub{font-weight:700;color:#f0f4ff;}
+.gm-prices td.dash{color:#3d4763;}
 .gm-prices td .delta{font-size:0.74rem;margin-left:6px;font-weight:500;}
 
-/* Delta colours — shared */
-.up-strong{color:#15803d;}
-.up-mild{color:#65a30d;}
-.flat{color:#6b7280;}
-.down-mild{color:#dc7d7d;}
-.down-strong{color:#b91c1c;}
+/* Delta colours — bright on dark */
+.up-strong{color:#4ade80;}
+.up-mild{color:#86efac;}
+.flat{color:#8a93a6;}
+.down-mild{color:#fca5a5;}
+.down-strong{color:#f87171;}
 
 /* Charts */
 .gm-charts{
@@ -92,12 +102,12 @@ table.gm-prices{
   gap:14px;
 }
 .gm-charts figure{
-  margin:0;background:#fff;border:1px solid #e5e7eb;border-radius:6px;
+  margin:0;background:#161c2e;border:1px solid #232b40;border-radius:6px;
   padding:6px;
 }
 .gm-charts img{width:100%;height:auto;display:block;border-radius:3px;}
 .gm-charts figcaption{
-  text-align:center;font-size:0.8rem;color:#4b5563;
+  text-align:center;font-size:0.8rem;color:#aab3c6;
   padding:6px 0 4px;font-weight:500;
 }
 
@@ -106,24 +116,24 @@ table.gm-prices{
   display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:12px;
 }
 .gm-news .card{
-  background:#fff;border:1px solid #e5e7eb;border-radius:6px;
+  background:#161c2e;border:1px solid #232b40;border-radius:6px;
   padding:14px 16px;
 }
 .gm-news .card h3{
-  font-size:0.95rem;color:#1a2744;font-weight:600;
+  font-size:0.95rem;color:#f0f4ff;font-weight:600;
   margin:0 0 4px;line-height:1.3;
 }
 .gm-news .card .meta{
-  font-size:0.72rem;color:#9ca3af;letter-spacing:0.04em;
+  font-size:0.72rem;color:#5e6678;letter-spacing:0.04em;
   text-transform:uppercase;margin-bottom:8px;
 }
 .gm-news .card p{
-  font-size:0.86rem;color:#374151;line-height:1.45;margin:0;
+  font-size:0.86rem;color:#c2cad9;line-height:1.45;margin:0;
 }
 
 .gm-foot{
-  font-size:0.72rem;color:#9ca3af;margin-top:30px;
-  border-top:1px solid #e5e7eb;padding-top:10px;
+  font-size:0.72rem;color:#5e6678;margin-top:30px;
+  border-top:1px solid #232b40;padding-top:10px;
   letter-spacing:0.02em;
 }
 
@@ -209,6 +219,6 @@ table.gm-prices{
 </div>
   </div>
   <div class='gm-foot'>
-    Sources: Argus Media European Natural Gas API · © Argus Media — internal use only · private mirror · generated 2026-05-06 11:58 UTC
+    Sources: Argus Media European Natural Gas API · © Argus Media — internal use only · private mirror · generated 2026-05-06 12:07 UTC
   </div>
 </div>
