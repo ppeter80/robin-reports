@@ -55,6 +55,7 @@ details{margin:6px 0}summary{cursor:pointer;color:var(--accent);font-size:.82rem
     <nav>
       <button id="tab-tip" class="on" onclick="showTab('tip')">✍️ Tipuj</button>
       <button id="tab-tab" onclick="showTab('tab')">📊 Tabuľka</button>
+      <button id="tab-tipy" onclick="showTab('tipy')">👥 Tipy</button>
       <button id="tab-adm" onclick="showTab('adm')">🔒 Admin</button>
     </nav>
   </div>
@@ -62,6 +63,7 @@ details{margin:6px 0}summary{cursor:pointer;color:var(--accent);font-size:.82rem
 <div class="wrap">
   <section id="s-tip"></section>
   <section id="s-tab" style="display:none"></section>
+  <section id="s-tipy" style="display:none"></section>
   <section id="s-adm" style="display:none"></section>
 </div>
 <div id="toast" class="toast"></div>
@@ -96,7 +98,7 @@ let RESULTS={}; // match_no -> result row
 const $=id=>document.getElementById(id);
 const iv=v=>{v=parseInt(v);return isNaN(v)?null:v;};
 function toast(t){const e=$("toast");e.textContent=t;e.classList.add("show");setTimeout(()=>e.classList.remove("show"),2200);}
-function showTab(t){for(const k of["tip","tab","adm"]){$("s-"+k).style.display=k===t?"":"none";$("tab-"+k).classList.toggle("on",k===t);}if(t==="tab")loadBoard();if(t==="adm")renderAdmin();}
+function showTab(t){for(const k of["tip","tab","tipy","adm"]){$("s-"+k).style.display=k===t?"":"none";$("tab-"+k).classList.toggle("on",k===t);}if(t==="tab")loadBoard();if(t==="tipy")loadTipy();if(t==="adm")renderAdmin();}
 
 // ---- advancer logic from a score set ----
 function advFromScores(t1_90,t2_90,t1_et,t2_et,pen_winner,m){
@@ -219,6 +221,39 @@ async function loadBoard(){
  }
  h+=`</details>`;
  $("s-tab").innerHTML=h;
+}
+
+// ================= TIPY (všetkých účastníkov) =================
+async function loadTipy(){
+ $("s-tipy").innerHTML='<p class="note">Načítavam…</p>';
+ await loadResults();
+ const{data:preds}=await sb.from("predictions").select("*");
+ const reveal=sessionStorage.getItem("adm")==="1";
+ const byMatch={},pset=new Set();
+ (preds||[]).forEach(p=>{(byMatch[p.match_no]=byMatch[p.match_no]||[]).push(p);pset.add(p.player);});
+ let h=`<div class="card"><span class="pill">${pset.size} účastníkov</span> `+
+   (reveal?`<span class="pill" style="color:var(--gold)">admin: vidíš všetky tipy</span>`
+          :`<span class="note">Tipy na zápas sa odhalia po jeho odohratí (aby sa nedalo opisovať).</span>`)+`</div>`;
+ for(const m of M){const no=m[0];const[A,B]=TEAM[no];const R=RESULTS[no];const list=byMatch[no]||[];const fin=R&&R.finished;
+   const show=fin||reveal;
+   const resTxt=fin?`<span class="fin">${R.t1_90}:${R.t2_90}${R.went_pens?' (pen)':R.went_et?' (pred.)':''} → ${R.advancer}</span>`:`<span>${list.length} tipov</span>`;
+   h+=`<div class="card"><div class="mhead"><span>M${no} · ${A} – ${B}</span><span>${resTxt}</span></div>`;
+   if(show){
+     if(!list.length){h+='<div class="bd">— zatiaľ bez tipov —</div>';}
+     else{
+       const arr=fin?list.map(P=>({P,s:scoreOne(P,R)})).sort((x,y)=>y.s-x.s):list.map(P=>({P,s:null}));
+       h+='<table><thead><tr><th>Hráč</th><th>Tip</th>'+(fin?'<th class="r">Body</th>':'')+'</tr></thead><tbody>';
+       arr.forEach(({P,s})=>{let tip=`${P.t1_90}:${P.t2_90}`;if(P.t1_et!=null)tip+=` / pred. ${P.t1_et}:${P.t2_et}`;if(P.pen_winner)tip+=` / pen ${P.pen_winner}`;
+         h+=`<tr><td>${P.player}</td><td>${tip} → ${P.advancer||'?'}</td>`+(fin?`<td class="r"><b>${s}</b></td>`:'')+`</tr>`;});
+       h+='</tbody></table>';
+     }
+   } else {
+     h+= list.length? `<div class="bd">Tipli: ${list.map(p=>p.player).join(', ')}</div>`
+                    : '<div class="bd">Zatiaľ nikto netipol.</div>';
+   }
+   h+='</div>';
+ }
+ $("s-tipy").innerHTML=h;
 }
 
 // ================= ADMIN =================
