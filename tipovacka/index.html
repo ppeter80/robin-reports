@@ -74,26 +74,29 @@ const SUPABASE_ANON_KEY="sb_publishable_c5ke1M0NDYzff_s7miJAHg_tFNM-Cn3";
 const ADMIN_PIN="palo50";
 const sb=supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
 
-// match_no, team1, team2, when (Bratislava)
+// match_no, team1, team2, when (Bratislava), kickoff (UTC ISO)
 const M=[
- [73,"Južná Afrika","Kanada","ne 28.6. 21:00"],
- [76,"Brazília","Japonsko","po 29.6. 19:00"],
- [74,"Nemecko","Paraguaj","po 29.6. 22:30"],
- [75,"Holandsko","Maroko","ut 30.6. 03:00"],
- [78,"Pobr. Slonoviny","Nórsko","ut 30.6. 19:00"],
- [77,"Francúzsko","Švédsko","ut 30.6. 23:00"],
- [79,"Mexiko","Ekvádor","st 1.7. 03:00"],
- [80,"Anglicko","DR Kongo","st 1.7. 18:00"],
- [82,"Belgicko","Senegal","st 1.7. 22:00"],
- [81,"USA","Bosna a Herc.","št 2.7. 02:00"],
- [84,"Španielsko","Rakúsko","št 2.7. 21:00"],
- [83,"Portugalsko","Chorvátsko","pi 3.7. 01:00"],
- [85,"Švajčiarsko","Alžírsko","pi 3.7. 05:00"],
- [88,"Austrália","Egypt","pi 3.7. 20:00"],
- [86,"Argentína","Kapverdy","so 4.7. 00:00"],
- [87,"Kolumbia","Ghana","so 4.7. 03:30"],
+ [73,"Južná Afrika","Kanada","ne 28.6. 21:00","2026-06-28T19:00:00Z"],
+ [76,"Brazília","Japonsko","po 29.6. 19:00","2026-06-29T17:00:00Z"],
+ [74,"Nemecko","Paraguaj","po 29.6. 22:30","2026-06-29T20:30:00Z"],
+ [75,"Holandsko","Maroko","ut 30.6. 03:00","2026-06-30T01:00:00Z"],
+ [78,"Pobr. Slonoviny","Nórsko","ut 30.6. 19:00","2026-06-30T17:00:00Z"],
+ [77,"Francúzsko","Švédsko","ut 30.6. 23:00","2026-06-30T21:00:00Z"],
+ [79,"Mexiko","Ekvádor","st 1.7. 03:00","2026-07-01T01:00:00Z"],
+ [80,"Anglicko","DR Kongo","st 1.7. 18:00","2026-07-01T16:00:00Z"],
+ [82,"Belgicko","Senegal","st 1.7. 22:00","2026-07-01T20:00:00Z"],
+ [81,"USA","Bosna a Herc.","št 2.7. 02:00","2026-07-02T00:00:00Z"],
+ [84,"Španielsko","Rakúsko","št 2.7. 21:00","2026-07-02T19:00:00Z"],
+ [83,"Portugalsko","Chorvátsko","pi 3.7. 01:00","2026-07-02T23:00:00Z"],
+ [85,"Švajčiarsko","Alžírsko","pi 3.7. 05:00","2026-07-03T03:00:00Z"],
+ [88,"Austrália","Egypt","pi 3.7. 20:00","2026-07-03T18:00:00Z"],
+ [86,"Argentína","Kapverdy","so 4.7. 00:00","2026-07-03T22:00:00Z"],
+ [87,"Kolumbia","Ghana","so 4.7. 03:30","2026-07-04T01:30:00Z"],
 ];
 const TEAM={};M.forEach(m=>TEAM[m[0]]=[m[1],m[2]]);
+const KO={};M.forEach(m=>KO[m[0]]=new Date(m[4]));
+// zamknuté = už odohraté (zadaný výsledok) ALEBO prebehol čas výkopu
+function isLocked(no){const R=RESULTS[no];if(R&&R.finished)return true;const k=KO[no];return !!k&&(new Date()>=k);}
 let RESULTS={}; // match_no -> result row
 const $=id=>document.getElementById(id);
 const iv=v=>{v=parseInt(v);return isNaN(v)?null:v;};
@@ -137,9 +140,9 @@ function renderTip(){
  let h=`<div class="card"><label class="note">Tvoje meno (rovnaké pri každom odoslaní):</label>
    <input type="text" id="pname" placeholder="napr. Palo" value="${name.replace(/"/g,'&quot;')}" style="margin-top:6px"></div>`;
  M.forEach(m=>{
-  const[no,A,B,when]=m; const fin=RESULTS[no]&&RESULTS[no].finished;
-  h+=`<div class="card ${fin?'locked':''}" id="m${no}">
-    <div class="mhead"><span>Zápas M${no} · ${when}</span><span>${fin?'<span class="fin">✓ odohraté</span>':''}</span></div>
+  const[no,A,B,when]=m; const fin=RESULTS[no]&&RESULTS[no].finished; const locked=isLocked(no);
+  h+=`<div class="card ${locked?'locked':''}" id="m${no}">
+    <div class="mhead"><span>Zápas M${no} · ${when}</span><span>${fin?'<span class="fin">✓ odohraté</span>':(locked?'<span class="fin">🔒 prebieha / uzamknuté</span>':'')}</span></div>
     <div class="teams">
       <div class="tn r">${A}</div>
       <div class="sc"><input type="number" min="0" id="a${no}"><span class="x">:</span><input type="number" min="0" id="b${no}"></div>
@@ -177,7 +180,8 @@ async function submitTips(){
  if(!player){toast("Zadaj meno");return;}
  localStorage.setItem("tip_name",player);
  const rows=[];
- for(const m of M){const no=m[0]; if(RESULTS[no]&&RESULTS[no].finished)continue;
+ let lockedSkipped=0;
+ for(const m of M){const no=m[0]; if(isLocked(no)){lockedSkipped++;continue;}
    const a=iv($("a"+no).value),b=iv($("b"+no).value); if(a==null||b==null)continue;
    const ae=iv($("ae"+no).value),be=iv($("be"+no).value),pw=$("pw"+no).value||null;
    const pa=iv($("pa"+no).value),pb=iv($("pb"+no).value);
@@ -187,7 +191,7 @@ async function submitTips(){
  if(!rows.length){toast("Vyplň aspoň jeden zápas");return;}
  const{error}=await sb.from("predictions").upsert(rows,{onConflict:"player,match_no"});
  if(error){toast("Chyba: "+error.message);return;}
- toast("Uložené ✅ ("+rows.length+" zápasov)");
+ toast("Uložené ✅ ("+rows.length+" zápasov)"+(lockedSkipped?" · "+lockedSkipped+" už uzamknutých":""));
 }
 
 // ================= TABUĽKA =================
@@ -235,8 +239,8 @@ async function loadTipy(){
    (reveal?`<span class="pill" style="color:var(--gold)">admin: vidíš všetky tipy</span>`
           :`<span class="note">Tipy na zápas sa odhalia po jeho odohratí (aby sa nedalo opisovať).</span>`)+`</div>`;
  for(const m of M){const no=m[0];const[A,B]=TEAM[no];const R=RESULTS[no];const list=byMatch[no]||[];const fin=R&&R.finished;
-   const show=fin||reveal;
-   const resTxt=fin?`<span class="fin">${R.t1_90}:${R.t2_90}${R.went_pens?' (pen)':R.went_et?' (pred.)':''} → ${R.advancer}</span>`:`<span>${list.length} tipov</span>`;
+   const show=isLocked(no)||reveal;
+   const resTxt=fin?`<span class="fin">${R.t1_90}:${R.t2_90}${R.went_pens?' (pen)':R.went_et?' (pred.)':''} → ${R.advancer}</span>`:(isLocked(no)?`<span class="fin">🔒 prebieha</span>`:`<span>${list.length} tipov</span>`);
    h+=`<div class="card"><div class="mhead"><span>M${no} · ${A} – ${B}</span><span>${resTxt}</span></div>`;
    if(show){
      if(!list.length){h+='<div class="bd">— zatiaľ bez tipov —</div>';}
