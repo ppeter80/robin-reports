@@ -161,7 +161,14 @@ function renderTip(){
  h+=`<button class="btn" onclick="submitTips()">Odoslať moje tipy ✅</button>
    <p class="note">Tip vieš kedykoľvek prepísať (rovnakým menom) — kým sa zápas neodohrá. Po odohratí sa zamkne.</p>`;
  $("s-tip").innerHTML=h;
- M.forEach(m=>{const no=m[0];["a","b","ae","be"].forEach(p=>{const el=$(p+no);if(el)el.oninput=()=>onScoreChange(no);});const pw=$("pw"+no);if(pw)pw.onchange=()=>onScoreChange(no);});
+ M.forEach(m=>{const no=m[0];["a","b","ae","be","pa","pb"].forEach(p=>{const el=$(p+no);if(el)el.oninput=()=>onScoreChange(no);});const pw=$("pw"+no);if(pw)pw.onchange=()=>onScoreChange(no);});
+}
+function penWinner(no,drawET){
+ if(!drawET)return null;
+ const pwSel=$("pw"+no).value||null; if(pwSel)return pwSel;
+ const pa=iv($("pa"+no).value),pb=iv($("pb"+no).value);
+ if(pa!=null&&pb!=null&&pa!==pb)return pa>pb?TEAM[no][0]:TEAM[no][1];
+ return null;
 }
 function onScoreChange(no){
  const[A,B]=TEAM[no]; const a=iv($("a"+no).value),b=iv($("b"+no).value);
@@ -171,7 +178,7 @@ function onScoreChange(no){
  if(draw90){ae=iv($("ae"+no).value);be=iv($("be"+no).value);}
  const drawET=(draw90&&ae!=null&&be!=null&&ae===be);
  $("penrow"+no).style.display=drawET?"":"none";
- const pw=drawET?($("pw"+no).value||null):null;
+ const pw=penWinner(no,drawET);
  const adv=advFromScores(a,b,ae,be,pw,no);
  $("adv"+no).textContent=adv?("Postupuje: "+adv):"";
 }
@@ -183,8 +190,10 @@ async function submitTips(){
  let lockedSkipped=0;
  for(const m of M){const no=m[0]; if(isLocked(no)){lockedSkipped++;continue;}
    const a=iv($("a"+no).value),b=iv($("b"+no).value); if(a==null||b==null)continue;
-   const ae=iv($("ae"+no).value),be=iv($("be"+no).value),pw=$("pw"+no).value||null;
+   const ae=iv($("ae"+no).value),be=iv($("be"+no).value);
    const pa=iv($("pa"+no).value),pb=iv($("pb"+no).value);
+   const drawET=(a===b&&ae!=null&&be!=null&&ae===be);
+   const pw=penWinner(no,drawET);
    rows.push({player,match_no:no,t1_90:a,t2_90:b,t1_et:ae,t2_et:be,pen_t1:pa,pen_t2:pb,pen_winner:pw,
      advancer:advFromScores(a,b,ae,be,pw,no)});
  }
@@ -220,7 +229,7 @@ async function loadBoard(){
    let res=`${A} ${R.t1_90}:${R.t2_90}`+(R.went_et?` (pred. ${R.t1_et}:${R.t2_et})`:"")+(R.went_pens?` (pen ${R.pen_t1}:${R.pen_t2})`:"")+` ${B} → ${R.advancer}`;
    h+=`<div class="card"><div class="mhead"><span>M${no}</span></div><div style="font-size:.85rem">${res}</div>`;
    const scored=rows.map(r=>{const P=players[r.pl][no];return {pl:r.pl,s:P?scoreOne(P,R):0,P};}).sort((x,y)=>y.s-x.s);
-   scored.forEach(s=>{h+=`<div class="bd">${s.pl}: <b>${s.s}b</b>${s.P?` (tip ${s.P.t1_90}:${s.P.t2_90}${s.P.pen_winner?', pen '+s.P.pen_winner:''})`:' (bez tipu)'}</div>`;});
+   scored.forEach(s=>{const pp=s.P?(s.P.pen_t1!=null?', pen '+s.P.pen_t1+':'+s.P.pen_t2:(s.P.pen_winner?', pen '+s.P.pen_winner:'')):'';h+=`<div class="bd">${s.pl}: <b>${s.s}b</b>${s.P?` (tip ${s.P.t1_90}:${s.P.t2_90}${pp})`:' (bez tipu)'}</div>`;});
    h+=`</div>`;
  }
  h+=`</details>`;
@@ -247,7 +256,8 @@ async function loadTipy(){
      else{
        const arr=fin?list.map(P=>({P,s:scoreOne(P,R)})).sort((x,y)=>y.s-x.s):list.map(P=>({P,s:null}));
        h+='<table><thead><tr><th>Hráč</th><th>Tip</th>'+(fin?'<th class="r">Body</th>':'')+'</tr></thead><tbody>';
-       arr.forEach(({P,s})=>{let tip=`${P.t1_90}:${P.t2_90}`;if(P.t1_et!=null)tip+=` / pred. ${P.t1_et}:${P.t2_et}`;if(P.pen_winner)tip+=` / pen ${P.pen_winner}`;
+       arr.forEach(({P,s})=>{let tip=`${P.t1_90}:${P.t2_90}`;if(P.t1_et!=null)tip+=` / pred. ${P.t1_et}:${P.t2_et}`;
+         if(P.pen_t1!=null)tip+=` / pen ${P.pen_t1}:${P.pen_t2}`+(P.pen_winner?` (${P.pen_winner})`:'');else if(P.pen_winner)tip+=` / pen víťaz ${P.pen_winner}`;
          h+=`<tr><td>${P.player}</td><td>${tip} → ${P.advancer||'?'}</td>`+(fin?`<td class="r"><b>${s}</b></td>`:'')+`</tr>`;});
        h+='</tbody></table>';
      }
