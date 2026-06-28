@@ -115,26 +115,30 @@ function advFromScores(t1_90,t2_90,t1_et,t2_et,pen_winner,m){
  return null;
 }
 
-// ---- scoring (prediction P vs result R) ----
-function scoreOne(P,R){
+// ---- scoring (prediction P vs result R) -> {pts, parts[]} ----
+function scoreDetail(P,R){
  if(!R||!R.finished) return null;
- let pts=0;
+ let pts=0; const parts=[];
  const Radv=R.advancer;
  const Padv=advFromScores(P.t1_90,P.t2_90,P.t1_et,P.t2_et,P.pen_winner,P.match_no);
- const advOK=Padv&&Radv&&Padv===Radv; if(advOK)pts+=1;
+ const advOK=Padv&&Radv&&Padv===Radv; if(advOK){pts+=1;parts.push("postup +1");}
  const g1=P.t1_90===R.t1_90, g2=P.t2_90===R.t2_90;
- if(g1)pts+=1; if(g2)pts+=1; const full90=g1&&g2;
- let etOK=true;
- if(R.went_et){ const e1=P.t1_et===R.t1_et,e2=P.t2_et===R.t2_et; if(e1)pts+=1; if(e2)pts+=1; etOK=e1&&e2&&P.t1_et!=null; }
- let penExact=false,penWin=false;
- if(R.went_pens){ penExact=(P.pen_t1===R.pen_t1&&P.pen_t2===R.pen_t2&&P.pen_t1!=null); penWin=(P.pen_winner&&P.pen_winner===R.advancer);
-   if(penExact)pts+=2; else if(penWin)pts+=1; }
+ if(g1){pts+=1;parts.push("góly domáci 90' +1");} if(g2){pts+=1;parts.push("góly hostia 90' +1");}
+ const full90=g1&&g2;
+ if(R.went_et){ const e1=P.t1_et===R.t1_et,e2=P.t2_et===R.t2_et;
+   if(e1){pts+=1;parts.push("predĺženie domáci +1");} if(e2){pts+=1;parts.push("predĺženie hostia +1");} }
+ let penExact=false;
+ if(R.went_pens){ penExact=(P.pen_t1===R.pen_t1&&P.pen_t2===R.pen_t2&&P.pen_t1!=null);
+   const penWin=(P.pen_winner&&P.pen_winner===R.advancer);
+   if(penExact){pts+=2;parts.push("penalty presne +2");} else if(penWin){pts+=1;parts.push("penalty víťaz +1");} }
  let allExact=advOK&&full90;
  if(R.went_et)allExact=allExact&&(P.t1_et===R.t1_et&&P.t2_et===R.t2_et);
  if(R.went_pens)allExact=allExact&&penExact;
- if(allExact)pts+=2;
- return pts;
+ if(allExact){pts+=2;parts.push("BONUS +2");}
+ return {pts,parts};
 }
+function scoreOne(P,R){const d=scoreDetail(P,R);return d?d.pts:null;}
+function tgl(id){const e=$(id);if(e)e.style.display=e.style.display==="none"?"":"none";}
 
 // ================= TIPUJ =================
 async function loadResults(){const{data}=await sb.from("results").select("*");RESULTS={};(data||[]).forEach(r=>RESULTS[r.match_no]=r);}
@@ -222,8 +226,19 @@ async function loadBoard(){
  }).sort((x,y)=>y.tot-x.tot);
  const finished=M.filter(m=>RESULTS[m[0]]&&RESULTS[m[0]].finished).length;
  let h=`<div class="card"><span class="pill">${rows.length} hráčov</span> <span class="pill">${finished}/16 zápasov odohraných</span></div>`;
- h+=`<div class="card"><table><thead><tr><th class="rank">#</th><th>Hráč</th><th class="r">Body</th></tr></thead><tbody>`;
- rows.forEach((r,i)=>{h+=`<tr><td class="rank">${i+1}</td><td class="${r.pl===me?'me':''}">${r.pl}</td><td class="r"><b>${r.tot}</b></td></tr>`;});
+ h+=`<div class="card"><p class="note" style="margin-top:0">Klikni na meno → uvidíš, za čo dostal body pri každom zápase.</p><table><thead><tr><th class="rank">#</th><th>Hráč</th><th class="r">Body</th></tr></thead><tbody>`;
+ rows.forEach((r,i)=>{
+   const pid="pl"+i;
+   h+=`<tr style="cursor:pointer" onclick="tgl('${pid}')"><td class="rank">${i+1}</td><td class="${r.pl===me?'me':''}">${r.pl} <span style="color:var(--muted);font-size:.7rem">▾</span></td><td class="r"><b>${r.tot}</b></td></tr>`;
+   let d="";
+   for(const m of M){const no=m[0];const R=RESULTS[no];if(!R||!R.finished)continue;const[A,B]=TEAM[no];const P=players[r.pl][no];
+     const sd=P?scoreDetail(P,R):{pts:0,parts:[]};
+     let tipTxt=P?`${P.t1_90}:${P.t2_90}`+(P.t1_et!=null?` / pred. ${P.t1_et}:${P.t2_et}`:"")+(P.pen_t1!=null?` / pen ${P.pen_t1}:${P.pen_t2}`:""):"bez tipu";
+     const resTxt=`${R.t1_90}:${R.t2_90}`+(R.went_pens?` (pen ${R.pen_t1}:${R.pen_t2})`:R.went_et?` (pred. ${R.t1_et}:${R.t2_et})`:"");
+     d+=`<div class="bd"><b>M${no} ${A}–${B}</b> ${resTxt} → ${R.advancer}<br>tip: ${tipTxt} → <b>${sd.pts} b</b>${sd.parts.length?' <span style="color:var(--green)">('+sd.parts.join(", ")+')</span>':' <span style="color:var(--muted)">(0)</span>'}</div>`;
+   }
+   h+=`<tr id="${pid}" style="display:none"><td colspan="3" style="background:#070707;padding:8px 10px">${d||'<span class="bd">žiadne odohraté zápasy</span>'}</td></tr>`;
+ });
  h+=`</tbody></table></div>`;
  // per-match breakdown
  h+=`<details><summary>Detail po zápasoch</summary>`;
