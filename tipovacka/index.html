@@ -298,13 +298,16 @@ async function loadBoard(){
  const me=localStorage.getItem("tip_name")||"";
  const champFinal=(RESULTS[104]&&RESULTS[104].finished)?RESULTS[104].advancer:null;
  const rows=Object.keys(players).map(pl=>{
-   let tot=0;
+   let tot=0,postupCount=0,exactCount=0;
    for(const m of M){const no=m[0];const P=players[pl][no];const R=RESULTS[no];
-     if(R&&R.finished){const s=P?scoreOne(P,R):0; tot+=(s||0);}}
+     if(R&&R.finished){const s=P?scoreOne(P,R):0; tot+=(s||0);
+       if(P){const Padv=advFromScores(P.t1_90,P.t2_90,P.t1_et,P.t2_et,P.pen_winner,no);
+         if(Padv&&Padv===R.advancer)postupCount++;
+         if(P.t1_90===R.t1_90&&P.t2_90===R.t2_90)exactCount++;}}}
    const champ=players[pl][0]?players[pl][0].advancer:null;
    const champBonus=(champFinal&&champ===champFinal)?7:0; tot+=champBonus;
-   return {pl,tot,champ,champBonus};
- }).sort((x,y)=>y.tot-x.tot);
+   return {pl,tot,champ,champBonus,champCorrect:champBonus?1:0,postupCount,exactCount};
+ }).sort((x,y)=> (y.tot-x.tot) || (y.champCorrect-x.champCorrect) || (y.postupCount-x.postupCount) || (y.exactCount-x.exactCount) || x.pl.localeCompare(y.pl,'sk'));
  const finished=M.filter(m=>RESULTS[m[0]]&&RESULTS[m[0]].finished).length;
  let h=`<div class="card"><span class="pill">${rows.length} hráčov</span> <span class="pill">${finished}/16 zápasov odohraných</span></div>`;
  h+=`<div class="card"><p class="note" style="margin-top:0">Klikni na meno → uvidíš, za čo dostal body pri každom zápase.</p><table><thead><tr><th class="rank">#</th><th>Hráč</th><th class="r">Body</th></tr></thead><tbody>`;
@@ -319,6 +322,7 @@ async function loadBoard(){
      d+=`<div class="bd"><b>M${no} ${flag(A)}${A}–${flag(B)}${B}</b> ${resTxt} → ${R.advancer}<br>tip: ${tipTxt} → <b>${sd.pts} b</b>${sd.parts.length?' <span style="color:var(--green)">('+sd.parts.join(", ")+')</span>':' <span style="color:var(--muted)">(0)</span>'}</div>`;
    }
    if(r.champ){const showC=championLocked()||r.pl===me;const cv=showC?`<b>${r.champ}</b>${champFinal?(r.champBonus?' — správne ✓ +7':' — nesprávne ✗'):' (vyhodnotí sa na konci súťaže)'}`:'<i>skryté do uzávierky</i>';d+=`<div class="bd">🏆 Tip na celkového víťaza: ${cv}</div>`;}
+   d+=`<div class="bd" style="color:#778">Pri rovnosti bodov: postupy <b>${r.postupCount}</b> · presné výsledky <b>${r.exactCount}</b>${champFinal?(' · víťaz MS '+(r.champCorrect?'✓':'✗')):''}</div>`;
    h+=`<tr id="${pid}" style="display:none"><td colspan="3" style="background:#070707;padding:8px 10px">${d||'<span class="bd">žiadne odohraté zápasy</span>'}</td></tr>`;
  });
  h+=`</tbody></table></div>`;
@@ -408,6 +412,15 @@ function renderRules(){
  <div class="card">
    <div style="font-weight:700;margin-bottom:6px">C) Tip na celkového víťaza MS 🏆</div>
    <p class="note" style="margin:0">Vyberáš jeden tím (z tých, čo sú ešte v hre). Uzávierka: <b>do začiatku prvého dnešného zápasu (29.6. o 19:00)</b>. Ak tvoj tím vyhrá celé MS, na konci súťaže dostaneš <b>+7 bodov</b>.</p>
+ </div>
+ <div class="card">
+   <div style="font-weight:700;margin-bottom:6px">D) Pri rovnosti bodov</div>
+   <p class="note" style="margin:0 0 6px">Ak majú dvaja rovnaký počet bodov, o poradí rozhoduje postupne:</p>
+   <table><tbody>
+   <tr><td>1.</td><td>Správny tip na <b>celkového víťaza MS</b> (rozhodne až na konci súťaže)</td></tr>
+   <tr><td>2.</td><td>Vyšší počet správne tipnutých <b>postupov</b></td></tr>
+   <tr><td>3.</td><td>Vyšší počet <b>presných výsledkov</b></td></tr>
+   </tbody></table>
  </div>
  <div class="card">
    <div style="font-weight:700;margin-bottom:6px">Príklady</div>
