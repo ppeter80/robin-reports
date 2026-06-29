@@ -237,8 +237,13 @@ function renderTip(){
  </div>`;
  M.forEach(m=>{
   const[no,A,B,when]=m; const fin=RESULTS[no]&&RESULTS[no].finished; const locked=isLocked(no);
+  if(fin){const R=RESULTS[no];const note=R.went_pens?`penalty ${R.pen_t1}:${R.pen_t2}`:(R.went_et?`po predĺžení ${R.t1_et}:${R.t2_et}`:"");
+    h+=`<div class="card locked" id="m${no}"><div class="mhead"><span>Zápas M${no} · ${when}</span><span class="fin">✓ odohraté</span></div>
+    <div class="teams"><div class="tn r">${A}${flag(A)}</div><div class="sc"><b style="font-size:1.15rem">${R.t1_90}</b><span class="x">:</span><b style="font-size:1.15rem">${R.t2_90}</b></div><div class="tn">${flag(B)}${B}</div></div>
+    <div class="adv" style="color:var(--green)">Výsledok ${R.t1_90}:${R.t2_90}${note?" ("+note+")":""} → postúpil ${R.advancer}</div></div>`;
+    return;}
   h+=`<div class="card ${locked?'locked':''}" id="m${no}">
-    <div class="mhead"><span>Zápas M${no} · ${when}</span><span>${fin?'<span class="fin">✓ odohraté</span>':(locked?'<span class="fin">🔒 prebieha / uzamknuté</span>':'')}</span></div>
+    <div class="mhead"><span>Zápas M${no} · ${when}</span><span>${locked?'<span class="fin">🔒 prebieha / uzamknuté</span>':''}</span></div>
     <div class="teams">
       <div class="tn r"><span class="clk" onclick="showGroup('${A}')">${A}${flag(A)}</span></div>
       <div class="sc"><input type="number" min="0" id="a${no}"><span class="x">:</span><input type="number" min="0" id="b${no}"></div>
