@@ -110,6 +110,15 @@ const TEAM={};M.forEach(m=>TEAM[m[0]]=[m[1],m[2]]);
 const KO={};M.forEach(m=>KO[m[0]]=new Date(m[4]));
 // zamknuté = už odohraté (zadaný výsledok) ALEBO prebehol čas výkopu
 function isLocked(no){const R=RESULTS[no];if(R&&R.finished)return true;const k=KO[no];return !!k&&(new Date()>=k);}
+// tip na celkového víťaza MS
+const ALL_TEAMS=[...new Set(M.flatMap(m=>[m[1],m[2]]))];
+const CHAMPION_LOCK=new Date("2026-06-29T17:00:00Z"); // začiatok dnešného prvého zápasu (M76, 19:00 BA)
+function championLocked(){return new Date()>=CHAMPION_LOCK;}
+function remainingTeams(){
+ const elim=new Set();
+ Object.values(RESULTS).forEach(R=>{if(R&&R.finished){const tt=TEAM[R.match_no];if(tt){const loser=R.advancer===tt[0]?tt[1]:(R.advancer===tt[1]?tt[0]:null);if(loser)elim.add(loser);}}});
+ return ALL_TEAMS.filter(t=>!elim.has(t)).sort((a,b)=>a.localeCompare(b,'sk'));
+}
 // vlajky (ISO kódy pre flagcdn)
 const FLAG={"Južná Afrika":"za","Kanada":"ca","Brazília":"br","Japonsko":"jp","Nemecko":"de","Paraguaj":"py","Holandsko":"nl","Maroko":"ma","Pobr. Slonoviny":"ci","Nórsko":"no","Francúzsko":"fr","Švédsko":"se","Mexiko":"mx","Ekvádor":"ec","Anglicko":"gb-eng","DR Kongo":"cd","Belgicko":"be","Senegal":"sn","USA":"us","Bosna a Herc.":"ba","Španielsko":"es","Rakúsko":"at","Portugalsko":"pt","Chorvátsko":"hr","Švajčiarsko":"ch","Alžírsko":"dz","Austrália":"au","Egypt":"eg","Argentína":"ar","Kapverdy":"cv","Kolumbia":"co","Ghana":"gh"};
 function flag(t){const c=FLAG[t];return c?`<img src="https://flagcdn.com/20x15/${c}.png" width="20" height="15" loading="lazy" style="vertical-align:-3px;border-radius:2px;margin:0 5px" alt=""> `:"";}
@@ -200,6 +209,14 @@ function renderTip(){
  let h=`<div class="card"><label class="note">Tvoje meno (rovnaké pri každom odoslaní):</label>
    <input type="text" id="pname" placeholder="napr. Palo" value="${name.replace(/"/g,'&quot;')}" style="margin-top:6px">
    <p class="note" style="margin:8px 0 0">💡 Ťukni na názov krajiny → uvidíš, ako hrala v skupine na týchto MS.</p></div>`;
+ const clk=championLocked();
+ const opts=remainingTeams().map(t=>`<option value="${t}">${t}</option>`).join("");
+ h+=`<div class="card">
+   <div style="font-weight:700">🏆 Tip na celkového víťaza MS</div>
+   <p class="note" style="margin:4px 0 8px">Vyber z tímov, čo sú ešte v hre. ${clk?'<b>Uzávierka prešla — tip je uzamknutý.</b>':'Uzávierka: <b>dnes 19:00</b> (začiatok prvého dnešného zápasu).'} Za správny tip <b>+7 bodov</b> (vyhodnotí sa na konci súťaže).</p>
+   <select id="champ" ${clk?'disabled':''} style="width:100%"><option value="">— vyber víťaza —</option>${opts}</select>
+   <div class="note" id="champcur" style="margin-top:6px"></div>
+ </div>`;
  M.forEach(m=>{
   const[no,A,B,when]=m; const fin=RESULTS[no]&&RESULTS[no].finished; const locked=isLocked(no);
   h+=`<div class="card ${locked?'locked':''}" id="m${no}">
@@ -223,6 +240,12 @@ function renderTip(){
    <p class="note">Tip vieš kedykoľvek prepísať (rovnakým menom) — kým sa zápas neodohrá. Po odohratí sa zamkne.</p>`;
  $("s-tip").innerHTML=h;
  M.forEach(m=>{const no=m[0];["a","b","ae","be","pa","pb"].forEach(p=>{const el=$(p+no);if(el)el.oninput=()=>onScoreChange(no);});const pw=$("pw"+no);if(pw)pw.onchange=()=>onScoreChange(no);});
+ loadChampion();
+}
+async function loadChampion(){
+ const name=(localStorage.getItem("tip_name")||"").trim(); if(!name)return;
+ const{data}=await sb.from("predictions").select("advancer").eq("player",name).eq("match_no",0);
+ if(data&&data[0]&&data[0].advancer){const s=$("champ");if(s&&!s.disabled)s.value=data[0].advancer;const c=$("champcur");if(c)c.textContent="Aktuálne tipuješ: "+data[0].advancer;}
 }
 function penWinner(no,drawET){
  if(!drawET)return null;
@@ -258,10 +281,11 @@ async function submitTips(){
    rows.push({player,match_no:no,t1_90:a,t2_90:b,t1_et:ae,t2_et:be,pen_t1:pa,pen_t2:pb,pen_winner:pw,
      advancer:advFromScores(a,b,ae,be,pw,no)});
  }
- if(!rows.length){toast("Vyplň aspoň jeden zápas");return;}
- const{error}=await sb.from("predictions").upsert(rows,{onConflict:"player,match_no"});
- if(error){toast("Chyba: "+error.message);return;}
- toast("Uložené ✅ ("+rows.length+" zápasov)"+(lockedSkipped?" · "+lockedSkipped+" už uzamknutých":""));
+ const champEl=$("champ"); const champ=champEl?champEl.value:""; const champSave=(champ&&!championLocked());
+ if(!rows.length&&!champSave){toast("Vyplň aspoň jeden zápas alebo víťaza");return;}
+ if(rows.length){const{error}=await sb.from("predictions").upsert(rows,{onConflict:"player,match_no"}); if(error){toast("Chyba: "+error.message);return;}}
+ if(champSave){const{error}=await sb.from("predictions").upsert([{player,match_no:0,advancer:champ}],{onConflict:"player,match_no"}); if(error){toast("Chyba (víťaz): "+error.message);return;} $("champcur").textContent="Aktuálne tipuješ: "+champ;}
+ toast("Uložené ✅"+(rows.length?" ("+rows.length+" zápasov)":"")+(champSave?" · víťaz: "+champ:"")+(lockedSkipped?" · "+lockedSkipped+" uzamknutých":""));
 }
 
 // ================= TABUĽKA =================
@@ -272,11 +296,14 @@ async function loadBoard(){
  const players={};
  (preds||[]).forEach(p=>{players[p.player]=players[p.player]||{};players[p.player][p.match_no]=p;});
  const me=localStorage.getItem("tip_name")||"";
+ const champFinal=(RESULTS[104]&&RESULTS[104].finished)?RESULTS[104].advancer:null;
  const rows=Object.keys(players).map(pl=>{
-   let tot=0,done=0;
+   let tot=0;
    for(const m of M){const no=m[0];const P=players[pl][no];const R=RESULTS[no];
-     if(R&&R.finished){done; const s=P?scoreOne(P,R):0; tot+=(s||0);}}
-   return {pl,tot};
+     if(R&&R.finished){const s=P?scoreOne(P,R):0; tot+=(s||0);}}
+   const champ=players[pl][0]?players[pl][0].advancer:null;
+   const champBonus=(champFinal&&champ===champFinal)?7:0; tot+=champBonus;
+   return {pl,tot,champ,champBonus};
  }).sort((x,y)=>y.tot-x.tot);
  const finished=M.filter(m=>RESULTS[m[0]]&&RESULTS[m[0]].finished).length;
  let h=`<div class="card"><span class="pill">${rows.length} hráčov</span> <span class="pill">${finished}/16 zápasov odohraných</span></div>`;
@@ -291,6 +318,7 @@ async function loadBoard(){
      const resTxt=`${R.t1_90}:${R.t2_90}`+(R.went_pens?` (pen ${R.pen_t1}:${R.pen_t2})`:R.went_et?` (pred. ${R.t1_et}:${R.t2_et})`:"");
      d+=`<div class="bd"><b>M${no} ${flag(A)}${A}–${flag(B)}${B}</b> ${resTxt} → ${R.advancer}<br>tip: ${tipTxt} → <b>${sd.pts} b</b>${sd.parts.length?' <span style="color:var(--green)">('+sd.parts.join(", ")+')</span>':' <span style="color:var(--muted)">(0)</span>'}</div>`;
    }
+   if(r.champ){d+=`<div class="bd">🏆 Tip na celkového víťaza: <b>${r.champ}</b>${champFinal?(r.champBonus?' — správne ✓ +7':' — nesprávne ✗'):' (vyhodnotí sa na konci súťaže)'}</div>`;}
    h+=`<tr id="${pid}" style="display:none"><td colspan="3" style="background:#070707;padding:8px 10px">${d||'<span class="bd">žiadne odohraté zápasy</span>'}</td></tr>`;
  });
  h+=`</tbody></table></div>`;
@@ -375,6 +403,10 @@ function renderRules(){
    ${tr("Presný penaltový rozstrel","+3 b")}
    </tbody></table>
    <p class="note" style="margin-top:6px">Pripočítava sa k bodom za 90'. Maximum pri remíze = <b>12 b</b>.</p>
+ </div>
+ <div class="card">
+   <div style="font-weight:700;margin-bottom:6px">C) Tip na celkového víťaza MS 🏆</div>
+   <p class="note" style="margin:0">Vyberáš jeden tím (z tých, čo sú ešte v hre). Uzávierka: <b>do začiatku prvého dnešného zápasu (29.6. o 19:00)</b>. Ak tvoj tím vyhrá celé MS, na konci súťaže dostaneš <b>+7 bodov</b>.</p>
  </div>
  <div class="card">
    <div style="font-weight:700;margin-bottom:6px">Príklady</div>
