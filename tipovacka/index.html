@@ -352,6 +352,15 @@ async function loadTipy(){
  let h=`<div class="card"><span class="pill">${pset.size} účastníkov</span> `+
    (reveal?`<span class="pill" style="color:var(--gold)">admin: vidíš všetky tipy</span>`
           :`<span class="note">Tipy na zápas sa odhalia po jeho odohratí (aby sa nedalo opisovať).</span>`)+`</div>`;
+ // tipy na celkového víťaza — odhalia sa po uzávierke hlasovania
+ const champRows=(byMatch[0]||[]).slice().sort((a,b)=>(a.advancer||'').localeCompare(b.advancer||'','sk'));
+ if(champRows.length){
+   const showC=championLocked()||reveal;
+   h+=`<div class="card"><div style="font-weight:700;margin-bottom:6px">🏆 Tipy na celkového víťaza MS</div>`;
+   if(showC){champRows.forEach(p=>{h+=`<div class="bd">${p.player}: ${flag(p.advancer)}<b>${p.advancer||'?'}</b></div>`;});}
+   else{h+=`<p class="note" style="margin:0">Skryté do uzávierky (dnes 19:00). Zatiaľ tipovalo: ${champRows.map(p=>p.player).join(', ')}</p>`;}
+   h+=`</div>`;
+ }
  for(const m of M){const no=m[0];const[A,B]=TEAM[no];const R=RESULTS[no];const list=byMatch[no]||[];const fin=R&&R.finished;
    const show=isLocked(no)||reveal;
    const resTxt=fin?`<span class="fin">${R.t1_90}:${R.t2_90}${R.went_pens?' (pen)':R.went_et?' (pred.)':''} → ${R.advancer}</span>`:(isLocked(no)?`<span class="fin">🔒 prebieha</span>`:`<span>${list.length} tipov</span>`);
