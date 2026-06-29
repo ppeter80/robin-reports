@@ -48,6 +48,13 @@ td.r,th.r{text-align:right}
 .fin{color:var(--gold);font-size:.7rem}
 details{margin:6px 0}summary{cursor:pointer;color:var(--accent);font-size:.82rem}
 .bd{font-size:.78rem;color:var(--muted);margin:4px 0 0 4px}
+.clk{cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.78);display:none;align-items:center;justify-content:center;z-index:100;padding:18px}
+.modal.show{display:flex}
+.modal .box{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;max-width:430px;width:100%}
+.gm{display:flex;justify-content:space-between;align-items:center;padding:9px 4px;border-bottom:1px solid var(--line);font-size:.92rem}
+.res{font-weight:800;border-radius:6px;padding:2px 8px;font-size:.74rem;margin-left:6px}
+.res.V{background:#0f3d2e;color:#34d399}.res.R{background:#3a3414;color:#ffce4a}.res.P{background:#3d1620;color:#f87171}
 </style>
 </head>
 <body>
@@ -70,6 +77,7 @@ details{margin:6px 0}summary{cursor:pointer;color:var(--accent);font-size:.82rem
   <section id="s-adm" style="display:none"></section>
 </div>
 <div id="toast" class="toast"></div>
+<div id="modal" class="modal" onclick="this.classList.remove('show')"><div class="box" onclick="event.stopPropagation()"><div id="modalBody"></div><button class="btn" style="margin-bottom:0" onclick="document.getElementById('modal').classList.remove('show')">Zavrieť</button></div></div>
 
 <script>
 const SUPABASE_URL="https://lultodbmyhawlpfgfhmg.supabase.co";
@@ -103,6 +111,18 @@ function isLocked(no){const R=RESULTS[no];if(R&&R.finished)return true;const k=K
 // vlajky (ISO kódy pre flagcdn)
 const FLAG={"Južná Afrika":"za","Kanada":"ca","Brazília":"br","Japonsko":"jp","Nemecko":"de","Paraguaj":"py","Holandsko":"nl","Maroko":"ma","Pobr. Slonoviny":"ci","Nórsko":"no","Francúzsko":"fr","Švédsko":"se","Mexiko":"mx","Ekvádor":"ec","Anglicko":"gb-eng","DR Kongo":"cd","Belgicko":"be","Senegal":"sn","USA":"us","Bosna a Herc.":"ba","Španielsko":"es","Rakúsko":"at","Portugalsko":"pt","Chorvátsko":"hr","Švajčiarsko":"ch","Alžírsko":"dz","Austrália":"au","Egypt":"eg","Argentína":"ar","Kapverdy":"cv","Kolumbia":"co","Ghana":"gh"};
 function flag(t){const c=FLAG[t];return c?`<img src="https://flagcdn.com/20x15/${c}.png" width="20" height="15" loading="lazy" style="vertical-align:-3px;border-radius:2px;margin:0 5px" alt=""> `:"";}
+// výsledky skupinovej fázy MS 2026 (z každého tímu pohľadu)
+const GROUP={"Mexiko":[{"opp":"Južná Afrika","gf":2,"ga":0,"res":"V"},{"opp":"Kórea","gf":1,"ga":0,"res":"V"},{"opp":"Česko","gf":3,"ga":0,"res":"V"}],"Južná Afrika":[{"opp":"Mexiko","gf":0,"ga":2,"res":"P"},{"opp":"Česko","gf":1,"ga":1,"res":"R"},{"opp":"Kórea","gf":1,"ga":0,"res":"V"}],"Kanada":[{"opp":"Bosna a Herc.","gf":1,"ga":1,"res":"R"},{"opp":"Katar","gf":6,"ga":0,"res":"V"},{"opp":"Švajčiarsko","gf":1,"ga":3,"res":"P"}],"Bosna a Herc.":[{"opp":"Kanada","gf":1,"ga":1,"res":"R"},{"opp":"Švajčiarsko","gf":1,"ga":4,"res":"P"},{"opp":"Katar","gf":3,"ga":1,"res":"V"}],"Švajčiarsko":[{"opp":"Katar","gf":1,"ga":1,"res":"R"},{"opp":"Bosna a Herc.","gf":4,"ga":1,"res":"V"},{"opp":"Kanada","gf":3,"ga":1,"res":"V"}],"Brazília":[{"opp":"Maroko","gf":1,"ga":1,"res":"R"},{"opp":"Haiti","gf":3,"ga":0,"res":"V"},{"opp":"Škótsko","gf":3,"ga":0,"res":"V"}],"Maroko":[{"opp":"Brazília","gf":1,"ga":1,"res":"R"},{"opp":"Škótsko","gf":1,"ga":0,"res":"V"},{"opp":"Haiti","gf":4,"ga":2,"res":"V"}],"USA":[{"opp":"Paraguaj","gf":4,"ga":1,"res":"V"},{"opp":"Austrália","gf":2,"ga":0,"res":"V"},{"opp":"Turecko","gf":2,"ga":3,"res":"P"}],"Paraguaj":[{"opp":"USA","gf":1,"ga":4,"res":"P"},{"opp":"Turecko","gf":1,"ga":0,"res":"V"},{"opp":"Austrália","gf":0,"ga":0,"res":"R"}],"Austrália":[{"opp":"Turecko","gf":2,"ga":0,"res":"V"},{"opp":"USA","gf":0,"ga":2,"res":"P"},{"opp":"Paraguaj","gf":0,"ga":0,"res":"R"}],"Nemecko":[{"opp":"Curaçao","gf":7,"ga":1,"res":"V"},{"opp":"Pobr. Slonoviny","gf":2,"ga":1,"res":"V"},{"opp":"Ekvádor","gf":1,"ga":2,"res":"P"}],"Pobr. Slonoviny":[{"opp":"Ekvádor","gf":1,"ga":0,"res":"V"},{"opp":"Nemecko","gf":1,"ga":2,"res":"P"},{"opp":"Curaçao","gf":2,"ga":0,"res":"V"}],"Ekvádor":[{"opp":"Pobr. Slonoviny","gf":0,"ga":1,"res":"P"},{"opp":"Curaçao","gf":0,"ga":0,"res":"R"},{"opp":"Nemecko","gf":2,"ga":1,"res":"V"}],"Holandsko":[{"opp":"Japonsko","gf":2,"ga":2,"res":"R"},{"opp":"Švédsko","gf":5,"ga":1,"res":"V"},{"opp":"Tunisko","gf":3,"ga":1,"res":"V"}],"Japonsko":[{"opp":"Holandsko","gf":2,"ga":2,"res":"R"},{"opp":"Tunisko","gf":4,"ga":0,"res":"V"},{"opp":"Švédsko","gf":1,"ga":1,"res":"R"}],"Švédsko":[{"opp":"Tunisko","gf":5,"ga":1,"res":"V"},{"opp":"Holandsko","gf":1,"ga":5,"res":"P"},{"opp":"Japonsko","gf":1,"ga":1,"res":"R"}],"Belgicko":[{"opp":"Egypt","gf":1,"ga":1,"res":"R"},{"opp":"Irán","gf":0,"ga":0,"res":"R"},{"opp":"Nový Zéland","gf":5,"ga":1,"res":"V"}],"Egypt":[{"opp":"Belgicko","gf":1,"ga":1,"res":"R"},{"opp":"Nový Zéland","gf":3,"ga":1,"res":"V"},{"opp":"Irán","gf":1,"ga":1,"res":"R"}],"Španielsko":[{"opp":"Kapverdy","gf":0,"ga":0,"res":"R"},{"opp":"Saudská Arábia","gf":4,"ga":0,"res":"V"},{"opp":"Uruguaj","gf":1,"ga":0,"res":"V"}],"Kapverdy":[{"opp":"Španielsko","gf":0,"ga":0,"res":"R"},{"opp":"Uruguaj","gf":2,"ga":2,"res":"R"},{"opp":"Saudská Arábia","gf":0,"ga":0,"res":"R"}],"Francúzsko":[{"opp":"Senegal","gf":3,"ga":1,"res":"V"},{"opp":"Irak","gf":3,"ga":0,"res":"V"},{"opp":"Nórsko","gf":1,"ga":4,"res":"P"}],"Senegal":[{"opp":"Francúzsko","gf":1,"ga":3,"res":"P"},{"opp":"Nórsko","gf":2,"ga":3,"res":"P"},{"opp":"Irak","gf":5,"ga":0,"res":"V"}],"Nórsko":[{"opp":"Irak","gf":4,"ga":1,"res":"V"},{"opp":"Senegal","gf":3,"ga":2,"res":"V"},{"opp":"Francúzsko","gf":4,"ga":1,"res":"V"}],"Argentína":[{"opp":"Alžírsko","gf":3,"ga":0,"res":"V"},{"opp":"Rakúsko","gf":2,"ga":0,"res":"V"},{"opp":"Jordánsko","gf":3,"ga":1,"res":"V"}],"Alžírsko":[{"opp":"Argentína","gf":0,"ga":3,"res":"P"},{"opp":"Jordánsko","gf":2,"ga":1,"res":"V"},{"opp":"Rakúsko","gf":3,"ga":3,"res":"R"}],"Rakúsko":[{"opp":"Jordánsko","gf":3,"ga":1,"res":"V"},{"opp":"Argentína","gf":0,"ga":2,"res":"P"},{"opp":"Alžírsko","gf":3,"ga":3,"res":"R"}],"Portugalsko":[{"opp":"DR Kongo","gf":1,"ga":1,"res":"R"},{"opp":"Uzbekistan","gf":5,"ga":0,"res":"V"},{"opp":"Kolumbia","gf":0,"ga":0,"res":"R"}],"DR Kongo":[{"opp":"Portugalsko","gf":1,"ga":1,"res":"R"},{"opp":"Kolumbia","gf":0,"ga":1,"res":"P"},{"opp":"Uzbekistan","gf":3,"ga":1,"res":"V"}],"Kolumbia":[{"opp":"Uzbekistan","gf":3,"ga":1,"res":"V"},{"opp":"DR Kongo","gf":1,"ga":0,"res":"V"},{"opp":"Portugalsko","gf":0,"ga":0,"res":"R"}],"Anglicko":[{"opp":"Chorvátsko","gf":4,"ga":2,"res":"V"},{"opp":"Ghana","gf":0,"ga":0,"res":"R"},{"opp":"Panama","gf":2,"ga":0,"res":"V"}],"Chorvátsko":[{"opp":"Anglicko","gf":2,"ga":4,"res":"P"},{"opp":"Panama","gf":1,"ga":0,"res":"V"},{"opp":"Ghana","gf":2,"ga":1,"res":"V"}],"Ghana":[{"opp":"Panama","gf":1,"ga":0,"res":"V"},{"opp":"Anglicko","gf":0,"ga":0,"res":"R"},{"opp":"Chorvátsko","gf":1,"ga":2,"res":"P"}]};
+function showGroup(team){
+ const g=GROUP[team]; if(!g){return;}
+ let h=`<div style="font-size:1.1rem;font-weight:800;margin-bottom:2px">${flag(team)}${team}</div><div class="note" style="margin:0 0 8px">Zápasy v skupine — MS 2026:</div>`;
+ g.forEach(m=>{const rl=m.res==='V'?'výhra':m.res==='R'?'remíza':'prehra';
+   h+=`<div class="gm"><span>${flag(m.opp)}${m.opp}</span><span><b>${m.gf}:${m.ga}</b> <span class="res ${m.res}">${rl}</span></span></div>`;});
+ const w=g.filter(m=>m.res==='V').length,d=g.filter(m=>m.res==='R').length,l=g.filter(m=>m.res==='P').length;
+ const gf=g.reduce((s,m)=>s+m.gf,0),ga=g.reduce((s,m)=>s+m.ga,0);
+ h+=`<div class="note" style="margin-top:8px">Bilancia: <b>${w}V ${d}R ${l}P</b> · skóre ${gf}:${ga}</div>`;
+ $("modalBody").innerHTML=h; $("modal").classList.add("show");
+}
 let RESULTS={}; // match_no -> result row
 const $=id=>document.getElementById(id);
 const iv=v=>{v=parseInt(v);return isNaN(v)?null:v;};
@@ -148,15 +168,16 @@ async function loadResults(){const{data}=await sb.from("results").select("*");RE
 function renderTip(){
  const name=localStorage.getItem("tip_name")||"";
  let h=`<div class="card"><label class="note">Tvoje meno (rovnaké pri každom odoslaní):</label>
-   <input type="text" id="pname" placeholder="napr. Palo" value="${name.replace(/"/g,'&quot;')}" style="margin-top:6px"></div>`;
+   <input type="text" id="pname" placeholder="napr. Palo" value="${name.replace(/"/g,'&quot;')}" style="margin-top:6px">
+   <p class="note" style="margin:8px 0 0">💡 Ťukni na názov krajiny → uvidíš, ako hrala v skupine na týchto MS.</p></div>`;
  M.forEach(m=>{
   const[no,A,B,when]=m; const fin=RESULTS[no]&&RESULTS[no].finished; const locked=isLocked(no);
   h+=`<div class="card ${locked?'locked':''}" id="m${no}">
     <div class="mhead"><span>Zápas M${no} · ${when}</span><span>${fin?'<span class="fin">✓ odohraté</span>':(locked?'<span class="fin">🔒 prebieha / uzamknuté</span>':'')}</span></div>
     <div class="teams">
-      <div class="tn r">${A}${flag(A)}</div>
+      <div class="tn r"><span class="clk" onclick="showGroup('${A}')">${A}${flag(A)}</span></div>
       <div class="sc"><input type="number" min="0" id="a${no}"><span class="x">:</span><input type="number" min="0" id="b${no}"></div>
-      <div class="tn">${flag(B)}${B}</div>
+      <div class="tn"><span class="clk" onclick="showGroup('${B}')">${flag(B)}${B}</span></div>
     </div>
     <div class="extra" id="ex${no}" style="display:none">
       <div class="row"><span>Po predĺžení (stav po 120')</span>
