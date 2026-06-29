@@ -100,6 +100,9 @@ const TEAM={};M.forEach(m=>TEAM[m[0]]=[m[1],m[2]]);
 const KO={};M.forEach(m=>KO[m[0]]=new Date(m[4]));
 // zamknuté = už odohraté (zadaný výsledok) ALEBO prebehol čas výkopu
 function isLocked(no){const R=RESULTS[no];if(R&&R.finished)return true;const k=KO[no];return !!k&&(new Date()>=k);}
+// vlajky (ISO kódy pre flagcdn)
+const FLAG={"Južná Afrika":"za","Kanada":"ca","Brazília":"br","Japonsko":"jp","Nemecko":"de","Paraguaj":"py","Holandsko":"nl","Maroko":"ma","Pobr. Slonoviny":"ci","Nórsko":"no","Francúzsko":"fr","Švédsko":"se","Mexiko":"mx","Ekvádor":"ec","Anglicko":"gb-eng","DR Kongo":"cd","Belgicko":"be","Senegal":"sn","USA":"us","Bosna a Herc.":"ba","Španielsko":"es","Rakúsko":"at","Portugalsko":"pt","Chorvátsko":"hr","Švajčiarsko":"ch","Alžírsko":"dz","Austrália":"au","Egypt":"eg","Argentína":"ar","Kapverdy":"cv","Kolumbia":"co","Ghana":"gh"};
+function flag(t){const c=FLAG[t];return c?`<img src="https://flagcdn.com/20x15/${c}.png" width="20" height="15" loading="lazy" style="vertical-align:-3px;border-radius:2px;margin:0 5px" alt=""> `:"";}
 let RESULTS={}; // match_no -> result row
 const $=id=>document.getElementById(id);
 const iv=v=>{v=parseInt(v);return isNaN(v)?null:v;};
@@ -151,9 +154,9 @@ function renderTip(){
   h+=`<div class="card ${locked?'locked':''}" id="m${no}">
     <div class="mhead"><span>Zápas M${no} · ${when}</span><span>${fin?'<span class="fin">✓ odohraté</span>':(locked?'<span class="fin">🔒 prebieha / uzamknuté</span>':'')}</span></div>
     <div class="teams">
-      <div class="tn r">${A}</div>
+      <div class="tn r">${A}${flag(A)}</div>
       <div class="sc"><input type="number" min="0" id="a${no}"><span class="x">:</span><input type="number" min="0" id="b${no}"></div>
-      <div class="tn">${B}</div>
+      <div class="tn">${flag(B)}${B}</div>
     </div>
     <div class="extra" id="ex${no}" style="display:none">
       <div class="row"><span>Po predĺžení (stav po 120')</span>
@@ -235,7 +238,7 @@ async function loadBoard(){
      const sd=P?scoreDetail(P,R):{pts:0,parts:[]};
      let tipTxt=P?`${P.t1_90}:${P.t2_90}`+(P.t1_et!=null?` / pred. ${P.t1_et}:${P.t2_et}`:"")+(P.pen_t1!=null?` / pen ${P.pen_t1}:${P.pen_t2}`:""):"bez tipu";
      const resTxt=`${R.t1_90}:${R.t2_90}`+(R.went_pens?` (pen ${R.pen_t1}:${R.pen_t2})`:R.went_et?` (pred. ${R.t1_et}:${R.t2_et})`:"");
-     d+=`<div class="bd"><b>M${no} ${A}–${B}</b> ${resTxt} → ${R.advancer}<br>tip: ${tipTxt} → <b>${sd.pts} b</b>${sd.parts.length?' <span style="color:var(--green)">('+sd.parts.join(", ")+')</span>':' <span style="color:var(--muted)">(0)</span>'}</div>`;
+     d+=`<div class="bd"><b>M${no} ${flag(A)}${A}–${flag(B)}${B}</b> ${resTxt} → ${R.advancer}<br>tip: ${tipTxt} → <b>${sd.pts} b</b>${sd.parts.length?' <span style="color:var(--green)">('+sd.parts.join(", ")+')</span>':' <span style="color:var(--muted)">(0)</span>'}</div>`;
    }
    h+=`<tr id="${pid}" style="display:none"><td colspan="3" style="background:#070707;padding:8px 10px">${d||'<span class="bd">žiadne odohraté zápasy</span>'}</td></tr>`;
  });
@@ -244,7 +247,7 @@ async function loadBoard(){
  h+=`<details><summary>Detail po zápasoch</summary>`;
  for(const m of M){const no=m[0];const R=RESULTS[no];if(!R||!R.finished)continue;
    const[A,B]=TEAM[no];
-   let res=`${A} ${R.t1_90}:${R.t2_90}`+(R.went_et?` (pred. ${R.t1_et}:${R.t2_et})`:"")+(R.went_pens?` (pen ${R.pen_t1}:${R.pen_t2})`:"")+` ${B} → ${R.advancer}`;
+   let res=`${flag(A)}${A} ${R.t1_90}:${R.t2_90}`+(R.went_et?` (pred. ${R.t1_et}:${R.t2_et})`:"")+(R.went_pens?` (pen ${R.pen_t1}:${R.pen_t2})`:"")+` ${flag(B)}${B} → ${R.advancer}`;
    h+=`<div class="card"><div class="mhead"><span>M${no}</span></div><div style="font-size:.85rem">${res}</div>`;
    const scored=rows.map(r=>{const P=players[r.pl][no];return {pl:r.pl,s:P?scoreOne(P,R):0,P};}).sort((x,y)=>y.s-x.s);
    scored.forEach(s=>{const pp=s.P?(s.P.pen_t1!=null?', pen '+s.P.pen_t1+':'+s.P.pen_t2:(s.P.pen_winner?', pen '+s.P.pen_winner:'')):'';h+=`<div class="bd">${s.pl}: <b>${s.s}b</b>${s.P?` (tip ${s.P.t1_90}:${s.P.t2_90}${pp})`:' (bez tipu)'}</div>`;});
@@ -268,7 +271,7 @@ async function loadTipy(){
  for(const m of M){const no=m[0];const[A,B]=TEAM[no];const R=RESULTS[no];const list=byMatch[no]||[];const fin=R&&R.finished;
    const show=isLocked(no)||reveal;
    const resTxt=fin?`<span class="fin">${R.t1_90}:${R.t2_90}${R.went_pens?' (pen)':R.went_et?' (pred.)':''} → ${R.advancer}</span>`:(isLocked(no)?`<span class="fin">🔒 prebieha</span>`:`<span>${list.length} tipov</span>`);
-   h+=`<div class="card"><div class="mhead"><span>M${no} · ${A} – ${B}</span><span>${resTxt}</span></div>`;
+   h+=`<div class="card"><div class="mhead"><span>M${no} · ${flag(A)}${A} – ${flag(B)}${B}</span><span>${resTxt}</span></div>`;
    if(show){
      if(!list.length){h+='<div class="bd">— zatiaľ bez tipov —</div>';}
      else{
@@ -298,9 +301,9 @@ function renderAdmin(){
  let h=`<p class="note">Zadaj skutočné výsledky. Po uložení sa tabuľka prepočíta a daný zápas sa hráčom zamkne.</p>`;
  M.forEach(m=>{const[no,A,B,when]=m;const R=RESULTS[no]||{};
   h+=`<div class="card"><div class="mhead"><span>M${no} · ${when}</span><span>${R.finished?'<span class="fin">✓ uložené</span>':''}</span></div>
-   <div class="teams"><div class="tn r">${A}</div>
+   <div class="teams"><div class="tn r">${A}${flag(A)}</div>
      <div class="sc"><input type="number" min="0" id="Ra${no}" value="${R.t1_90??''}"><span class="x">:</span><input type="number" min="0" id="Rb${no}" value="${R.t2_90??''}"></div>
-     <div class="tn">${B}</div></div>
+     <div class="tn">${flag(B)}${B}</div></div>
    <div class="extra"><div class="row"><label><input type="checkbox" id="Ret${no}" ${R.went_et?'checked':''}> predĺženie</label>
      <span class="sc"><input type="number" min="0" id="Rae${no}" value="${R.t1_et??''}"><span class="x">:</span><input type="number" min="0" id="Rbe${no}" value="${R.t2_et??''}"></span></div>
    <div class="row"><label><input type="checkbox" id="Rpen${no}" ${R.went_pens?'checked':''}> penalty</label>
