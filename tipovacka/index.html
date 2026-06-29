@@ -187,8 +187,9 @@ function scoreDetailNew(P,R){
  }
  return {pts,parts};
 }
-// výber pravidiel podľa kola
-function scoreDetail(P,R){return (P&&P.match_no>=89)?scoreDetailNew(P,R):scoreDetailOld(P,R);}
+// výber pravidiel: staré len pre už odohratý prvý zápas (M73), inak nové
+const OLD_RULES=new Set([73]);
+function scoreDetail(P,R){return (P&&OLD_RULES.has(P.match_no))?scoreDetailOld(P,R):scoreDetailNew(P,R);}
 function scoreOne(P,R){const d=scoreDetail(P,R);return d?d.pts:null;}
 function tgl(id){const e=$(id);if(e)e.style.display=e.style.display==="none"?"":"none";}
 
@@ -347,7 +348,7 @@ function renderRules(){
  const H=`
  <div class="card">
    <div style="font-weight:800;font-size:1.05rem;color:#7fd1ff">📜 Pravidlá tipovačky</div>
-   <p class="note" style="margin:6px 0 0">Toto bodovanie platí <b>od osemfinále (R16) ďalej</b>. Prvé kolo (osemfinále R32) sa počíta podľa pôvodných pravidiel — aby to bolo fér voči už odohratému zápasu.</p>
+   <p class="note" style="margin:6px 0 0">Toto bodovanie platí pre <b>všetky zápasy</b>. Jediná výnimka: <b>prvý už odohratý zápas (Južná Afrika–Kanada)</b> ostáva na pôvodnom bodovaní, aby sa už zadané body nemenili.</p>
  </div>
  <div class="card">
    <div style="font-weight:700;margin-bottom:6px">A) Základné body (každý zápas)</div>
