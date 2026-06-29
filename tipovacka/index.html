@@ -55,6 +55,17 @@ details{margin:6px 0}summary{cursor:pointer;color:var(--accent);font-size:.82rem
 .gm{display:flex;justify-content:space-between;align-items:center;padding:9px 4px;border-bottom:1px solid var(--line);font-size:.92rem}
 .res{font-weight:800;border-radius:6px;padding:2px 8px;font-size:.74rem;margin-left:6px}
 .res.V{background:#0f3d2e;color:#34d399}.res.R{background:#3a3414;color:#ffce4a}.res.P{background:#3d1620;color:#f87171}
+.bracket{display:flex;gap:6px;overflow-x:auto;padding:10px 2px;align-items:stretch}
+.bcol{display:flex;flex-direction:column;justify-content:space-around;gap:8px;min-width:138px;flex:0 0 auto}
+.bcol.fin{justify-content:center;min-width:150px}
+.bclab{text-align:center;color:var(--accent);font-size:.62rem;text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px}
+.bmatch{background:#0c0e12;border:1px solid var(--line);border-radius:8px;padding:5px 6px;font-size:.74rem}
+.bmatch.final{background:#181402;border-color:var(--gold)}
+.bmhd{color:var(--muted);font-size:.6rem;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.brow{display:flex;align-items:center;gap:3px;padding:1px 0}
+.brow .nm{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.brow.win .nm{color:var(--green);font-weight:700}
+.brow b{min-width:12px;text-align:right}
 </style>
 </head>
 <body>
@@ -65,6 +76,7 @@ details{margin:6px 0}summary{cursor:pointer;color:var(--accent);font-size:.82rem
       <button id="tab-tip" class="on" onclick="showTab('tip')">✍️ Tipuj</button>
       <button id="tab-tab" onclick="showTab('tab')">📊 Tabuľka</button>
       <button id="tab-tipy" onclick="showTab('tipy')">👥 Tipy</button>
+      <button id="tab-pavuk" onclick="showTab('pavuk')">🕸️ Pavúk</button>
       <button id="tab-prav" onclick="showTab('prav')">📜 Pravidlá</button>
       <button id="tab-adm" onclick="showTab('adm')">🔒 Admin</button>
     </nav>
@@ -74,6 +86,7 @@ details{margin:6px 0}summary{cursor:pointer;color:var(--accent);font-size:.82rem
   <section id="s-tip"></section>
   <section id="s-tab" style="display:none"></section>
   <section id="s-tipy" style="display:none"></section>
+  <section id="s-pavuk" style="display:none"></section>
   <section id="s-prav" style="display:none"></section>
   <section id="s-adm" style="display:none"></section>
 </div>
@@ -137,7 +150,7 @@ let RESULTS={}; // match_no -> result row
 const $=id=>document.getElementById(id);
 const iv=v=>{v=parseInt(v);return isNaN(v)?null:v;};
 function toast(t){const e=$("toast");e.textContent=t;e.classList.add("show");setTimeout(()=>e.classList.remove("show"),2200);}
-function showTab(t){for(const k of["tip","tab","tipy","prav","adm"]){$("s-"+k).style.display=k===t?"":"none";$("tab-"+k).classList.toggle("on",k===t);}if(t==="tab")loadBoard();if(t==="tipy")loadTipy();if(t==="prav")renderRules();if(t==="adm")renderAdmin();}
+function showTab(t){for(const k of["tip","tab","tipy","pavuk","prav","adm"]){$("s-"+k).style.display=k===t?"":"none";$("tab-"+k).classList.toggle("on",k===t);}if(t==="tab")loadBoard();if(t==="tipy")loadTipy();if(t==="pavuk")renderBracket();if(t==="prav")renderRules();if(t==="adm")renderAdmin();}
 
 // ---- advancer logic from a score set ----
 function advFromScores(t1_90,t2_90,t1_et,t2_et,pen_winner,m){
@@ -381,6 +394,38 @@ async function loadTipy(){
    h+='</div>';
  }
  $("s-tipy").innerHTML=h;
+}
+
+// ================= PAVÚK (bracket) =================
+// kto koho kŕmi (Mxx -> dvaja "predchodcovia": R32 = tímy, ďalšie kolá = víťaz zápasu)
+const FEED={89:[74,77],90:[73,75],93:[83,84],94:[81,82],91:[76,78],92:[79,80],95:[86,88],96:[85,87],
+ 97:[89,90],98:[93,94],99:[91,92],100:[95,96],101:[97,98],102:[99,100],104:[101,102]};
+const LEFT={R32:[74,77,73,75,83,84,81,82],R16:[89,90,93,94],QF:[97,98],SF:[101]};
+const RIGHT={R32:[76,78,79,80,86,88,85,87],R16:[91,92,95,96],QF:[99,100],SF:[102]};
+function flagS(t){const c=FLAG[t];return c?`<img src="https://flagcdn.com/16x12/${c}.png" width="16" height="12" loading="lazy" style="vertical-align:-2px;border-radius:2px" alt="">`:"";}
+function partsOf(id){
+ if(id>=73&&id<=88)return TEAM[id]||["?","?"];
+ return (FEED[id]||[]).map(f=>(RESULTS[f]&&RESULTS[f].finished)?RESULTS[f].advancer:("Víťaz M"+f));
+}
+function bmatch(id,isFinal){
+ const R=RESULTS[id]; const fin=R&&R.finished; const [A,B]=partsOf(id);
+ const adv=fin?R.advancer:null;
+ const mm=M.find(x=>x[0]===id); const when=mm?mm[3]:""; // čas (zatiaľ len R32)
+ const note=fin?(R.went_pens?`pen ${R.pen_t1}:${R.pen_t2}`:(R.went_et?`pp ${R.t1_et}:${R.t2_et}`:"")):"";
+ const row=(T,sc,win)=>`<div class="brow ${win?'win':''}">${flagS(T)}<span class="nm">${T}</span><b>${sc}</b></div>`;
+ return `<div class="bmatch${isFinal?' final':''}"><div class="bmhd">${isFinal?'🏆 FINÁLE':'M'+id}${when?' · '+when:''}${note?' · '+note:''}</div>`
+   +row(A,fin?R.t1_90:"",adv&&adv===A)+row(B,fin?R.t2_90:"",adv&&adv===B)+`</div>`;
+}
+function bcol(ids,label){return `<div class="bcol"><div class="bclab">${label}</div>${ids.map(id=>bmatch(id)).join("")}</div>`;}
+async function renderBracket(){
+ $("s-pavuk").innerHTML='<p class="note">Načítavam…</p>';
+ await loadResults();
+ const cols=[
+   bcol(LEFT.R32,"Šestnásťfinále"),bcol(LEFT.R16,"Osemfinále"),bcol(LEFT.QF,"Štvrťfinále"),bcol(LEFT.SF,"Semifinále"),
+   `<div class="bcol fin"><div class="bclab">Finále</div>${bmatch(104,true)}</div>`,
+   bcol(RIGHT.SF,"Semifinále"),bcol(RIGHT.QF,"Štvrťfinále"),bcol(RIGHT.R16,"Osemfinále"),bcol(RIGHT.R32,"Šestnásťfinále"),
+ ].join("");
+ $("s-pavuk").innerHTML=`<p class="note" style="margin:4px 2px">🕸️ Vyraďovací pavúk — finále v strede. Posúvaj do strán. Výsledky a postupujúci sa dopĺňajú po odohraní zápasov.</p><div class="bracket">${cols}</div>`;
 }
 
 // ================= PRAVIDLÁ =================
