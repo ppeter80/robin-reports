@@ -323,13 +323,14 @@ async function loadBoard(){
  });
  h+=`</tbody></table></div>`;
  // per-match breakdown
- h+=`<details><summary>Detail po zápasoch</summary>`;
- for(const m of M){const no=m[0];const R=RESULTS[no];if(!R||!R.finished)continue;
+ h+=`<details open><summary>Detail po zápasoch (tipy sa zobrazia po výkope)</summary>`;
+ for(const m of M){const no=m[0];if(!isLocked(no))continue;const R=RESULTS[no];const fin=R&&R.finished;
    const[A,B]=TEAM[no];
-   let res=`${flag(A)}${A} ${R.t1_90}:${R.t2_90}`+(R.went_et?` (pred. ${R.t1_et}:${R.t2_et})`:"")+(R.went_pens?` (pen ${R.pen_t1}:${R.pen_t2})`:"")+` ${flag(B)}${B} → ${R.advancer}`;
+   let res=fin?(`${flag(A)}${A} ${R.t1_90}:${R.t2_90}`+(R.went_et?` (pred. ${R.t1_et}:${R.t2_et})`:"")+(R.went_pens?` (pen ${R.pen_t1}:${R.pen_t2})`:"")+` ${flag(B)}${B} → ${R.advancer}`):(`${flag(A)}${A} – ${flag(B)}${B} · 🔒 prebieha`);
    h+=`<div class="card"><div class="mhead"><span>M${no}</span></div><div style="font-size:.85rem">${res}</div>`;
-   const scored=rows.map(r=>{const P=players[r.pl][no];return {pl:r.pl,s:P?scoreOne(P,R):0,P};}).sort((x,y)=>y.s-x.s);
-   scored.forEach(s=>{const pp=s.P?(s.P.pen_t1!=null?', pen '+s.P.pen_t1+':'+s.P.pen_t2:(s.P.pen_winner?', pen '+s.P.pen_winner:'')):'';h+=`<div class="bd">${s.pl}: <b>${s.s}b</b>${s.P?` (tip ${s.P.t1_90}:${s.P.t2_90}${pp})`:' (bez tipu)'}</div>`;});
+   const list=rows.map(r=>{const P=players[r.pl][no];return {pl:r.pl,P,s:(fin&&P)?scoreOne(P,R):null};});
+   if(fin)list.sort((x,y)=>(y.s||0)-(x.s||0));
+   list.forEach(s=>{if(!s.P){h+=`<div class="bd">${s.pl}: bez tipu</div>`;return;}const pp=s.P.pen_t1!=null?', pen '+s.P.pen_t1+':'+s.P.pen_t2:(s.P.pen_winner?', pen '+s.P.pen_winner:'');h+=`<div class="bd">${s.pl}: tip ${s.P.t1_90}:${s.P.t2_90}${pp}${fin?` → <b>${s.s}b</b>`:''}</div>`;});
    h+=`</div>`;
  }
  h+=`</details>`;
