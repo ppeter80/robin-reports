@@ -318,7 +318,7 @@ async function loadBoard(){
      const resTxt=`${R.t1_90}:${R.t2_90}`+(R.went_pens?` (pen ${R.pen_t1}:${R.pen_t2})`:R.went_et?` (pred. ${R.t1_et}:${R.t2_et})`:"");
      d+=`<div class="bd"><b>M${no} ${flag(A)}${A}–${flag(B)}${B}</b> ${resTxt} → ${R.advancer}<br>tip: ${tipTxt} → <b>${sd.pts} b</b>${sd.parts.length?' <span style="color:var(--green)">('+sd.parts.join(", ")+')</span>':' <span style="color:var(--muted)">(0)</span>'}</div>`;
    }
-   if(r.champ){d+=`<div class="bd">🏆 Tip na celkového víťaza: <b>${r.champ}</b>${champFinal?(r.champBonus?' — správne ✓ +7':' — nesprávne ✗'):' (vyhodnotí sa na konci súťaže)'}</div>`;}
+   if(r.champ){const showC=championLocked()||r.pl===me;const cv=showC?`<b>${r.champ}</b>${champFinal?(r.champBonus?' — správne ✓ +7':' — nesprávne ✗'):' (vyhodnotí sa na konci súťaže)'}`:'<i>skryté do uzávierky</i>';d+=`<div class="bd">🏆 Tip na celkového víťaza: ${cv}</div>`;}
    h+=`<tr id="${pid}" style="display:none"><td colspan="3" style="background:#070707;padding:8px 10px">${d||'<span class="bd">žiadne odohraté zápasy</span>'}</td></tr>`;
  });
  h+=`</tbody></table></div>`;
