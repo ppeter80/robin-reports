@@ -1,5 +1,17 @@
 {
-  "77": {"score": "2:0", "adv": "Francúzsko", "text": "Francúzsko vyhralo skupinu so 3 výhrami (vrátane 4:1 nad Nórskom) — špičková forma a obrana inkasovala len 1 gól. Švédsko vie streliť (5:1 Tunisko), ale je deravé vzadu (1:5 Holandsko) a postúpilo ako tretí tím. Jasný favorit Francúzsko, čakám pohodlnú výhru bez predĺženia."},
-  "78": {"score": "2:1", "adv": "Nórsko", "text": "Najťažší zápas na odhad. Nórsko mierny favorit (Opta ~56 % výhra v 90'), hlavný tromf je Haaland — 4 góly za 2 zápasy. Pobr. Slonoviny je organizované a v každom skupinovom zápase strelilo gól, no slabá koncovka ich celý turnaj brzdí. Pozor: ak Pobr. Slonoviny premení šance, pokojne vyhrá — preto najrizikovejší tip."},
-  "79": {"score": "2:1", "adv": "Mexiko", "text": "Mexiko má 3 výhry z 3 a 0 inkasovaných gólov, hrá doma na Azteke (Opta 46 % vs 24 %). Ekvádor však zdolal Nemecko 2:1, má pevnú obranu a nebezpečný protiútok (Plata, Valencia). Čakám tesnú domácu výhru v gólovom zápase."}
+  "77": {
+    "score": "2:1",
+    "adv": "Francúzsko",
+    "text": "Francúzsko prešlo skupinou bez zaváhania s deviatimi bodmi a aktívnym ofenzívnym futbalom, kde Mbappé a Dembélé ťahajú formu. Švédsko síce strelilo päť gólov Tunisku, ale debakel od Holandska 1:5 odhalil defenzívne medzery, ktoré Francúzi potrestajú. Isak je v dobrej streleckej pohode a zariadi kontaktný gól, no kvalita francúzskeho stredu poľa rozhodne. Riziko predstavujú štandardky a vysokí Švédi pri rohoch."
+  },
+  "78": {
+    "score": "2:1",
+    "adv": "Nórsko",
+    "text": "Nórsko má v zostave Haalanda v životnej forme (5 gólov v skupine) a Ødegaarda ako dirigenta hry, čo z neho robí favorita aj napriek prehre s Francúzskom. Pobrežie Slonoviny ukázalo solídnu defenzívu proti Ekvádoru a Curaçau, ale proti elitnému útoku to nebude stačiť. Očakávam, že Haaland strelí aspoň jeden gól a Nórsko zvládne zápas vďaka individuálnej kvalite. Riziko je nórska defenzíva, ktorá inkasovala sedem gólov v skupine."
+  },
+  "79": {
+    "score": "1:0",
+    "adv": "Mexiko",
+    "text": "Mexiko ako domáci tím prešlo skupinou s deviatimi bodmi bez inkasovaného gólu, čo dokumentuje vynikajúcu defenzívnu organizáciu pod vedením brankára Ochou. Ekvádor sa zobudil až vo víťaznom zápase proti Nemecku, no ofenzívne produkuje málo (iba 2 góly v skupine). Domáce prostredie a tlak publika v Mexico City by mali rozhodnúť tesný zápas. Riziko predstavuje fyzický Ekvádor a možné predĺženie, ak Mexiko nepremení šance."
+  }
 }
