@@ -81,6 +81,7 @@ details{margin:6px 0}summary{cursor:pointer;color:var(--accent);font-size:.82rem
     <nav>
       <button id="tab-tip" class="on" onclick="showTab('tip')">✍️ Tipuj</button>
       <button id="tab-tab" onclick="showTab('tab')">📊 Tabuľka</button>
+      <button id="tab-live" onclick="showLive()">🔴 Naživo</button>
       <button id="tab-tipy" onclick="showTab('tipy')">👥 Tipy</button>
       <button id="tab-pavuk" onclick="showTab('pavuk')">🕸️ Pavúk</button>
       <button id="tab-prav" onclick="showTab('prav')">📜 Pravidlá</button>
@@ -97,7 +98,7 @@ details{margin:6px 0}summary{cursor:pointer;color:var(--accent);font-size:.82rem
   <section id="s-adm" style="display:none"></section>
 </div>
 <div id="toast" class="toast"></div>
-<div id="modal" class="modal" onclick="this.classList.remove('show')"><div class="box" onclick="event.stopPropagation()"><div id="modalBody"></div><button class="btn" style="margin-bottom:0" onclick="document.getElementById('modal').classList.remove('show')">Zavrieť</button></div></div>
+<div id="modal" class="modal" onclick="closeModal()"><div class="box" onclick="event.stopPropagation()"><div id="modalBody"></div><button class="btn" style="margin-bottom:0" onclick="closeModal()">Zavrieť</button></div></div>
 
 <script>
 const SUPABASE_URL="https://lultodbmyhawlpfgfhmg.supabase.co";
@@ -372,6 +373,58 @@ async function loadBoard(){
  }
  h+=`</details>`;
  $("s-tab").innerHTML=h;
+}
+
+// ================= NAŽIVO (živá priebežná tabuľka) =================
+let LIVE_TIMER=null;
+function closeModal(){if(LIVE_TIMER){clearInterval(LIVE_TIMER);LIVE_TIMER=null;}$("modal").classList.remove("show");}
+// provizórny "výsledok" zo živého skóre (akoby zápas skončil teraz, 90')
+function liveAsResult(R){const[A,B]=TEAM[R.match_no]||["",""];
+ const adv=(R.t1_90>R.t2_90)?A:(R.t2_90>R.t1_90?B:null);
+ return {match_no:R.match_no,t1_90:R.t1_90,t2_90:R.t2_90,went_et:false,t1_et:null,t2_et:null,
+   went_pens:false,pen_t1:null,pen_t2:null,advancer:adv,finished:true};}
+async function showLive(){await renderLive();$("modal").classList.add("show");
+ if(LIVE_TIMER)clearInterval(LIVE_TIMER);LIVE_TIMER=setInterval(renderLive,30000);}
+async function renderLive(){
+ await loadResults();
+ const{data:preds}=await sb.from("predictions").select("*");
+ const players={};(preds||[]).forEach(p=>{players[p.player]=players[p.player]||{};players[p.player][p.match_no]=p;});
+ const me=localStorage.getItem("tip_name")||"";
+ const champFinal=(RESULTS[104]&&RESULTS[104].finished)?RESULTS[104].advancer:null;
+ // živé zápasy = riadky results s finished===false, vyplneným skóre a zápas práve prebieha (výkop ≤ teraz ≤ výkop+6h)
+ const NOW=new Date();
+ const live=Object.values(RESULTS).filter(R=>{if(!R||R.finished!==false||R.t1_90==null||R.t2_90==null)return false;
+   const k=KO[R.match_no];return k&&NOW>=k&&NOW<=new Date(k.getTime()+6*3600*1000);});
+ const liveSynth={};live.forEach(R=>liveSynth[R.match_no]=liveAsResult(R));
+ const rows=Object.keys(players).map(pl=>{
+   let tot=0,delta=0;
+   for(const m of M){const no=m[0];const P=players[pl][no];if(!P)continue;
+     const Rf=RESULTS[no];
+     if(Rf&&Rf.finished){tot+=(scoreOne(P,Rf)||0);}
+     else if(liveSynth[no]){const s=scoreOne(P,liveSynth[no])||0;tot+=s;delta+=s;}}
+   const champ=players[pl][0]?players[pl][0].advancer:null;
+   if(champFinal&&champ===champFinal)tot+=7;
+   return {pl,tot,delta};
+ }).sort((x,y)=>(y.tot-x.tot)||(y.delta-x.delta)||x.pl.localeCompare(y.pl,'sk'));
+ const t=new Date().toLocaleTimeString('sk-SK',{hour:'2-digit',minute:'2-digit'});
+ let h=`<div style="font-weight:800;font-size:1.1rem;margin-bottom:2px">🔴 Naživo — priebežná tabuľka</div>
+   <div class="note" style="margin:0 0 10px">Aktualizované o ${t} · obnovuje sa každých 30 s</div>`;
+ if(live.length){
+   h+=live.map(R=>{const[A,B]=TEAM[R.match_no]||["",""];
+     return `<div style="background:#150a0a;border:1px solid #5a1f1f;border-radius:10px;padding:8px 10px;margin-bottom:8px">
+       <span style="color:#ff5a5a;font-weight:700">● LIVE</span> &nbsp;M${R.match_no}<br>
+       <span style="font-size:1.05rem">${flag(A)}${A} <b>${R.t1_90}</b> : <b>${R.t2_90}</b> ${flag(B)}${B}</span></div>`;}).join("");
+ }else{
+   h+=`<div class="note" style="margin-bottom:10px">Práve neprebieha žiadny zápas — tabuľka zobrazuje aktuálny stav.</div>`;
+ }
+ h+=`<table><thead><tr><th class="rank">#</th><th>Hráč</th><th class="r">Body</th><th class="r">${live.length?"+ zo živého":""}</th></tr></thead><tbody>`;
+ rows.forEach((r,i)=>{
+   const dz=r.delta>0?`<span style="color:#ff7a7a;font-weight:700">+${r.delta}</span>`:(live.length?'<span style="color:var(--muted)">0</span>':'');
+   h+=`<tr><td class="rank">${i+1}</td><td class="${r.pl===me?'me':''}">${r.pl}</td><td class="r"><b>${r.tot}</b></td><td class="r">${dz}</td></tr>`;
+ });
+ h+=`</tbody></table>`;
+ if(live.length)h+=`<p class="note" style="margin-top:8px">„+ zo živého" = body, čo hráčovi pribudli z práve hraného zápasu (keby skončil týmto výsledkom). Po skončení sa započítajú napevno.</p>`;
+ $("modalBody").innerHTML=h;
 }
 
 // ================= TIPY (všetkých účastníkov) =================
