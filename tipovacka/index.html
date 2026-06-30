@@ -163,6 +163,13 @@ function showRobin(no){const t=ROBIN_TIPS[no];if(!t)return;const tt=TEAM[no]||["
   <p class="note" style="line-height:1.6;color:#cdd2db;margin:0">${t.text}</p>`;
  $("modal").classList.add("show");}
 function robinBtn(no){return ROBIN_TIPS[no]?`<div style="text-align:center;margin-top:8px"><span class="clk" style="color:#b89b54;font-weight:600" onclick="showRobin(${no})">🤖 Tip Robin</span></div>`:"";}
+// Robin ako hráč v poradí (tipy z robin_tips.json), vždy zobrazený posledný
+const ROBIN_NAME="🤖 Robin";
+function robinPreds(){const m={};for(const no in ROBIN_TIPS){const t=ROBIN_TIPS[no];if(!t||!t.score)continue;
+  const mm=String(t.score).match(/(\d+)\s*:\s*(\d+)/);if(!mm)continue;const a=+mm[1],b=+mm[2];
+  m[no]={match_no:+no,t1_90:a,t2_90:b,t1_et:null,t2_et:null,pen_t1:null,pen_t2:null,
+    pen_winner:t.adv||null,advancer:t.adv||advFromScores(a,b,null,null,null,+no)};}
+  return m;}
 const $=id=>document.getElementById(id);
 const iv=v=>{v=parseInt(v);return isNaN(v)?null:v;};
 function toast(t){const e=$("toast");e.textContent=t;e.classList.add("show");setTimeout(()=>e.classList.remove("show"),2200);}
@@ -325,10 +332,11 @@ async function submitTips(){
 // ================= TABUĽKA =================
 async function loadBoard(){
  $("s-tab").innerHTML='<p class="note">Načítavam…</p>';
- await loadResults();
+ await loadResults(); await loadRobin();
  const{data:preds}=await sb.from("predictions").select("*");
  const players={};
  (preds||[]).forEach(p=>{players[p.player]=players[p.player]||{};players[p.player][p.match_no]=p;});
+ players[ROBIN_NAME]=robinPreds();
  const me=localStorage.getItem("tip_name")||"";
  const champFinal=(RESULTS[104]&&RESULTS[104].finished)?RESULTS[104].advancer:null;
  const rows=Object.keys(players).map(pl=>{
@@ -341,7 +349,7 @@ async function loadBoard(){
    const champ=players[pl][0]?players[pl][0].advancer:null;
    const champBonus=(champFinal&&champ===champFinal)?7:0; tot+=champBonus;
    return {pl,tot,champ,champBonus,champCorrect:champBonus?1:0,postupCount,exactCount};
- }).sort((x,y)=> (y.tot-x.tot) || (y.champCorrect-x.champCorrect) || (y.postupCount-x.postupCount) || (y.exactCount-x.exactCount) || x.pl.localeCompare(y.pl,'sk'));
+ }).sort((x,y)=> (x.pl===ROBIN_NAME?1:y.pl===ROBIN_NAME?-1: (y.tot-x.tot) || (y.champCorrect-x.champCorrect) || (y.postupCount-x.postupCount) || (y.exactCount-x.exactCount) || x.pl.localeCompare(y.pl,'sk')));
  const finished=M.filter(m=>RESULTS[m[0]]&&RESULTS[m[0]].finished).length;
  let h=`<div class="card"><span class="pill">${rows.length} hráčov</span> <span class="pill">${finished}/16 zápasov odohraných</span></div>`;
  h+=`<div class="card"><p class="note" style="margin-top:0">Klikni na meno → uvidíš, za čo dostal body pri každom zápase.</p><table><thead><tr><th class="rank">#</th><th>Hráč</th><th class="r">Body</th></tr></thead><tbody>`;
@@ -386,9 +394,10 @@ function liveAsResult(R){const[A,B]=TEAM[R.match_no]||["",""];
 async function showLive(){await renderLive();$("modal").classList.add("show");
  if(LIVE_TIMER)clearInterval(LIVE_TIMER);LIVE_TIMER=setInterval(renderLive,30000);}
 async function renderLive(){
- await loadResults();
+ await loadResults(); await loadRobin();
  const{data:preds}=await sb.from("predictions").select("*");
  const players={};(preds||[]).forEach(p=>{players[p.player]=players[p.player]||{};players[p.player][p.match_no]=p;});
+ players[ROBIN_NAME]=robinPreds();
  const me=localStorage.getItem("tip_name")||"";
  const champFinal=(RESULTS[104]&&RESULTS[104].finished)?RESULTS[104].advancer:null;
  // živé zápasy = riadky results s finished===false, vyplneným skóre a zápas práve prebieha (výkop ≤ teraz ≤ výkop+6h)
@@ -405,7 +414,7 @@ async function renderLive(){
    const champ=players[pl][0]?players[pl][0].advancer:null;
    if(champFinal&&champ===champFinal)tot+=7;
    return {pl,tot,delta};
- }).sort((x,y)=>(y.tot-x.tot)||(y.delta-x.delta)||x.pl.localeCompare(y.pl,'sk'));
+ }).sort((x,y)=>(x.pl===ROBIN_NAME?1:y.pl===ROBIN_NAME?-1:(y.tot-x.tot)||(y.delta-x.delta)||x.pl.localeCompare(y.pl,'sk')));
  const t=new Date().toLocaleTimeString('sk-SK',{hour:'2-digit',minute:'2-digit'});
  let h=`<div style="font-weight:800;font-size:1.1rem;margin-bottom:2px">🔴 Naživo — priebežná tabuľka</div>
    <div class="note" style="margin:0 0 10px">Aktualizované o ${t} · obnovuje sa každých 30 s</div>`;
