@@ -167,8 +167,9 @@ function robinBtn(no){return ROBIN_TIPS[no]?`<div style="text-align:center;margi
 const ROBIN_NAME="🤖 Robin";
 function robinPreds(){const m={};for(const no in ROBIN_TIPS){const t=ROBIN_TIPS[no];if(!t||!t.score)continue;
   const mm=String(t.score).match(/(\d+)\s*:\s*(\d+)/);if(!mm)continue;const a=+mm[1],b=+mm[2];
+  const draw=(a===b);
   m[no]={match_no:+no,t1_90:a,t2_90:b,t1_et:null,t2_et:null,pen_t1:null,pen_t2:null,
-    pen_winner:t.adv||null,advancer:t.adv||advFromScores(a,b,null,null,null,+no)};}
+    pen_winner:draw?(t.adv||null):null,advancer:t.adv||advFromScores(a,b,null,null,null,+no)};}
   return m;}
 const $=id=>document.getElementById(id);
 const iv=v=>{v=parseInt(v);return isNaN(v)?null:v;};
