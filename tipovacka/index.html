@@ -299,9 +299,12 @@ function onScoreChange(no){
  const[A,B]=TEAM[no]; const a=iv($("a"+no).value),b=iv($("b"+no).value);
  const ex=$("ex"+no); const draw90=(a!=null&&b!=null&&a===b);
  ex.style.display=draw90?"":"none";
+ const clr=ids=>ids.forEach(p=>{const el=$(p+no);if(el)el.value="";});
+ if(!draw90){clr(["ae","be","pa","pb","pw"]);}  // nerozhodný stav → vyčisti skryté polia predĺženia/penalt
  let ae=null,be=null;
  if(draw90){ae=iv($("ae"+no).value);be=iv($("be"+no).value);}
  const drawET=(draw90&&ae!=null&&be!=null&&ae===be);
+ if(!drawET){clr(["pa","pb","pw"]);}  // po predĺžení nie remíza → vyčisti penalty
  $("penrow"+no).style.display=drawET?"":"none";
  const pw=penWinner(no,drawET);
  const adv=advFromScores(a,b,ae,be,pw,no);
