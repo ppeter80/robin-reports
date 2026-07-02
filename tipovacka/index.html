@@ -172,6 +172,15 @@ function robinPreds(){const m={};for(const no in ROBIN_TIPS){const t=ROBIN_TIPS[
     pen_winner:draw?(t.adv||null):null,advancer:t.adv||advFromScores(a,b,null,null,null,+no)};}
   return m;}
 const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function showThanks(name){
+ $("modalBody").innerHTML=`<div style="text-align:center;padding:6px 2px">
+   <div style="font-size:2.4rem;line-height:1">🎉</div>
+   <div style="font-weight:800;font-size:1.25rem;margin:8px 0 4px">${esc(name)}, ďakujem za tvoj tip!</div>
+   <p class="note" style="font-size:1.02rem;line-height:1.6;color:#cdd2db;margin:0">
+     Prajem ti veľa šťastia… ale nech aj tak vyhrá <b style="color:#b89b54">Peter</b> 😂</p></div>`;
+ $("modal").classList.add("show");
+}
 const iv=v=>{v=parseInt(v);return isNaN(v)?null:v;};
 function toast(t){const e=$("toast");e.textContent=t;e.classList.add("show");setTimeout(()=>e.classList.remove("show"),2200);}
 function showTab(t){for(const k of["tip","tab","tipy","pavuk","prav","adm"]){$("s-"+k).style.display=k===t?"":"none";$("tab-"+k).classList.toggle("on",k===t);}if(t==="tab")loadBoard();if(t==="tipy")loadTipy();if(t==="pavuk")renderBracket();if(t==="prav")renderRules();if(t==="adm")renderAdmin();}
@@ -331,6 +340,7 @@ async function submitTips(){
  if(rows.length){const{error}=await sb.from("predictions").upsert(rows,{onConflict:"player,match_no"}); if(error){toast("Chyba: "+error.message);return;}}
  if(champSave){const{error}=await sb.from("predictions").upsert([{player,match_no:0,advancer:champ}],{onConflict:"player,match_no"}); if(error){toast("Chyba (víťaz): "+error.message);return;} $("champcur").textContent="Aktuálne tipuješ: "+champ;}
  toast("Uložené ✅"+(rows.length?" ("+rows.length+" zápasov)":"")+(champSave?" · víťaz: "+champ:"")+(lockedSkipped?" · "+lockedSkipped+" uzamknutých":""));
+ showThanks(player);
 }
 
 // ================= TABUĽKA =================
