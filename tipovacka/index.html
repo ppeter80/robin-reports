@@ -81,6 +81,7 @@ details{margin:6px 0}summary{cursor:pointer;color:var(--accent);font-size:.82rem
     <nav>
       <button id="tab-tip" class="on" onclick="showTab('tip')">✍️ Tipuj</button>
       <button id="tab-tab" onclick="showTab('tab')">📊 Tabuľka</button>
+      <button id="tab-stat" onclick="showTab('stat')">📈 Štatistika</button>
       <button id="tab-live" onclick="showLive()">🔴 Naživo</button>
       <button id="tab-tipy" onclick="showTab('tipy')">👥 Tipy</button>
       <button id="tab-pavuk" onclick="showTab('pavuk')">🕸️ Pavúk</button>
@@ -92,6 +93,7 @@ details{margin:6px 0}summary{cursor:pointer;color:var(--accent);font-size:.82rem
 <div class="wrap">
   <section id="s-tip"></section>
   <section id="s-tab" style="display:none"></section>
+  <section id="s-stat" style="display:none"></section>
   <section id="s-tipy" style="display:none"></section>
   <section id="s-pavuk" style="display:none"></section>
   <section id="s-prav" style="display:none"></section>
@@ -183,7 +185,7 @@ function showThanks(name){
 }
 const iv=v=>{v=parseInt(v);return isNaN(v)?null:v;};
 function toast(t){const e=$("toast");e.textContent=t;e.classList.add("show");setTimeout(()=>e.classList.remove("show"),2200);}
-function showTab(t){for(const k of["tip","tab","tipy","pavuk","prav","adm"]){$("s-"+k).style.display=k===t?"":"none";$("tab-"+k).classList.toggle("on",k===t);}if(t==="tab")loadBoard();if(t==="tipy")loadTipy();if(t==="pavuk")renderBracket();if(t==="prav")renderRules();if(t==="adm")renderAdmin();}
+function showTab(t){for(const k of["tip","tab","stat","tipy","pavuk","prav","adm"]){$("s-"+k).style.display=k===t?"":"none";$("tab-"+k).classList.toggle("on",k===t);}if(t==="tab")loadBoard();if(t==="stat")loadStats();if(t==="tipy")loadTipy();if(t==="pavuk")renderBracket();if(t==="prav")renderRules();if(t==="adm")renderAdmin();}
 
 // ---- advancer logic from a score set ----
 function advFromScores(t1_90,t2_90,t1_et,t2_et,pen_winner,m){
@@ -395,6 +397,47 @@ async function loadBoard(){
  }
  h+=`</details>`;
  $("s-tab").innerHTML=h;
+}
+
+// ================= ŠTATISTIKA =================
+async function loadStats(){
+ $("s-stat").innerHTML='<p class="note">Načítavam…</p>';
+ await loadResults(); await loadRobin();
+ const{data:preds}=await sb.from("predictions").select("*");
+ const players={};(preds||[]).forEach(p=>{players[p.player]=players[p.player]||{};players[p.player][p.match_no]=p;});
+ players[ROBIN_NAME]=robinPreds();
+ const me=localStorage.getItem("tip_name")||"";
+ const rows=Object.keys(players).map(pl=>{
+   let body=0,maxM=0,p90=0,pred=0,pen=0,postup=0,b7=0,b3=0,b2=0,b1=0,b0=0,bine=0,tipped=0;
+   for(const m of M){const no=m[0];const R=RESULTS[no];const P=players[pl][no];
+     if(!R||!R.finished||!P)continue;
+     tipped++;
+     const pts=scoreOne(P,R)||0; body+=pts; maxM+=R.went_pens?12:7;
+     const Padv=advFromScores(P.t1_90,P.t2_90,P.t1_et,P.t2_et,P.pen_winner,no);
+     if(Padv&&Padv===R.advancer)postup++;
+     if(P.t1_90===R.t1_90&&P.t2_90===R.t2_90)p90++;
+     if(R.went_et&&P.t1_et!=null&&P.t1_et===R.t1_et&&P.t2_et===R.t2_et)pred++;
+     if(R.went_pens&&P.pen_t1!=null&&P.pen_t1===R.pen_t1&&P.pen_t2===R.pen_t2)pen++;
+     if(pts>=7)b7++;else if(pts===3)b3++;else if(pts===2)b2++;else if(pts===1)b1++;else if(pts===0)b0++;else bine++;
+   }
+   return {pl,body,maxM,pct:maxM?Math.round(body/maxM*100):0,p90,pred,pen,postup,b7,b3,b2,b1,b0,bine,tipped};
+ }).filter(r=>r.tipped>0)
+   .sort((x,y)=> x.pl===ROBIN_NAME?1 : y.pl===ROBIN_NAME?-1 : (y.body-x.body)||(y.pct-x.pct)||x.pl.localeCompare(y.pl,'sk'));
+ const anyIne=rows.some(r=>r.bine>0);
+ let h=`<div class="card"><p class="note" style="margin-top:0">Štatistika po odohratých zápasoch. „Max" = 7 b za rozhodnutý zápas, 12 b za penaltový; <b>%</b> = body / max. 🤖 Robin ráta len zápasy, ktoré tipoval.</p>
+   <div style="overflow-x:auto"><table style="font-size:.78rem;white-space:nowrap"><thead><tr>
+   <th class="rank">#</th><th>Hráč</th><th class="r">Body</th><th class="r">Max</th><th class="r">%</th>
+   <th class="r">Post</th><th class="r">P90'</th><th class="r">Pred</th><th class="r">Pen</th>
+   <th class="r">7+</th><th class="r">3</th><th class="r">2</th><th class="r">1</th><th class="r">0</th>${anyIne?'<th class="r">iné</th>':''}</tr></thead><tbody>`;
+ rows.forEach((r,i)=>{
+   h+=`<tr><td class="rank">${i+1}</td><td class="${r.pl===me?'me':''}">${r.pl}</td>
+   <td class="r"><b>${r.body}</b></td><td class="r">${r.maxM}</td><td class="r">${r.pct}%</td>
+   <td class="r">${r.postup}</td><td class="r">${r.p90}</td><td class="r">${r.pred}</td><td class="r">${r.pen}</td>
+   <td class="r">${r.b7}</td><td class="r">${r.b3}</td><td class="r">${r.b2}</td><td class="r">${r.b1}</td><td class="r">${r.b0}</td>${anyIne?`<td class="r">${r.bine}</td>`:''}</tr>`;
+ });
+ h+=`</tbody></table></div></div>
+   <div class="card"><p class="note" style="margin:0"><b>Legenda:</b> Post = správne postupy · P90' = presný výsledok po 90' · Pred = presné predĺženie · Pen = presné penalty · 7+/3/2/1/0 = počet zápasov s daným ziskom bodov${anyIne?' · iné = ostatné hodnoty (napr. starý zápas M73)':''}.</p></div>`;
+ $("s-stat").innerHTML=h;
 }
 
 // ================= NAŽIVO (živá priebežná tabuľka) =================
