@@ -416,9 +416,9 @@ function statAnnouncement(rows){
  const rob=rows.find(r=>r.pl===ROBIN_NAME);
  const peto=hum.find(r=>/^pe[tť]o$/i.test(r.pl));
  const maxPct=Math.max(...rows.map(r=>r.pct));
- let a=`<div class="card" style="background:#0d0d12;border:1px solid #b89b54">
-   <div style="font-weight:800;font-size:1.05rem;color:#b89b54;margin-bottom:6px">📢 Vyhlásenie po šestnásťfinále</div>
-   <p style="line-height:1.65;color:#cdd2db;margin:0;font-size:.95rem">`;
+ let a=`<div class="card" style="background:#0d0d12;border:1px solid #333">
+   <div style="font-weight:800;font-size:1.05rem;color:#8a8f98;margin-bottom:6px">📢 Vyhlásenie po šestnásťfinále</div>
+   <p style="line-height:1.65;color:#9aa0aa;margin:0;font-size:.95rem">`;
  a+=`Dámy a páni, prvé kolo je za nami a poradie má jasné kontúry! `;
  a+=`🥇 Na čele s prehľadom kraľuje <b>${esc(L.pl)}</b> — <b>${L.body} bodov</b>${L.p90?` a ${L.p90} presných výsledkov`:""}, žiadne zľutovanie. `;
  if(s2){ if(s3&&s2.body===s3.body) a+=`V pätách mu dýcha dvojica <b>${esc(s2.pl)}</b> a <b>${esc(s3.pl)}</b> — obaja ${s2.body}, plece pri pleci. `;
