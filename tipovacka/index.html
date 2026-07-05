@@ -272,7 +272,9 @@ function renderTip(){
    <select id="champ" ${clk?'disabled':''} style="width:100%"><option value="">— vyber víťaza —</option>${opts}</select>
    <div class="note" id="champcur" style="margin-top:6px"></div>
  </div>`;
- M.forEach(m=>{
+ const _now=Date.now();
+ const _ord=M.slice().sort((p,q)=>{const k1=+KO[p[0]],k2=+KO[q[0]];const s1=k1<=_now,s2=k2<=_now;return s1!==s2?(s1?1:-1):(s1?k2-k1:k1-k2);});
+ _ord.forEach(m=>{
   const[no,A,B,when]=m; const fin=RESULTS[no]&&RESULTS[no].finished; const locked=isLocked(no);
   if(fin){const R=RESULTS[no];const note=R.went_pens?`penalty ${R.pen_t1}:${R.pen_t2}`:(R.went_et?`po predĺžení ${R.t1_et}:${R.t2_et}`:"");
     h+=`<div class="card locked" id="m${no}"><div class="mhead"><span>Zápas M${no} · ${when}</span><span class="fin">✓ odohraté</span></div>
