@@ -183,13 +183,38 @@ function robinPreds(){const m={};for(const no in ROBIN_TIPS){const t=ROBIN_TIPS[
   return m;}
 const $=id=>document.getElementById(id);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const POLL_NO=900;
+const POLL_Q=`Súhlasíš, aby <b>Peto</b> dostal <b>7 bodov</b> za zápas <b>Kanada–Maroko</b>? Tipol <b>0:2</b>, no Maroko dalo gól v <b>98. minúte</b> na 0:3.`;
+let POLL_VOTER=null;
 function showThanks(name){
+ POLL_VOTER=name;
  $("modalBody").innerHTML=`<div style="text-align:center;padding:6px 2px">
    <div style="font-size:2.4rem;line-height:1">🎉</div>
    <div style="font-weight:800;font-size:1.25rem;margin:8px 0 4px">${esc(name)}, ďakujem za tvoj tip!</div>
    <p class="note" style="font-size:1.02rem;line-height:1.6;color:#cdd2db;margin:0">
-     Prajem ti veľa šťastia… ale nech aj tak vyhrá <b style="color:#b89b54">Peter</b> 😂</p></div>`;
+     Prajem ti veľa šťastia… ale nech aj tak vyhrá <b style="color:#b89b54">Peter</b> 😂</p>
+   <div style="margin-top:16px;border-top:1px solid #333;padding-top:14px;text-align:left">
+     <div style="font-weight:700;margin-bottom:6px">🗳️ Hlasovanie</div>
+     <p class="note" style="color:#cdd2db;line-height:1.55;margin:0 0 10px">${POLL_Q}</p>
+     <div id="pollBtns" style="text-align:center"></div>
+     <div id="pollMsg" class="note" style="margin-top:10px;text-align:center"></div>
+   </div></div>`;
  $("modal").classList.add("show");
+ renderPoll(null);
+ sb.from("predictions").select("advancer").eq("player",name).eq("match_no",POLL_NO)
+   .then(({data})=>renderPoll(data&&data[0]?data[0].advancer:null));
+}
+function renderPoll(cur){
+ const el=$("pollBtns"); if(!el)return;
+ const mk=(val,label,col)=>`<button class="btn" style="width:auto;display:inline-block;margin:0 5px;padding:9px 20px;${cur===val?`background:${col};border-color:${col};color:#fff`:''}" onclick="castVote('${val}')">${label}</button>`;
+ el.innerHTML=mk('áno','✅ Áno','#2e7d46')+mk('nie','❌ Nie','#a33');
+ const m=$("pollMsg"); if(m)m.innerHTML=cur?`Tvoj hlas: <b>${cur==='áno'?'ÁNO':'NIE'}</b> — vieš ho zmeniť kliknutím.`:'';
+}
+async function castVote(val){
+ if(!POLL_VOTER){toast('Najprv odošli tip');return;}
+ const{error}=await sb.from("predictions").upsert([{player:POLL_VOTER,match_no:POLL_NO,advancer:val}],{onConflict:"player,match_no"});
+ if(error){const m=$("pollMsg");if(m)m.innerHTML='<span style="color:#e88">Chyba: '+esc(error.message)+'</span>';return;}
+ renderPoll(val); toast('Hlas zaznamenaný: '+(val==='áno'?'ÁNO':'NIE'));
 }
 const iv=v=>{v=parseInt(v);return isNaN(v)?null:v;};
 function toast(t){const e=$("toast");e.textContent=t;e.classList.add("show");setTimeout(()=>e.classList.remove("show"),2200);}
@@ -671,7 +696,8 @@ function renderAdmin(){
      <input type="password" id="pin" placeholder="PIN"><button class="btn" onclick="checkPin()">Vstúpiť</button></div>`;
    return;
  }
- let h=`<p class="note">Zadaj skutočné výsledky. Po uložení sa tabuľka prepočíta a daný zápas sa hráčom zamkne.</p>`;
+ let h=`<div class="card"><div style="font-weight:700;margin-bottom:6px">🗳️ Hlasovanie: 7 bodov pre Peta (Kanada–Maroko)</div><div id="pollAdminBody" class="note">Načítavam…</div></div>
+   <p class="note">Zadaj skutočné výsledky. Po uložení sa tabuľka prepočíta a daný zápas sa hráčom zamkne.</p>`;
  M.forEach(m=>{const[no,A,B,when]=m;const R=RESULTS[no]||{};
   h+=`<div class="card"><div class="mhead"><span>M${no} · ${when}</span><span>${R.finished?'<span class="fin">✓ uložené</span>':''}</span></div>
    <div class="teams"><div class="tn r">${A}${flag(A)}</div>
@@ -684,6 +710,19 @@ function renderAdmin(){
    <button class="btn gold" style="margin-top:10px;padding:10px" onclick="saveResult(${no})">Uložiť výsledok M${no}</button></div>`;
  });
  $("s-adm").innerHTML=h;
+ loadPollAdmin();
+}
+async function loadPollAdmin(){
+ const{data}=await sb.from("predictions").select("player,advancer,created_at").eq("match_no",POLL_NO).order("created_at");
+ const rows=data||[]; const el=$("pollAdminBody"); if(!el)return;
+ const yes=rows.filter(r=>r.advancer==='áno').length, no=rows.filter(r=>r.advancer==='nie').length;
+ let b=`<div style="margin-bottom:8px"><b style="color:#4caf72">Áno: ${yes}</b> · <b style="color:#e07a7a">Nie: ${no}</b> · spolu ${rows.length}</div>`;
+ if(rows.length){
+   b+='<table style="font-size:.85rem"><thead><tr><th>Hráč</th><th>Hlas</th></tr></thead><tbody>';
+   rows.forEach(r=>{b+=`<tr><td>${esc(r.player)}</td><td>${r.advancer==='áno'?'✅ Áno':(r.advancer==='nie'?'❌ Nie':esc(r.advancer||'?'))}</td></tr>`;});
+   b+='</tbody></table>';
+ } else b='Zatiaľ nikto nehlasoval.';
+ el.innerHTML=b;
 }
 function checkPin(){if($("pin").value===ADMIN_PIN){sessionStorage.setItem("adm","1");renderAdmin();}else toast("Zlý PIN");}
 async function saveResult(no){
