@@ -187,16 +187,18 @@ const POLL_NO=900;
 const POLL_Q=`Súhlasíš, aby <b>Peto</b> dostal <b>7 bodov</b> za zápas <b>Kanada–Maroko</b>? Tipol <b>0:2</b>, no Maroko dalo gól v <b>98. minúte</b> na 0:3. 😅`;
 let POLL_VOTER=null;
 let MODAL_LOCK=false;
-function showThanks(name){
+function showThanks(name,rows){
+ const gave21=!!(rows&&rows.some(r=>(r.t1_90===2&&r.t2_90===1)||(r.t1_90===1&&r.t2_90===2)));
  $("modalBody").innerHTML=`<div style="text-align:center;padding:6px 2px">
    <div style="font-size:2.4rem;line-height:1">🎉</div>
    <div style="font-weight:800;font-size:1.25rem;margin:8px 0 4px">${esc(name)}, ďakujem za tvoj tip!</div>
    <p class="note" style="font-size:1.02rem;line-height:1.6;color:#cdd2db;margin:0">
      Prajem ti veľa šťastia… ale nech aj tak vyhrá <b style="color:#b89b54">Peter</b> 😂</p>
-   <div id="standingMsg" class="note" style="font-size:1rem;line-height:1.6;color:#cdd2db;margin:10px 0 0;min-height:1.2em"></div></div>`;
+   <div id="standingMsg" class="note" style="font-size:1rem;line-height:1.6;color:#cdd2db;margin:10px 0 0;min-height:1.2em"></div>
+   <div id="avaMsg" class="note" style="font-size:1rem;line-height:1.6;color:#e6c86a;margin:8px 0 0"></div></div>`;
  MODAL_LOCK=false; const cb=$("modalClose"); if(cb)cb.style.display='';
  $("modal").classList.add("show");
- fillStanding(name);
+ fillStanding(name,gave21);
 }
 // ---- ďakovné okno: kde hráč stojí voči Petovi (rodovo správne) ----
 const WOMEN=new Set(["Luc","Remca"]);
@@ -226,15 +228,29 @@ function standingText(name,rank,n,my,peto){
  else rel=`Držíš s <b>Petom</b> presný krok — obaja ${my}. Rozhodne sa až teraz! ⚔️`;
  return pos+rel;
 }
-async function fillStanding(name){
+function avalancheJoke(n){
+ const L=[
+  `😏 A zas <b>2:1 / 1:2</b>? To je už tvoj <b>${n}.</b> takýto tip — Avalanche, ty vážne nemáš iný obľúbený výsledok? 😄`,
+  `🎯 Detektor <b>2:1 / 1:2</b> zapískal! Už <b>${n}×</b> tá istá pesnička — konzistencia ako hodinky. ⏰`,
+  `🔁 Iní menia taktiku, ty len prehodíš tímy: <b>${n}.</b> gól na <b>2:1 / 1:2</b>. Drž sa toho! 😎`,
+  `🧠 Tvoj tajný vzorec „vždy 2:1 alebo 1:2" žije — už <b>${n}×</b>. Keby dávali body za vernosť receptu, si majster sveta. 🏆`,
+  `📈 Štatistický fenomén Avalanche: <b>${n}×</b> tip <b>2:1 / 1:2</b>. Bookmakeri ťa už majú v merku. 🕵️`
+ ];
+ return L[Math.floor(Math.random()*L.length)];
+}
+async function fillStanding(name,gave21){
  try{
    await loadResults();
    const{data:preds}=await sb.from("predictions").select("*");
    const tot=playerTotals(preds);
    const humans=Object.keys(tot).filter(p=>p!==ROBIN_NAME);
    humans.sort((a,b)=>(tot[b]-tot[a])||a.localeCompare(b,'sk'));
-   const el=$("standingMsg"); if(!el)return;
-   el.innerHTML=standingText(name,humans.indexOf(name)+1,humans.length,tot[name]||0,tot["Peto"]||0);
+   const el=$("standingMsg"); if(el)el.innerHTML=standingText(name,humans.indexOf(name)+1,humans.length,tot[name]||0,tot["Peto"]||0);
+   const av=$("avaMsg");
+   if(av&&name==="Avalanche"&&gave21){
+     const n=(preds||[]).filter(p=>p.player==="Avalanche"&&((p.t1_90===2&&p.t2_90===1)||(p.t1_90===1&&p.t2_90===2))).length;
+     av.innerHTML=avalancheJoke(n);
+   }
  }catch(e){}
 }
 function renderPoll(cur){
@@ -410,7 +426,7 @@ async function submitTips(){
  if(rows.length){const{error}=await sb.from("predictions").upsert(rows,{onConflict:"player,match_no"}); if(error){toast("Chyba: "+error.message);return;}}
  if(champSave){const{error}=await sb.from("predictions").upsert([{player,match_no:0,advancer:champ}],{onConflict:"player,match_no"}); if(error){toast("Chyba (víťaz): "+error.message);return;} $("champcur").textContent="Aktuálne tipuješ: "+champ;}
  toast("Uložené ✅"+(rows.length?" ("+rows.length+" zápasov)":"")+(champSave?" · víťaz: "+champ:"")+(lockedSkipped?" · "+lockedSkipped+" uzamknutých":""));
- showThanks(player);
+ showThanks(player,rows);
 }
 
 // ================= TABUĽKA =================
