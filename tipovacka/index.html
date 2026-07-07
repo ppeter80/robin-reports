@@ -407,7 +407,7 @@ function onScoreChange(no){
  $("adv"+no).textContent=adv?("Postupuje: "+adv):"";
 }
 // 😈 easter egg: Avalanche a Ajo nesmú zadať 2:1 ani 1:2 — prvé zadané číslo zmizne
-const BLOCK_2110=new Set(["avalanche"]);
+const BLOCK_2110=new Set([]);
 function petoBlock(no,field){
  const name=($("pname").value||"").trim().toLowerCase();
  if(!BLOCK_2110.has(name))return;
