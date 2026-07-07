@@ -169,7 +169,7 @@ async function loadRobin(){try{const r=await fetch("robin_tips.json?t="+Date.now
 function showRobin(no){const t=ROBIN_TIPS[no];if(!t)return;const tt=TEAM[no]||["",""];
  $("modalBody").innerHTML=`<div style="font-weight:800;font-size:1.05rem">🤖 Tip Robin</div>
   <div class="note" style="margin:2px 0 8px">${flag(tt[0])}${tt[0]} – ${flag(tt[1])}${tt[1]}</div>
-  <div style="color:#b89b54;font-weight:700;font-size:1.05rem;margin-bottom:8px">Tip: ${t.score}${t.adv?" → postupuje "+t.adv:""}</div>
+  <div style="color:#b89b54;font-weight:700;font-size:1.05rem;margin-bottom:8px">Tip: ${t.score}${t.et?" · predĺženie "+t.et:""}${t.pen?" · penalty "+t.pen:""}${t.adv?" → postupuje "+t.adv:""}</div>
   <p class="note" style="line-height:1.6;color:#cdd2db;margin:0">${t.text}</p>`;
  $("modal").classList.add("show");}
 function robinBtn(no){return ROBIN_TIPS[no]?`<div style="text-align:center;margin-top:8px"><span class="clk" style="color:#b89b54;font-weight:600" onclick="showRobin(${no})">🤖 Tip Robin</span></div>`:"";}
