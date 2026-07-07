@@ -376,7 +376,7 @@ function renderTip(){
  h+=`<button class="btn" onclick="submitTips()">Odoslať moje tipy ✅</button>
    <p class="note">Tip vieš kedykoľvek prepísať (rovnakým menom) — kým sa zápas neodohrá. Po odohratí sa zamkne.</p>`;
  $("s-tip").innerHTML=h;
- M.forEach(m=>{const no=m[0];["a","b","ae","be","pa","pb"].forEach(p=>{const el=$(p+no);if(el)el.oninput=()=>onScoreChange(no);});const pw=$("pw"+no);if(pw)pw.onchange=()=>onScoreChange(no);});
+ M.forEach(m=>{const no=m[0];["a","b","ae","be","pa","pb"].forEach(p=>{const el=$(p+no);if(el)el.oninput=()=>{onScoreChange(no); if(p==='a'||p==='b') petoBlock(no,p);};});const pw=$("pw"+no);if(pw)pw.onchange=()=>onScoreChange(no);});
  loadChampion();
 }
 async function loadChampion(){
@@ -405,6 +405,17 @@ function onScoreChange(no){
  const pw=penWinner(no,drawET);
  const adv=advFromScores(a,b,ae,be,pw,no);
  $("adv"+no).textContent=adv?("Postupuje: "+adv):"";
+}
+// 😈 easter egg: Peto nesmie zadať 2:1 ani 1:2 — prvé zadané číslo zmizne
+function petoBlock(no,field){
+ const name=($("pname").value||"").trim().toLowerCase();
+ if(name!=="peto")return;
+ const a=iv($("a"+no).value),b=iv($("b"+no).value);
+ if((a===2&&b===1)||(a===1&&b===2)){
+   const other=field==='a'?'b':'a';
+   const el=$(other+no); if(el)el.value="";
+   onScoreChange(no);
+ }
 }
 async function submitTips(){
  const player=$("pname").value.trim();
