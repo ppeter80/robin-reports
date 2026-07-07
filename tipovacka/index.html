@@ -178,8 +178,13 @@ const ROBIN_NAME="🤖 Robin";
 function robinPreds(){const m={};for(const no in ROBIN_TIPS){const t=ROBIN_TIPS[no];if(!t||!t.score)continue;
   const mm=String(t.score).match(/(\d+)\s*:\s*(\d+)/);if(!mm)continue;const a=+mm[1],b=+mm[2];
   const draw=(a===b);
-  m[no]={match_no:+no,t1_90:a,t2_90:b,t1_et:null,t2_et:null,pen_t1:null,pen_t2:null,
-    pen_winner:draw?(t.adv||null):null,advancer:t.adv||advFromScores(a,b,null,null,null,+no)};}
+  let ae=null,be=null,pa=null,pb=null;
+  if(draw){
+    if(t.et){const em=String(t.et).match(/(\d+)\s*:\s*(\d+)/);if(em){ae=+em[1];be=+em[2];}}
+    if(t.pen){const pm=String(t.pen).match(/(\d+)\s*:\s*(\d+)/);if(pm){pa=+pm[1];pb=+pm[2];}}
+  }
+  m[no]={match_no:+no,t1_90:a,t2_90:b,t1_et:ae,t2_et:be,pen_t1:pa,pen_t2:pb,
+    pen_winner:draw?(t.adv||null):null,advancer:t.adv||advFromScores(a,b,ae,be,null,+no)};}
   return m;}
 const $=id=>document.getElementById(id);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
