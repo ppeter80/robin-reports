@@ -496,38 +496,11 @@ async function loadBoard(){
 }
 
 // ================= ŠTATISTIKA =================
-function statAnnouncement(rows){
- const finR32=M.filter(m=>RESULTS[m[0]]&&RESULTS[m[0]].finished).length;
- if(finR32<16) return `<div class="card" style="border:1px dashed #444"><p class="note" style="margin:0">🏁 <b>Vyhlásenie výsledkov</b> sa zobrazí po dohratí všetkých 16 zápasov šestnásťfinále (zatiaľ ${finR32}/16).</p></div>`;
- const hum=rows.filter(r=>r.pl!==ROBIN_NAME); if(!hum.length) return "";
- const L=hum[0],s2=hum[1],s3=hum[2],last=hum[hum.length-1];
- const rob=rows.find(r=>r.pl===ROBIN_NAME);
- const peto=hum.find(r=>/^pe[tť]o$/i.test(r.pl));
- const maxPct=Math.max(...rows.map(r=>r.pct));
- let a=`<div class="card" style="background:#0d0d12;border:1px solid #333">
-   <div style="font-weight:800;font-size:1.05rem;color:#8a8f98;margin-bottom:6px">📢 Vyhlásenie po šestnásťfinále</div>
-   <p style="line-height:1.65;color:#9aa0aa;margin:0;font-size:.95rem">`;
- a+=`Dámy a páni, prvé kolo je za nami a poradie má jasné kontúry! `;
- a+=`🥇 Na čele s prehľadom kraľuje <b>${esc(L.pl)}</b> — <b>${L.body} bodov</b>${L.p90?` a ${L.p90} presných výsledkov`:""}, žiadne zľutovanie. `;
- if(s2){ if(s3&&s2.body===s3.body) a+=`V pätách mu dýcha dvojica <b>${esc(s2.pl)}</b> a <b>${esc(s3.pl)}</b> — obaja ${s2.body}, plece pri pleci. `;
-   else a+=`Prenasleduje ho <b>${esc(s2.pl)}</b> (${s2.body} b). `; }
- if(peto&&peto!==L&&peto!==last) a+=`V hustom strede pelotónu sa krčí aj náš organizátor <b>${esc(peto.pl)}</b> (${peto.body} b) — a áno, motto „nech vyhrá Peter" zatiaľ vyzerá skôr ako zbožné prianie 😅. `;
- if(last&&last!==L) a+=`Na chvoste ľudského poľa statočne drží baštu <b>${esc(last.pl)}</b> (${last.body} b) — však niekto to robiť musí 🫡. `;
- if(rob) a+=`A potom je tu <b>🤖 Robin</b>. Podľa pravidiel večný posledný… lenže s <b>${rob.pct} %</b> úspešnosťou má ${rob.pct>=maxPct?"najlepšie oko z celej ligy":"slušnú mušku"} — len začal tipovať neskoro. Stroj sa nesťažuje. Stroj čaká. 🤫 `;
- if(L.pct<50) a+=`Nikto zatiaľ neprekročil 50 % — tipovanie je zjavne ťažšie než hádanie počasia. `;
- a+=`Osemfinále rozdá nové karty. Držte si klobúky! 🎩</p></div>`;
- return a;
-}
-async function loadStats(){
- $("s-stat").innerHTML='<p class="note">Načítavam…</p>';
- await loadResults(); await loadRobin();
- const{data:preds}=await sb.from("predictions").select("*");
- const players={};(preds||[]).forEach(p=>{players[p.player]=players[p.player]||{};players[p.player][p.match_no]=p;});
- players[ROBIN_NAME]=robinPreds();
- const me=localStorage.getItem("tip_name")||"";
- const rows=Object.keys(players).map(pl=>{
+const R16NOS=[89,90,91,92,93,94,95,96];
+function statRows(players,nos){
+ return Object.keys(players).map(pl=>{
    let body=0,maxM=0,p90=0,pred=0,pen=0,postup=0,b7=0,b3=0,b2=0,b1=0,b0=0,bine=0,tipped=0;
-   for(const m of M){const no=m[0];const R=RESULTS[no];const P=players[pl][no];
+   for(const no of nos){const R=RESULTS[no];const P=players[pl][no];
      if(!R||!R.finished||!P)continue;
      tipped++;
      const pts=scoreOne(P,R)||0; body+=pts; maxM+=R.went_pens?12:7;
@@ -541,9 +514,10 @@ async function loadStats(){
    return {pl,body,maxM,pct:maxM?Math.round(body/maxM*100):0,p90,pred,pen,postup,b7,b3,b2,b1,b0,bine,tipped};
  }).filter(r=>r.tipped>0)
    .sort((x,y)=> x.pl===ROBIN_NAME?1 : y.pl===ROBIN_NAME?-1 : (y.body-x.body)||(y.pct-x.pct)||x.pl.localeCompare(y.pl,'sk'));
+}
+function statTable(rows,me){
  const anyIne=rows.some(r=>r.bine>0);
- let h=statAnnouncement(rows)+`<div class="card"><p class="note" style="margin-top:0">Štatistika po odohratých zápasoch. „Max" = 7 b za rozhodnutý zápas, 12 b za penaltový; <b>%</b> = body / max. 🤖 Robin ráta len zápasy, ktoré tipoval.</p>
-   <div style="overflow-x:auto"><table style="font-size:.78rem;white-space:nowrap"><thead><tr>
+ let h=`<div style="overflow-x:auto"><table style="font-size:.78rem;white-space:nowrap"><thead><tr>
    <th class="rank">#</th><th>Hráč</th><th class="r">Body</th><th class="r">Max</th><th class="r">%</th>
    <th class="r">Post</th><th class="r">P90'</th><th class="r">Pred</th><th class="r">Pen</th>
    <th class="r">7+</th><th class="r">3</th><th class="r">2</th><th class="r">1</th><th class="r">0</th>${anyIne?'<th class="r">iné</th>':''}</tr></thead><tbody>`;
@@ -553,8 +527,47 @@ async function loadStats(){
    <td class="r">${r.postup}</td><td class="r">${r.p90}</td><td class="r">${r.pred}</td><td class="r">${r.pen}</td>
    <td class="r">${r.b7}</td><td class="r">${r.b3}</td><td class="r">${r.b2}</td><td class="r">${r.b1}</td><td class="r">${r.b0}</td>${anyIne?`<td class="r">${r.bine}</td>`:''}</tr>`;
  });
- h+=`</tbody></table></div></div>
-   <div class="card"><p class="note" style="margin:0"><b>Legenda:</b> Post = správne postupy · P90' = presný výsledok po 90' · Pred = presné predĺženie · Pen = presné penalty · 7+/3/2/1/0 = počet zápasov s daným ziskom bodov${anyIne?' · iné = ostatné hodnoty (napr. starý zápas M73)':''}.</p></div>`;
+ h+=`</tbody></table></div>`;
+ return h;
+}
+function statAnnouncement(rows,players){
+ const finR16=R16NOS.filter(no=>RESULTS[no]&&RESULTS[no].finished).length;
+ if(finR16<8) return `<div class="card" style="border:1px dashed #444"><p class="note" style="margin:0">📢 <b>Vyhlásenie po osemfinále</b> sa zobrazí po dohratí všetkých 8 zápasov osemfinále (zatiaľ ${finR16}/8).</p></div>`;
+ const hum=rows.filter(r=>r.pl!==ROBIN_NAME); if(!hum.length) return "";
+ const by=n=>rows.find(r=>r.pl===n);
+ let avc=0; const ap=players['Avalanche']||{};
+ for(const k in ap){const p=ap[k]; if(p&&((p.t1_90===2&&p.t2_90===1)||(p.t1_90===1&&p.t2_90===2)))avc++;}
+ const rob=by(ROBIN_NAME); const L=hum[0];
+ let a=`<div class="card" style="background:#0d0d12;border:1px solid #333">
+   <div style="font-weight:800;font-size:1.05rem;color:#ffce4a;margin-bottom:8px">🏆 Osemfinále je za nami — čo hovorí tabuľka?</div>
+   <p style="line-height:1.7;color:#cdd2db;margin:0;font-size:.95rem">`;
+ a+=`Na čele je <b>${esc(L.pl)}</b> (${L.body} b) — a najväčšia záhada sezóny je <b>Avalanche</b>: tipuje donekonečna <b>2:1 alebo 1:2</b> (narátali sme mu ich už <b>${avc}</b>! 🎯) a aj tak je úplne hore. Buď génius, alebo mu ten lístok vypĺňa niekto múdrejší. 😅<br><br>`;
+ a+=`Skutočné hviezdy sú ale inde: <b>Luc</b> a <b>Remca</b> 💅👑 — dve dámy, ktoré nechali väčšinu chalanov ďaleko za sebou. Priznajme si — je dosť trápne, keď vám ženy ukazujú, ako sa tipuje futbal.<br><br>`;
+ a+=`Náš <b>Messi</b> 🇦🇷 — k tomu argentínskemu má poriadne ďaleko. Kým Lionel zbiera trofeje, náš Messi zbiera… koniec tabuľky. Menovec by ticho zaslzil. 😢<br><br>`;
+ a+=`<b>Rasťo</b> 🇩🇪 tipuje z Nemecka — a preňho sa majstrovstvá skončili už v šestnásťfinále, keď Nemecko vypadlo. Samozrejme im tipol výhru → 0 bodov → a odvtedy vypĺňa lístky už len zo zvyku a s nemeckou dôkladnosťou smúti. ⚰️<br><br>`;
+ a+=`<b>Stevo</b> 🎲 je majster chaosu — jeho tipy sú čistá lotéria: raz 3:1, raz 1:3, raz 2:0… systém žiadny. Keď trafí, tak naplno, keď nie, tak úplne mimo. Buď hviezda, alebo strelec bez mušky.<br><br>`;
+ a+=`<b>PaloP</b>, kamoš — spodná časť tabuľky, ale hlavu hore! 😍 Robin to cíti jasne: tvoje šťastie nie je v tipovačke, ale doma — kde ťa čaká <b>žena 10/10</b>. Ten koniec pola si tak neber, ty máš vyhraté inde.<br><br>`;
+ if(rob){const beat=hum.filter(r=>r.body<rob.body).length; a+=`A napokon <b>🤖 Robin</b> (áno, ja): natipovala som si <b>${rob.body} bodov</b> — čím by som porazila ${beat} ${beat===1?'hráča':'hráčov'} a pokojne sedela v strede. Ale ako slušný robot stojím dobrovoľne posledná, nech si tie body rozdajú ľudia. 😇<br><br>`;}
+ a+=`Tabuľka žije, nič nie je stratené — a <b>Peto</b> stále verí, že to celé vyhrá. 😂`;
+ a+=`</p></div>`;
+ return a;
+}
+async function loadStats(){
+ $("s-stat").innerHTML='<p class="note">Načítavam…</p>';
+ await loadResults(); await loadRobin();
+ const{data:preds}=await sb.from("predictions").select("*");
+ const players={};(preds||[]).forEach(p=>{players[p.player]=players[p.player]||{};players[p.player][p.match_no]=p;});
+ players[ROBIN_NAME]=robinPreds();
+ const me=localStorage.getItem("tip_name")||"";
+ const allNos=M.map(m=>m[0]);
+ const rows=statRows(players,allNos);
+ const r16rows=statRows(players,R16NOS.filter(no=>allNos.includes(no)));
+ const finR16=R16NOS.filter(no=>RESULTS[no]&&RESULTS[no].finished).length;
+ const anyIne=rows.some(r=>r.bine>0);
+ let h=statAnnouncement(rows,players);
+ h+=`<div class="card"><p class="note" style="margin-top:0"><b>📊 Celková tabuľka.</b> „Max" = 7 b za rozhodnutý zápas, 12 b za penaltový; <b>%</b> = body / max. 🤖 Robin ráta len zápasy, ktoré tipoval.</p>${statTable(rows,me)}</div>`;
+ h+=`<div class="card"><p class="note" style="margin-top:0"><b>🏆 Osemfinále — tabuľka bodov</b> (zatiaľ ${finR16}/8 zápasov). Kto ako tipoval v osemfinále a kto tam získal najviac bodov.</p>${r16rows.length?statTable(r16rows,me):'<p class="note">Zatiaľ žiadne odohraté zápasy osemfinále.</p>'}</div>`;
+ h+=`<div class="card"><p class="note" style="margin:0"><b>Legenda:</b> Post = správne postupy · P90' = presný výsledok po 90' · Pred = presné predĺženie · Pen = presné penalty · 7+/3/2/1/0 = počet zápasov s daným ziskom bodov${anyIne?' · iné = ostatné hodnoty (napr. starý zápas M73)':''}.</p></div>`;
  $("s-stat").innerHTML=h;
 }
 
