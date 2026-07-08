@@ -72,6 +72,7 @@ th{color:var(--mut);font-weight:600;font-size:.72rem}
 <div id="print"></div>
 <div id="toast"></div>
 
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <script>
 const $=id=>document.getElementById(id);
 const LS={get:(k,d)=>{try{return JSON.parse(localStorage.getItem('practeo_'+k))??d}catch(e){return d}},set:(k,v)=>localStorage.setItem('practeo_'+k,JSON.stringify(v))};
@@ -233,9 +234,9 @@ function renderNak(){
   <div class="row"><div><label>Kategória</label><select id="e_kat">${KAT.map(k=>`<option>${esc(k)}</option>`).join('')}</select></div>
   <div><label>DPH na vstupe</label><select id="e_dph"><option value="none">bez DPH</option><option value="23">23 %</option><option value="5">5 %</option><option value="19">19 %</option></select></div></div>
   <label style="margin-top:8px"><input type="checkbox" id="e_uzn" checked style="width:auto;margin-right:6px;vertical-align:middle">Uznateľný náklad</label>
-  <label>Doklad (foto)</label><input type="file" accept="image/*" id="e_foto" onchange="loadFoto(this)">
+  <label>Doklad (foto) — appka ho prečíta a predvyplní</label><input type="file" accept="image/*" id="e_foto" onchange="loadFoto(this)">
   <div id="e_fotoprev"></div>
-  <div class="help">📸 Automatické čítanie z fotky (OCR) pridáme v cloudovej verzii. Teraz doklad odfotíš a priložíš, sumu zadáš ručne.</div>
+  <div class="help">📸 Odfoť doklad → appka prečíta <b>sumu a dátum</b>, ty len skontroluj a oprav. (Prvé čítanie chvíľu trvá — sťahuje slovenský slovník; potom je rýchle.)</div>
   <div style="margin-top:8px"><button class="act" onclick="addExp()">Pridať náklad</button></div></div>
   <div class="card"><b>Náklady (${EXP.length})</b>`;
  if(!EXP.length)h+='<p class="mut">Zatiaľ žiadne.</p>';
@@ -244,7 +245,33 @@ function renderNak(){
   h+='</tbody></table>'}
  h+='</div>';$('s-nak').innerHTML=h;curExpFoto=null;
 }
-function loadFoto(inp){const f=inp.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{const img=new Image();img.onload=()=>{const cv=document.createElement('canvas');const mx=900;let w=img.width,ht=img.height;if(w>mx){ht=Math.round(ht*mx/w);w=mx}cv.width=w;cv.height=ht;cv.getContext('2d').drawImage(img,0,0,w,ht);try{curExpFoto=cv.toDataURL('image/jpeg',0.6)}catch(e){curExpFoto=null}$('e_fotoprev').innerHTML=curExpFoto?`<img src="${curExpFoto}" style="max-width:150px;border-radius:8px;margin-top:6px">`:''};img.src=ev.target.result};r.readAsDataURL(f)}
+function loadFoto(inp){const f=inp.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{const img=new Image();img.onload=()=>{
+  const cv=document.createElement('canvas');const mx=1200;let w=img.width,ht=img.height;if(w>mx){ht=Math.round(ht*mx/w);w=mx}cv.width=w;cv.height=ht;cv.getContext('2d').drawImage(img,0,0,w,ht);
+  try{curExpFoto=cv.toDataURL('image/jpeg',0.6)}catch(e){curExpFoto=null}
+  $('e_fotoprev').innerHTML=(curExpFoto?`<img src="${curExpFoto}" style="max-width:150px;border-radius:8px;margin-top:6px">`:'')+'<div id="ocrst" class="mut" style="margin-top:6px">📸 Čítam doklad… (prvýkrát to chvíľu trvá)</div>';
+  runOCR(cv.toDataURL('image/jpeg',0.85));
+ };img.src=ev.target.result};r.readAsDataURL(f)}
+function runOCR(dataUrl){
+ const st=()=>$('ocrst');
+ if(typeof Tesseract==='undefined'){if(st())st().textContent='OCR nedostupné — zadaj údaje ručne.';return}
+ Tesseract.recognize(dataUrl,'slk+eng').then(({data})=>{
+   const p=parseDoklad(data.text||'');
+   if(p.sum&&$('e_sum')&&!$('e_sum').value)$('e_sum').value=p.sum;
+   if(p.date&&$('e_dat'))$('e_dat').value=p.date;
+   if(p.dod&&$('e_dod')&&!$('e_dod').value)$('e_dod').value=p.dod;
+   if(st())st().innerHTML='✅ Prečítané — skontroluj sumu/dátum a oprav, ak treba.';
+ }).catch(()=>{if(st())st().textContent='Nepodarilo sa prečítať — zadaj ručne.'});
+}
+function parseDoklad(t){
+ const res={};
+ const nums=(t.match(/\d[\d .]*[,.]\d{2}/g)||[]).map(x=>{let s=x.trim().replace(/\s/g,'');if(s.indexOf(',')>-1){s=s.replace(/\./g,'').replace(',','.')}return parseFloat(s)}).filter(n=>!isNaN(n)&&n>0&&n<1e7);
+ if(nums.length)res.sum=Math.max(...nums);
+ const dm=t.match(/(\d{1,2})[.\/-]\s?(\d{1,2})[.\/-]\s?(\d{2,4})/);
+ if(dm){let y=dm[3];if(y.length===2)y='20'+y;res.date=`${y}-${String(+dm[2]).padStart(2,'0')}-${String(+dm[1]).padStart(2,'0')}`}
+ const line=(t.split('\n').map(l=>l.trim()).filter(l=>l.length>2&&/[A-Za-zÁ-Žá-ž]/.test(l))[0]||'').slice(0,40);
+ if(line)res.dod=line;
+ return res;
+}
 function addExp(){const s=+$('e_sum').value;if(!s){toast('Zadaj sumu');return}try{EXP.unshift({id:Date.now(),dat:$('e_dat').value,dod:$('e_dod').value,pop:$('e_pop').value,kat:$('e_kat').value,sum:s,dph:$('e_dph').value,uzn:$('e_uzn').checked,foto:curExpFoto});LS.set('expenses',EXP)}catch(e){toast('Chyba: fotka je asi priveľká');return}toast('Náklad pridaný ✅');renderNak()}
 function delExp(id){EXP=EXP.filter(e=>e.id!==id);LS.set('expenses',EXP);renderNak()}
 function viewFoto(id){const e=EXP.find(x=>x.id===id);if(e&&e.foto){const w=window.open();w.document.write('<img src="'+e.foto+'" style="max-width:100%">')}}
