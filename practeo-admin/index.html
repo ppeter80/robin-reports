@@ -140,6 +140,7 @@ async function init(){
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const eur=n=>(Math.round((+n||0)*100)/100).toLocaleString('sk-SK',{minimumFractionDigits:2,maximumFractionDigits:2})+' €';
 function toast(t){const e=$('toast');e.textContent=t;e.classList.add('show');setTimeout(()=>e.classList.remove('show'),2200)}
+let _uidLast=0;function uid(){let t=Date.now();if(t<=_uidLast)t=_uidLast+1;_uidLast=t;return t} // monotónne unikátne ID (žiadne kolízie pri rýchlom vytváraní)
 // režimy DPH (2026): 23 základná, 19 a 5 znížené, oslobodené (§38 prenájom), reverse charge
 const DPHM={
  none:{r:0,lbl:'Neplatiteľ DPH (bez DPH)'},
@@ -274,7 +275,7 @@ function saveInv(issue){cur.typ=$('f_typ').value;if($('f_ref'))cur.ref=$('f_ref'
  if(cur.cli==null){toast('Vyber klienta');return}if(!cur.items.some(it=>it.d)){toast('Pridaj aspoň 1 položku');return}
  cur.draft=!issue;
  if(issue){cur.no=$('f_no').value.trim();if(!cur.no)cur.no=nextNo(cur.typ);}else{cur.no='';}
- const ex=INV.findIndex(i=>i.id===cur.id);if(!cur.id)cur.id=Date.now();
+ const ex=INV.findIndex(i=>i.id===cur.id);if(!cur.id)cur.id=uid();
  if(ex>=0)INV[ex]=cur;else INV.unshift(cur);LS.set('invoices',INV);toast(issue?((TYPLBL[cur.typ]||'Doklad')+' vystavený ✅'):'Návrh uložený 📝');cur=null;tab('fak')}
 function issueDraft(id){const i=INV.find(x=>x.id===id);if(!i)return;if(!confirm('Vystaviť naostro? Pridelí sa reálne číslo a doklad sa stane daňovým dokladom.'))return;i.draft=false;i.no=nextNo(i.typ);LS.set('invoices',INV);renderFak();toast('Vystavené ✅ č. '+i.no)}
 
@@ -374,7 +375,7 @@ function parseDoklad(t){
  if(line)res.dod=line;
  return res;
 }
-function addExp(){const s=+$('e_sum').value;if(!s){toast('Zadaj sumu');return}try{EXP.unshift({id:Date.now(),dat:$('e_dat').value,dod:$('e_dod').value,pop:$('e_pop').value,kat:$('e_kat').value,sum:s,dph:$('e_dph').value,uzn:$('e_uzn').checked,foto:curExpFoto});LS.set('expenses',EXP)}catch(e){toast('Chyba: fotka je asi priveľká');return}toast('Náklad pridaný ✅');renderNak()}
+function addExp(){const s=+$('e_sum').value;if(!s){toast('Zadaj sumu');return}try{EXP.unshift({id:uid(),dat:$('e_dat').value,dod:$('e_dod').value,pop:$('e_pop').value,kat:$('e_kat').value,sum:s,dph:$('e_dph').value,uzn:$('e_uzn').checked,foto:curExpFoto});LS.set('expenses',EXP)}catch(e){toast('Chyba: fotka je asi priveľká');return}toast('Náklad pridaný ✅');renderNak()}
 function delExp(id){EXP=EXP.filter(e=>e.id!==id);LS.set('expenses',EXP);renderNak()}
 function viewFoto(id){const e=EXP.find(x=>x.id===id);if(e&&e.foto){const w=window.open();w.document.write('<img src="'+e.foto+'" style="max-width:100%">')}}
 
@@ -412,7 +413,7 @@ function addVoz(){const n=$('v_naz').value.trim();if(!n){toast('Zadaj názov voz
 function delVoz(i){VOZ.splice(i,1);LS.set('vehicles',VOZ);renderCes()}
 function nahrada(j){const v=VOZ[j.voz]||{};const zakl=(+j.km||0)*KMRATE;const phm=(+v.spot||0)/100*(+j.km||0)*(+v.cena||0);const diet=dietaFor(j.dietH);return{zakl,phm,diet,total:zakl+phm+diet}}
 function jazPrev(){const km=+$('j_km').value||0;const h=tripHours($('j_od').value,$('j_pr').value);const v=VOZ[+($('j_voz')||{}).value]||{};const zakl=km*KMRATE;const phm=(+v.spot||0)/100*km*(+v.cena||0);const diet=dietaFor(h);const p=$('j_prev');if(!p)return;p.style.display='';p.innerHTML=`Základná: <b>${eur(zakl)}</b> · ${v.pal==='elektro'?'Elektrina':'PHM'}: <b>${eur(phm)}</b> · Diéty${h?' ('+h.toFixed(1)+'h)':''}: <b>${eur(diet)}</b> → Spolu: <b>${eur(zakl+phm+diet)}</b>`}
-function addJaz(){if(!VOZ.length){toast('Najprv pridaj vozidlo');return}const km=+$('j_km').value;if(!km){toast('Zadaj km');return}const h=tripHours($('j_od').value,$('j_pr').value);JAZ.unshift({id:Date.now(),voz:+$('j_voz').value,km:km,from:$('j_from').value,to:$('j_to').value,ucel:$('j_ucel').value,od:$('j_od').value,pr:$('j_pr').value,dietH:h});LS.set('trips',JAZ);toast('Cesta uložená ✅');renderCes()}
+function addJaz(){if(!VOZ.length){toast('Najprv pridaj vozidlo');return}const km=+$('j_km').value;if(!km){toast('Zadaj km');return}const h=tripHours($('j_od').value,$('j_pr').value);JAZ.unshift({id:uid(),voz:+$('j_voz').value,km:km,from:$('j_from').value,to:$('j_to').value,ucel:$('j_ucel').value,od:$('j_od').value,pr:$('j_pr').value,dietH:h});LS.set('trips',JAZ);toast('Cesta uložená ✅');renderCes()}
 function delJaz(id){JAZ=JAZ.filter(j=>j.id!==id);LS.set('trips',JAZ);renderCes()}
 function cestPrikaz(id){const j=JAZ.find(x=>x.id===id);const v=VOZ[j.voz]||{};const n=nahrada(j);
  $('print').innerHTML=`<div class="inv"><h2>CESTOVNÝ PRÍKAZ</h2>
@@ -450,7 +451,7 @@ function dohPrev(){const t=$('d_typ');if(!t)return;const d={typ:t.value,odmena:+
  if(!d.odmena){p.style.display='none';return}p.style.display='';
  p.innerHTML=`Odvody zamestnanca: <b>${eur(c.ee)}</b> · Daň: <b>${eur(c.dan)}</b> → <b>Čistá odmena: ${eur(c.cista)}</b><br>Odvody zamestnávateľa: <b>${eur(c.er)}</b> → <b>Tvoj náklad: ${eur(c.naklad)}</b>${d.typ==='študent'&&d.odmena<=200?' · 🎯 do 200 € bez odvodov aj dane':''}`;
 }
-function addDoh(){const m=$('d_meno').value.trim();if(!m){toast('Zadaj meno');return}const o=+$('d_odm').value;if(!o){toast('Zadaj odmenu');return}DOH.unshift({id:Date.now(),meno:m,typ:$('d_typ').value,odmena:o,oop:$('d_oop').checked});LS.set('dohodari',DOH);toast('Dohodár uložený ✅');renderDoh()}
+function addDoh(){const m=$('d_meno').value.trim();if(!m){toast('Zadaj meno');return}const o=+$('d_odm').value;if(!o){toast('Zadaj odmenu');return}DOH.unshift({id:uid(),meno:m,typ:$('d_typ').value,odmena:o,oop:$('d_oop').checked});LS.set('dohodari',DOH);toast('Dohodár uložený ✅');renderDoh()}
 function delDoh(id){DOH=DOH.filter(d=>d.id!==id);LS.set('dohodari',DOH);renderDoh()}
 
 // ===== MAJETOK + ODPISY =====
@@ -472,7 +473,7 @@ function renderMaj(){
 }
 function majPrev(){const c=+($('m_cena')||{}).value||0;const sk=($('m_sk')||{}).value||'1';const o=majOdpis({cena:c,sk});const p=$('m_prev');if(!p)return;if(!c){p.style.display='none';return}p.style.display='';
  p.innerHTML=o.drobny?`Do 1 700 € → <b>priamy náklad ${eur(c)}</b> (neodpisuje sa)`:`Odpisuje sa <b>${o.roky} rokov</b> → ročný odpis <b>${eur(o.rocny)}</b>`;}
-function addMaj(){const n=$('m_naz').value.trim();if(!n){toast('Zadaj názov');return}const c=+$('m_cena').value;if(!c){toast('Zadaj cenu');return}MAJ.unshift({id:Date.now(),naz:n,cena:c,dat:$('m_dat').value,sk:$('m_sk').value});LS.set('assets',MAJ);toast('Majetok pridaný ✅');renderMaj()}
+function addMaj(){const n=$('m_naz').value.trim();if(!n){toast('Zadaj názov');return}const c=+$('m_cena').value;if(!c){toast('Zadaj cenu');return}MAJ.unshift({id:uid(),naz:n,cena:c,dat:$('m_dat').value,sk:$('m_sk').value});LS.set('assets',MAJ);toast('Majetok pridaný ✅');renderMaj()}
 function delMaj(id){MAJ=MAJ.filter(m=>m.id!==id);LS.set('assets',MAJ);renderMaj()}
 
 // ===== DASHBOARD / DPH PREHĽAD =====
