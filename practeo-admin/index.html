@@ -58,6 +58,7 @@ th{color:var(--mut);font-weight:600;font-size:.72rem}
     <button id="t-new" onclick="tab('new')">➕ Faktúra</button>
     <button id="t-nak" onclick="tab('nak')">🧾 Náklady</button>
     <button id="t-ces" onclick="tab('ces')">🚗 Cesty</button>
+    <button id="t-doh" onclick="tab('doh')">🧑‍🎓 Dohodári</button>
     <button id="t-cli" onclick="tab('cli')">👥 Klienti</button>
     <button id="t-set" onclick="tab('set')">⚙️ Nastavenia</button>
   </nav>
@@ -68,6 +69,7 @@ th{color:var(--mut);font-weight:600;font-size:.72rem}
   <div id="s-new" style="display:none"></div>
   <div id="s-nak" style="display:none"></div>
   <div id="s-ces" style="display:none"></div>
+  <div id="s-doh" style="display:none"></div>
   <div id="s-cli" style="display:none"></div>
   <div id="s-set" style="display:none"></div>
 </main>
@@ -107,6 +109,15 @@ const KAT=['Nájom / sídlo','Účtovníctvo / právne','Technika a softvér / A
 const VRATE={none:0,'23':0.23,'5':0.05,'19':0.19};
 let VOZ=LS.get('vehicles',[]);
 let JAZ=LS.get('trips',[]);
+let DOH=LS.get('dohodari',[]);
+const NCZD_M=5966.73/12;   // mesačná nezdaniteľná časť
+function dohCalc(d){
+ const o=+d.odmena||0;let ee=0,er=0,danZ;
+ if(d.typ==='iný'){ee=o*0.134;er=o*0.352;danZ=Math.max(0,o-ee-NCZD_M);}
+ else{const oop=d.oop!==false;const z=oop?Math.max(0,o-200):o;ee=z*0.07;er=o*0.0105+z*0.2175;
+   danZ=(d.typ==='dôchodca')?Math.max(0,o-ee):Math.max(0,o-ee-NCZD_M);}
+ const dan=danZ*0.19;return{o,ee,dan,cista:o-ee-dan,er,naklad:o+er};
+}
 const KMRATE=0.313;                 // základná náhrada €/km (2026)
 function dietaFor(h){if(h==null||h<5)return 0;if(h<=12)return 8.80;if(h<=18)return 13.10;return 19.50}
 function tripHours(od,pr){if(!od||!pr)return null;const a=new Date(od),b=new Date(pr);const h=(b-a)/3600000;return h>0?h:null}
@@ -118,8 +129,8 @@ function newInvoiceNo(){
  return `${y}${String(n).padStart(3,'0')}`;
 }
 
-function tab(t){for(const k of ['dash','fak','new','nak','ces','cli','set']){$('s-'+k).style.display=k===t?'':'none';$('t-'+k).classList.toggle('on',k===t)}
- if(t==='dash')renderDash();if(t==='fak')renderFak();if(t==='new')renderNew();if(t==='nak')renderNak();if(t==='ces')renderCes();if(t==='cli')renderCli();if(t==='set')renderSet()}
+function tab(t){for(const k of ['dash','fak','new','nak','ces','doh','cli','set']){$('s-'+k).style.display=k===t?'':'none';$('t-'+k).classList.toggle('on',k===t)}
+ if(t==='dash')renderDash();if(t==='fak')renderFak();if(t==='new')renderNew();if(t==='nak')renderNak();if(t==='ces')renderCes();if(t==='doh')renderDoh();if(t==='cli')renderCli();if(t==='set')renderSet()}
 
 // ===== NASTAVENIA =====
 function renderSet(){
@@ -334,6 +345,29 @@ function cestPrikaz(id){const j=JAZ.find(x=>x.id===id);const v=VOZ[j.voz]||{};co
   <div style="margin-top:24px;font-size:12px">Dátum a podpis: ......................................</div></div>`;
  window.print();
 }
+
+// ===== DOHODÁRI =====
+function renderDoh(){
+ let h=`<div class="card"><b>🧑‍🎓 Nový dohodár</b>
+  <label>Meno</label><input id="d_meno">
+  <div class="row"><div><label>Typ</label><select id="d_typ" onchange="dohPrev()"><option value="študent">Študent (DoBPŠ)</option><option value="dôchodca">Dôchodca</option><option value="iný">Iný dohodár (DPČ/DoVP)</option></select></div>
+  <div><label>Odmena mesačne (€)</label><input type="number" step="1" id="d_odm" oninput="dohPrev()"></div></div>
+  <label style="margin-top:8px"><input type="checkbox" id="d_oop" checked style="width:auto;margin-right:6px;vertical-align:middle" onchange="dohPrev()">Uplatňuje odvodovú výnimku (OOP 200 €) — študent/dôchodca</label>
+  <div id="d_prev" class="help" style="display:none"></div>
+  <div style="margin-top:8px"><button class="act" onclick="addDoh()">Uložiť dohodára</button></div></div>
+  <div class="card"><b>Dohodári (${DOH.length})</b>`;
+ if(!DOH.length)h+='<p class="mut">Zatiaľ žiadni.</p>';
+ else{h+='<table><thead><tr><th>Meno</th><th>Typ / odmena</th><th class="r">Čistá / náklad</th><th></th></tr></thead><tbody>';
+  DOH.forEach(d=>{const c=dohCalc(d);h+=`<tr><td>${esc(d.meno)}</td><td>${esc(d.typ)}<br><span class="mut">${eur(d.odmena)}/mes</span></td><td class="r">čistá <b>${eur(c.cista)}</b><br><span class="mut">náklad ${eur(c.naklad)}</span></td><td class="r"><button class="mini" onclick="delDoh(${d.id})">✕</button></td></tr>`});
+  h+='</tbody></table><p class="mut" style="margin-top:6px">„Čistá" = čo dostane dohodár; „náklad" = odmena + odvody zamestnávateľa (mesačne).</p>'}
+ h+='</div>';$('s-doh').innerHTML=h;dohPrev();
+}
+function dohPrev(){const t=$('d_typ');if(!t)return;const d={typ:t.value,odmena:+$('d_odm').value,oop:$('d_oop').checked};const c=dohCalc(d);const p=$('d_prev');if(!p)return;
+ if(!d.odmena){p.style.display='none';return}p.style.display='';
+ p.innerHTML=`Odvody zamestnanca: <b>${eur(c.ee)}</b> · Daň: <b>${eur(c.dan)}</b> → <b>Čistá odmena: ${eur(c.cista)}</b><br>Odvody zamestnávateľa: <b>${eur(c.er)}</b> → <b>Tvoj náklad: ${eur(c.naklad)}</b>${d.typ==='študent'&&d.odmena<=200?' · 🎯 do 200 € bez odvodov aj dane':''}`;
+}
+function addDoh(){const m=$('d_meno').value.trim();if(!m){toast('Zadaj meno');return}const o=+$('d_odm').value;if(!o){toast('Zadaj odmenu');return}DOH.unshift({id:Date.now(),meno:m,typ:$('d_typ').value,odmena:o,oop:$('d_oop').checked});LS.set('dohodari',DOH);toast('Dohodár uložený ✅');renderDoh()}
+function delDoh(id){DOH=DOH.filter(d=>d.id!==id);LS.set('dohodari',DOH);renderDoh()}
 
 // ===== DASHBOARD / DPH PREHĽAD =====
 function renderDash(){
