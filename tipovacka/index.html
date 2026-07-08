@@ -137,6 +137,7 @@ const M=[
  [97,"Francúzsko","Maroko","št 9.7. 22:00","2026-07-09T20:00:00Z"],
  [98,"Španielsko","Belgicko","pi 10.7. 21:00","2026-07-10T19:00:00Z"],
  [99,"Nórsko","Anglicko","so 11.7. 23:00","2026-07-11T21:00:00Z"],
+ [100,"Argentína","Švajčiarsko","ne 12.7. 03:00","2026-07-12T01:00:00Z"],
 ];
 const TEAM={};M.forEach(m=>TEAM[m[0]]=[m[1],m[2]]);
 const KO={};M.forEach(m=>KO[m[0]]=new Date(m[4]));
@@ -196,17 +197,11 @@ const POLL_Q=`Súhlasíš, aby <b>Peto</b> dostal <b>7 bodov</b> za zápas <b>Ka
 let POLL_VOTER=null;
 let MODAL_LOCK=false;
 function showThanks(name,rows){
- const gave21=!!(rows&&rows.some(r=>(r.t1_90===2&&r.t2_90===1)||(r.t1_90===1&&r.t2_90===2)));
  $("modalBody").innerHTML=`<div style="text-align:center;padding:6px 2px">
    <div style="font-size:2.4rem;line-height:1">🎉</div>
-   <div style="font-weight:800;font-size:1.25rem;margin:8px 0 4px">${esc(name)}, ďakujem za tvoj tip!</div>
-   <p class="note" style="font-size:1.02rem;line-height:1.6;color:#cdd2db;margin:0">
-     Prajem ti veľa šťastia… ale nech aj tak vyhrá <b style="color:#b89b54">Peter</b> 😂</p>
-   <div id="standingMsg" class="note" style="font-size:1rem;line-height:1.6;color:#cdd2db;margin:10px 0 0;min-height:1.2em"></div>
-   <div id="avaMsg" class="note" style="font-size:1rem;line-height:1.6;color:#e6c86a;margin:8px 0 0"></div></div>`;
+   <div style="font-weight:800;font-size:1.25rem;margin:8px 0 4px">${esc(name)}, ďakujeme za tvoj tip!</div></div>`;
  MODAL_LOCK=false; const cb=$("modalClose"); if(cb)cb.style.display='';
  $("modal").classList.add("show");
- fillStanding(name,gave21);
 }
 // ---- ďakovné okno: kde hráč stojí voči Petovi (rodovo správne) ----
 const WOMEN=new Set(["Luc","Remca"]);
