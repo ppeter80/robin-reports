@@ -53,15 +53,19 @@ th{color:var(--mut);font-weight:600;font-size:.72rem}
 <header>
   <h1>📊 Practeo Admin <span class="tag">Faktúry · prototyp</span></h1>
   <nav>
+    <button id="t-dash" onclick="tab('dash')">📈 Dashboard</button>
     <button id="t-fak" class="on" onclick="tab('fak')">🧾 Faktúry</button>
-    <button id="t-new" onclick="tab('new')">➕ Nová faktúra</button>
+    <button id="t-new" onclick="tab('new')">➕ Faktúra</button>
+    <button id="t-nak" onclick="tab('nak')">🧾 Náklady</button>
     <button id="t-cli" onclick="tab('cli')">👥 Klienti</button>
     <button id="t-set" onclick="tab('set')">⚙️ Nastavenia</button>
   </nav>
 </header>
 <main>
+  <div id="s-dash" style="display:none"></div>
   <div id="s-fak"></div>
   <div id="s-new" style="display:none"></div>
+  <div id="s-nak" style="display:none"></div>
   <div id="s-cli" style="display:none"></div>
   <div id="s-set" style="display:none"></div>
 </main>
@@ -95,6 +99,9 @@ function dphNote(m){
 let SUP=LS.get('supplier',{meno:'Practeo, s.r.o.',sidlo:'SNP 1786/72, 069 01 Snina',ico:'',dic:'',icdph:'',iban:'',konatel:'Ing. Peter Pčola'});
 let CLI=LS.get('clients',[]);
 let INV=LS.get('invoices',[]);
+let EXP=LS.get('expenses',[]);
+const KAT=['Nájom / sídlo','Účtovníctvo / právne','Technika a softvér / AI','Auto / PHM / servis','Telefón / internet','Cestovné / diéty','Marketing / web','Vzdelávanie / knihy','Poistenie','Bankové poplatky','Materiál / kancelária','Nehnuteľnosti (náklady)','Ostatné'];
+const VRATE={none:0,'23':0.23,'5':0.05,'19':0.19};
 
 let cur=null; // rozpracovaná faktúra
 function newInvoiceNo(){
@@ -103,8 +110,8 @@ function newInvoiceNo(){
  return `${y}${String(n).padStart(3,'0')}`;
 }
 
-function tab(t){for(const k of ['fak','new','cli','set']){$('s-'+k).style.display=k===t?'':'none';$('t-'+k).classList.toggle('on',k===t)}
- if(t==='fak')renderFak();if(t==='new')renderNew();if(t==='cli')renderCli();if(t==='set')renderSet()}
+function tab(t){for(const k of ['dash','fak','new','nak','cli','set']){$('s-'+k).style.display=k===t?'':'none';$('t-'+k).classList.toggle('on',k===t)}
+ if(t==='dash')renderDash();if(t==='fak')renderFak();if(t==='new')renderNew();if(t==='nak')renderNak();if(t==='cli')renderCli();if(t==='set')renderSet()}
 
 // ===== NASTAVENIA =====
 function renderSet(){
@@ -213,6 +220,54 @@ function previewInv(inv){
   <div style="margin-top:24px;font-size:12px">Vystavil: ${esc(SUP.konatel)}</div>
  </div>`;
  window.print();
+}
+
+// ===== NÁKLADY =====
+let curExpFoto=null;
+function renderNak(){
+ let h=`<div class="card"><b>Nový náklad</b>
+  <div class="row"><div><label>Dátum</label><input type="date" id="e_dat" value="${today()}"></div>
+  <div><label>Suma spolu (€)</label><input type="number" step="0.01" id="e_sum"></div></div>
+  <label>Dodávateľ</label><input id="e_dod">
+  <label>Popis</label><input id="e_pop">
+  <div class="row"><div><label>Kategória</label><select id="e_kat">${KAT.map(k=>`<option>${esc(k)}</option>`).join('')}</select></div>
+  <div><label>DPH na vstupe</label><select id="e_dph"><option value="none">bez DPH</option><option value="23">23 %</option><option value="5">5 %</option><option value="19">19 %</option></select></div></div>
+  <label style="margin-top:8px"><input type="checkbox" id="e_uzn" checked style="width:auto;margin-right:6px;vertical-align:middle">Uznateľný náklad</label>
+  <label>Doklad (foto)</label><input type="file" accept="image/*" id="e_foto" onchange="loadFoto(this)">
+  <div id="e_fotoprev"></div>
+  <div class="help">📸 Automatické čítanie z fotky (OCR) pridáme v cloudovej verzii. Teraz doklad odfotíš a priložíš, sumu zadáš ručne.</div>
+  <div style="margin-top:8px"><button class="act" onclick="addExp()">Pridať náklad</button></div></div>
+  <div class="card"><b>Náklady (${EXP.length})</b>`;
+ if(!EXP.length)h+='<p class="mut">Zatiaľ žiadne.</p>';
+ else{h+='<table><thead><tr><th>Dátum</th><th>Dodávateľ / kategória</th><th class="r">Suma</th><th></th></tr></thead><tbody>';
+  EXP.forEach(e=>{h+=`<tr><td>${esc(e.dat)}</td><td>${esc(e.dod||'—')}<br><span class="mut">${esc(e.kat)}${e.uzn?'':' · NEuzn.'}</span></td><td class="r"><b>${eur(e.sum)}</b>${e.dph!=='none'?`<br><span class="mut">DPH ${esc(e.dph)}%</span>`:''}</td><td class="r">${e.foto?`<button class="mini" onclick="viewFoto(${e.id})">🖼️</button>`:''}<button class="mini" onclick="delExp(${e.id})">✕</button></td></tr>`});
+  h+='</tbody></table>'}
+ h+='</div>';$('s-nak').innerHTML=h;curExpFoto=null;
+}
+function loadFoto(inp){const f=inp.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{const img=new Image();img.onload=()=>{const cv=document.createElement('canvas');const mx=900;let w=img.width,ht=img.height;if(w>mx){ht=Math.round(ht*mx/w);w=mx}cv.width=w;cv.height=ht;cv.getContext('2d').drawImage(img,0,0,w,ht);try{curExpFoto=cv.toDataURL('image/jpeg',0.6)}catch(e){curExpFoto=null}$('e_fotoprev').innerHTML=curExpFoto?`<img src="${curExpFoto}" style="max-width:150px;border-radius:8px;margin-top:6px">`:''};img.src=ev.target.result};r.readAsDataURL(f)}
+function addExp(){const s=+$('e_sum').value;if(!s){toast('Zadaj sumu');return}try{EXP.unshift({id:Date.now(),dat:$('e_dat').value,dod:$('e_dod').value,pop:$('e_pop').value,kat:$('e_kat').value,sum:s,dph:$('e_dph').value,uzn:$('e_uzn').checked,foto:curExpFoto});LS.set('expenses',EXP)}catch(e){toast('Chyba: fotka je asi priveľká');return}toast('Náklad pridaný ✅');renderNak()}
+function delExp(id){EXP=EXP.filter(e=>e.id!==id);LS.set('expenses',EXP);renderNak()}
+function viewFoto(id){const e=EXP.find(x=>x.id===id);if(e&&e.foto){const w=window.open();w.document.write('<img src="'+e.foto+'" style="max-width:100%">')}}
+
+// ===== DASHBOARD / DPH PREHĽAD =====
+function renderDash(){
+ const trzby=INV.reduce((s,i)=>s+totals(i).base,0);
+ const dphOut=INV.reduce((s,i)=>s+totals(i).dph,0);
+ const rcEU=INV.filter(i=>i.dph==='rc').reduce((s,i)=>s+totals(i).base,0);
+ const naklUzn=EXP.filter(e=>e.uzn).reduce((s,e)=>s+(+e.sum||0),0);
+ const dphIn=EXP.reduce((s,e)=>{const r=VRATE[e.dph]||0;const t=+e.sum||0;return s+(t-t/(1+r))},0);
+ const zisk=trzby-naklUzn;const danPO=Math.max(zisk*0.10,0);const saldo=dphOut-dphIn;
+ $('s-dash').innerHTML=`<div class="card"><b>📈 Prehľad</b> <span class="mut">(všetky doklady)</span>
+  <div class="tot"><span>Tržby (základ faktúr)</span><b>${eur(trzby)}</b></div>
+  <div class="tot"><span>Náklady (uznateľné)</span><b>${eur(naklUzn)}</b></div>
+  <div class="tot big"><span>Zisk (odhad)</span><span>${eur(zisk)}</span></div>
+  <div class="tot"><span>Odhad dane PO (10 %)</span><b>${eur(danPO)}</b></div></div>
+  <div class="card"><b>🧾 DPH prehľad</b> <span class="mut">(podklad pre účtovníka)</span>
+  <div class="tot"><span>DPH na výstupe (z faktúr)</span><b>${eur(dphOut)}</b></div>
+  <div class="tot"><span>DPH na vstupe (z nákladov)</span><b>${eur(dphIn)}</b></div>
+  <div class="tot big"><span>${saldo>=0?'DPH na odvod':'Nadmerný odpočet'}</span><span>${eur(Math.abs(saldo))}</span></div>
+  <div class="tot" style="margin-top:8px;border-top:1px solid var(--line);padding-top:8px"><span>Reverse-charge dodania do EÚ (VIES)</span><b>${eur(rcEU)}</b></div>
+  <p class="mut" style="margin-top:8px">Podklad — oficiálne DPH priznanie, kontrolný a súhrnný výkaz (VIES) podáva účtovník z týchto čísel.</p></div>`;
 }
 
 // ---- utils ----
