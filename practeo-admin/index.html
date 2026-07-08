@@ -60,6 +60,7 @@ th{color:var(--mut);font-weight:600;font-size:.72rem}
     <button id="t-ces" onclick="tab('ces')">🚗 Cesty</button>
     <button id="t-doh" onclick="tab('doh')">🧑‍🎓 Dohodári</button>
     <button id="t-maj" onclick="tab('maj')">🏢 Majetok</button>
+    <button id="t-zml" onclick="tab('zml')">📄 Zmluvy</button>
     <button id="t-cli" onclick="tab('cli')">👥 Klienti</button>
     <button id="t-set" onclick="tab('set')">⚙️ Nastavenia</button>
   </nav>
@@ -72,6 +73,7 @@ th{color:var(--mut);font-weight:600;font-size:.72rem}
   <div id="s-ces" style="display:none"></div>
   <div id="s-doh" style="display:none"></div>
   <div id="s-maj" style="display:none"></div>
+  <div id="s-zml" style="display:none"></div>
   <div id="s-cli" style="display:none"></div>
   <div id="s-set" style="display:none"></div>
 </main>
@@ -135,8 +137,8 @@ const TYPLBL={'faktúra':'FAKTÚRA','zálohová':'ZÁLOHOVÁ FAKTÚRA','dobropis
 function peekNo(typ){const k=TYPPFX[typ]||'F';return `${k}${new Date().getFullYear()}${String((CNT[k]||0)+1).padStart(3,'0')}`}
 function nextNo(typ){const k=TYPPFX[typ]||'F';CNT[k]=(CNT[k]||0)+1;LS.set('counters',CNT);return `${k}${new Date().getFullYear()}${String(CNT[k]).padStart(3,'0')}`}
 
-function tab(t){for(const k of ['dash','fak','new','nak','ces','doh','maj','cli','set']){$('s-'+k).style.display=k===t?'':'none';$('t-'+k).classList.toggle('on',k===t)}
- if(t==='dash')renderDash();if(t==='fak')renderFak();if(t==='new')renderNew();if(t==='nak')renderNak();if(t==='ces')renderCes();if(t==='doh')renderDoh();if(t==='maj')renderMaj();if(t==='cli')renderCli();if(t==='set')renderSet()}
+function tab(t){for(const k of ['dash','fak','new','nak','ces','doh','maj','zml','cli','set']){$('s-'+k).style.display=k===t?'':'none';$('t-'+k).classList.toggle('on',k===t)}
+ if(t==='dash')renderDash();if(t==='fak')renderFak();if(t==='new')renderNew();if(t==='nak')renderNak();if(t==='ces')renderCes();if(t==='doh')renderDoh();if(t==='maj')renderMaj();if(t==='zml')renderZml();if(t==='cli')renderCli();if(t==='set')renderSet()}
 
 // ===== NASTAVENIA =====
 function renderSet(){
@@ -146,7 +148,12 @@ function renderSet(){
  <div class="row"><div><label>IČO</label><input id="su_ico" value="${esc(SUP.ico)}"></div><div><label>DIČ</label><input id="su_dic" value="${esc(SUP.dic)}"></div></div>
  <div class="row"><div><label>IČ DPH</label><input id="su_icdph" value="${esc(SUP.icdph)}" placeholder="SK..."></div><div><label>IBAN</label><input id="su_iban" value="${esc(SUP.iban)}"></div></div>
  <label>Konateľ</label><input id="su_kon" value="${esc(SUP.konatel)}">
- <div style="margin-top:12px"><button class="act" onclick="saveSup()">Uložiť</button></div></div>`;
+ <div style="margin-top:12px"><button class="act" onclick="saveSup()">Uložiť</button></div></div>
+ <div class="card"><b>📤 Export pre účtovníka</b><p class="mut">Stiahni prehľady a pošli účtovníkovi.</p>
+  <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="ghost" onclick="exportFakCSV()">🧾 Faktúry (CSV)</button><button class="ghost" onclick="exportNakCSV()">💸 Náklady (CSV)</button></div></div>
+ <div class="card"><b>💾 Záloha dát</b><p class="mut">Prototyp má dáta v tomto prehliadači — odporúčam občas zálohovať. (V cloud verzii to bude automatické.)</p>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><button class="ghost" onclick="exportJSON()">⬇️ Stiahnuť zálohu (JSON)</button>
+  <label class="ghost" style="cursor:pointer">⬆️ Obnoviť zo zálohy<input type="file" accept=".json,application/json" style="display:none" onchange="importJSON(this)"></label></div></div>`;
 }
 function saveSup(){SUP={meno:$('su_meno').value,sidlo:$('su_sidlo').value,ico:$('su_ico').value,dic:$('su_dic').value,icdph:$('su_icdph').value,iban:$('su_iban').value,konatel:$('su_kon').value};LS.set('supplier',SUP);toast('Uložené ✅')}
 
@@ -441,6 +448,48 @@ function renderDash(){
   <div class="tot" style="margin-top:8px;border-top:1px solid var(--line);padding-top:8px"><span>Reverse-charge dodania do EÚ (VIES)</span><b>${eur(rcEU)}</b></div>
   <p class="mut" style="margin-top:8px">Podklad — oficiálne DPH priznanie, kontrolný a súhrnný výkaz (VIES) podáva účtovník z týchto čísel.</p></div>`;
 }
+
+// ===== ZMLUVY =====
+function renderZml(){
+ const opt=CLI.map((c,i)=>`<option value="${i}">${esc(c.meno)}</option>`).join('');
+ $('s-zml').innerHTML=`<div class="card"><b>📄 Zmluva o poskytovaní služieb</b>
+  <p class="mut">Vyplň a vygeneruj PDF (poskytovateľ = Practeo, objednávateľ = klient).</p>
+  <label>Objednávateľ (klient)</label><select id="z_cli"><option value="">— vyber —</option>${opt}</select>
+  <label>Predmet zmluvy (služby)</label><textarea id="z_pred">poskytovanie podnikateľského, organizačného a ekonomického poradenstva</textarea>
+  <div class="row"><div><label>Odmena (€)</label><input type="number" step="1" id="z_odm"></div>
+  <div><label>Spôsob</label><select id="z_sposob"><option>mesačne</option><option>za projekt</option><option>hodinovo</option></select></div></div>
+  <div class="row"><div><label>Doba od</label><input type="date" id="z_od" value="${today()}"></div>
+  <div><label>Doba do (prázdne = neurčito)</label><input type="date" id="z_do"></div></div>
+  <label style="margin-top:8px"><input type="checkbox" id="z_rc" style="width:auto;margin-right:6px;vertical-align:middle">Cezhranične do EÚ/ČR — reverse charge (bez DPH)</label>
+  <div style="margin-top:10px"><button class="act" onclick="genZmluva()">👁️ Vygenerovať / PDF</button></div></div>
+  <div class="card"><p class="mut">Ďalšie šablóny (nájomná zmluva, súhlas so sídlom) sú v zakladacom balíku Practeo; cestovný príkaz je v module Cesty.</p></div>`;
+}
+function genZmluva(){
+ const ci=$('z_cli').value;const c=ci!==''?CLI[+ci]:{};const odm=+$('z_odm').value||0;const rc=$('z_rc').checked;const doOd=$('z_od').value,doDo=$('z_do').value;
+ $('print').innerHTML=`<div class="inv" style="font-size:12px;line-height:1.5">
+  <h2 style="text-align:center">ZMLUVA O POSKYTOVANÍ SLUŽIEB</h2>
+  <p style="text-align:center;color:#555">uzatvorená podľa § 269 ods. 2 Obchodného zákonníka</p>
+  <p><b>Poskytovateľ:</b> ${esc(SUP.meno)}, so sídlom ${esc(SUP.sidlo)}, IČO: ${esc(SUP.ico)||'—'}, DIČ: ${esc(SUP.dic)||'—'}${SUP.icdph?', IČ DPH: '+esc(SUP.icdph):''}, zastúpená konateľom ${esc(SUP.konatel)}</p>
+  <p><b>Objednávateľ:</b> ${esc(c.meno||'[doplniť]')}, ${esc(c.adr||'')}${c.ico?', IČO: '+esc(c.ico):''}${c.icdph?', IČ DPH: '+esc(c.icdph):''}</p>
+  <p><b>Čl. I – Predmet zmluvy</b><br>Poskytovateľ sa zaväzuje poskytovať objednávateľovi tieto služby: ${esc($('z_pred').value)}.</p>
+  <p><b>Čl. II – Odmena</b><br>Odmena je dohodnutá vo výške <b>${eur(odm)} ${esc($('z_sposob').value)}</b>${rc?' (bez DPH — prenesenie daňovej povinnosti / reverse charge podľa § 15 ods. 1 zákona o DPH; daň odvedie objednávateľ)':''}. Odmena je splatná na základe faktúry vystavenej poskytovateľom.</p>
+  <p><b>Čl. III – Doba trvania</b><br>Zmluva sa uzatvára ${doDo?'na dobu určitú od '+esc(doOd)+' do '+esc(doDo):'na dobu neurčitú s účinnosťou od '+esc(doOd)}.${doDo?'':' Vypovedať ju možno písomne s jednomesačnou výpovednou lehotou.'}</p>
+  <p><b>Čl. IV – Záverečné ustanovenia</b><br>Vzťahy neupravené touto zmluvou sa riadia Obchodným zákonníkom. Zmluva je v dvoch rovnopisoch; meniť ju možno len písomnými dodatkami.</p>
+  <div style="display:flex;justify-content:space-between;margin-top:40px">
+   <div>........................................<br>Poskytovateľ<br>${esc(SUP.konatel)}</div>
+   <div>........................................<br>Objednávateľ</div></div></div>`;
+ window.print();
+}
+
+// ===== EXPORT / ZÁLOHA =====
+function dl(name,content,type){const b=new Blob([content],{type:type||'text/plain;charset=utf-8'});const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(u),1000)}
+function csvEsc(v){v=String(v==null?'':v);return /[",;\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v}
+function exportFakCSV(){const R=[['Cislo','Typ','Datum','Klient','Zaklad','DPH','Spolu','Rezim','Stav']];INV.filter(i=>!i.draft).forEach(i=>{const t=totals(i);const c=CLI[i.cli]||{};R.push([i.no,i.typ,i.dvyst,c.meno,t.base.toFixed(2),t.dph.toFixed(2),t.total.toFixed(2),i.dph,i.paid?'zaplatena':'nezaplatena'])});dl('Practeo_faktury.csv','﻿'+R.map(r=>r.map(csvEsc).join(';')).join('\n'),'text/csv');toast('Export faktúr ✅')}
+function exportNakCSV(){const R=[['Datum','Dodavatel','Popis','Kategoria','Suma','DPH_vstup','Uznatelny']];EXP.forEach(e=>R.push([e.dat,e.dod,e.pop,e.kat,(+e.sum||0).toFixed(2),e.dph,e.uzn?'ano':'nie']));dl('Practeo_naklady.csv','﻿'+R.map(r=>r.map(csvEsc).join(';')).join('\n'),'text/csv');toast('Export nákladov ✅')}
+function exportJSON(){const all={supplier:SUP,clients:CLI,invoices:INV,expenses:EXP,vehicles:VOZ,trips:JAZ,dohodari:DOH,assets:MAJ,counters:CNT};dl('Practeo_zaloha.json',JSON.stringify(all,null,1),'application/json');toast('Kompletná záloha ✅')}
+function importJSON(inp){const f=inp.files[0];if(!f)return;const r=new FileReader();r.onload=e=>{try{const d=JSON.parse(e.target.result);if(!confirm('Nahradiť súčasné dáta obsahom zálohy?'))return;
+ if(d.supplier){SUP=d.supplier;LS.set('supplier',SUP)}if(d.clients){CLI=d.clients;LS.set('clients',CLI)}if(d.invoices){INV=d.invoices;LS.set('invoices',INV)}if(d.expenses){EXP=d.expenses;LS.set('expenses',EXP)}if(d.vehicles){VOZ=d.vehicles;LS.set('vehicles',VOZ)}if(d.trips){JAZ=d.trips;LS.set('trips',JAZ)}if(d.dohodari){DOH=d.dohodari;LS.set('dohodari',DOH)}if(d.assets){MAJ=d.assets;LS.set('assets',MAJ)}if(d.counters){CNT=d.counters;LS.set('counters',CNT)}
+ toast('Dáta obnovené ✅');renderSet()}catch(err){toast('Chyba: neplatný súbor')}};r.readAsText(f)}
 
 // ---- utils ----
 function today(){return new Date().toISOString().slice(0,10)}
