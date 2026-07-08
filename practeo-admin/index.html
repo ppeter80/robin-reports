@@ -192,7 +192,11 @@ function renderNew(){
   <label style="margin-top:10px">Položky</label><div id="f_items"></div>
   <button class="ghost" onclick="cur.items.push({d:'',q:1,p:0});syncItems();renderNew()" style="margin-top:4px">+ pridať položku</button>
   <div style="margin-top:12px" id="f_tot"></div>
-  <div class="row" style="margin-top:12px"><button class="act" onclick="saveInv()">💾 Uložiť faktúru</button><button class="ghost" onclick="previewInv(cur)">👁️ Náhľad / PDF</button></div>
+  <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+    <button class="ghost" onclick="saveInv(false)">📝 Uložiť ako NÁVRH</button>
+    <button class="act" onclick="saveInv(true)">✅ Vystaviť (prideliť číslo)</button>
+    <button class="ghost" onclick="previewInv(cur)">👁️ Náhľad / PDF</button></div>
+  <div class="help" style="margin-top:8px">📝 <b>Návrh</b> = bez čísla, na poslanie klientovi na odsúhlasenie. Keď potvrdí → „Vystaviť naostro" pridelí reálne číslo.</div>
   <div style="margin-top:6px"><button class="mini" onclick="cur=null;renderNew()">↺ nová prázdna</button></div>
  </div>`;
  $('s-new').innerHTML=h;drawItems();drawTot();
@@ -206,24 +210,28 @@ function drawItems(){$('f_items').innerHTML=cur.items.map((it,i)=>`<div class="i
 function syncItems(){}
 function totals(inv){const base=inv.items.reduce((s,it)=>s+(+it.q||0)*(+it.p||0),0);const rate=(DPHM[inv.dph]||{}).r||0;const dph=base*rate;return{base,dph,total:base+dph,rate}}
 function drawTot(){const t=totals(cur);$('f_tot').innerHTML=`<div class="tot"><span>Základ</span><b>${eur(t.base)}</b></div>${t.rate>0?`<div class="tot"><span>DPH ${Math.round(t.rate*100)} %</span><b>${eur(t.dph)}</b></div>`:''}<div class="tot big"><span>Spolu</span><span>${eur(t.total)}</span></div>`}
-function saveInv(){cur.typ=$('f_typ').value;if($('f_ref'))cur.ref=$('f_ref').value;cur.no=$('f_no').value.trim();
+function saveInv(issue){cur.typ=$('f_typ').value;if($('f_ref'))cur.ref=$('f_ref').value;
  if(cur.cli==null){toast('Vyber klienta');return}if(!cur.items.some(it=>it.d)){toast('Pridaj aspoň 1 položku');return}
- if(!cur.no)cur.no=nextNo(cur.typ);
+ cur.draft=!issue;
+ if(issue){cur.no=$('f_no').value.trim();if(!cur.no)cur.no=nextNo(cur.typ);}else{cur.no='';}
  const ex=INV.findIndex(i=>i.id===cur.id);if(!cur.id)cur.id=Date.now();
- if(ex>=0)INV[ex]=cur;else INV.unshift(cur);LS.set('invoices',INV);toast((TYPLBL[cur.typ]||'Doklad')+' uložený ✅');cur=null;tab('fak')}
+ if(ex>=0)INV[ex]=cur;else INV.unshift(cur);LS.set('invoices',INV);toast(issue?((TYPLBL[cur.typ]||'Doklad')+' vystavený ✅'):'Návrh uložený 📝');cur=null;tab('fak')}
+function issueDraft(id){const i=INV.find(x=>x.id===id);if(!i)return;if(!confirm('Vystaviť naostro? Pridelí sa reálne číslo a doklad sa stane daňovým dokladom.'))return;i.draft=false;i.no=nextNo(i.typ);LS.set('invoices',INV);renderFak();toast('Vystavené ✅ č. '+i.no)}
 
 // ===== ZOZNAM FAKTÚR =====
 function renderFak(){
  let h='';
  if(!SUP.ico)h+='<div class="help">Tip: v ⚙️ Nastaveniach doplň IČO/DIČ/IČ DPH/IBAN Practeo — po zápise firmy.</div>';
- const paid=INV.filter(i=>i.paid).reduce((s,i)=>s+totals(i).total,0);
- const unpaid=INV.filter(i=>!i.paid).reduce((s,i)=>s+totals(i).total,0);
- h+=`<div class="card"><div class="row"><div><div class="mut">Vystavené</div><b>${INV.length}</b></div><div><div class="mut">Zaplatené</div><b style="color:var(--grn)">${eur(paid)}</b></div><div><div class="mut">Nezaplatené</div><b style="color:var(--red)">${eur(unpaid)}</b></div></div></div>`;
+ const paid=INV.filter(i=>i.paid&&!i.draft).reduce((s,i)=>s+totals(i).total,0);
+ const unpaid=INV.filter(i=>!i.paid&&!i.draft).reduce((s,i)=>s+totals(i).total,0);
+ const nDraft=INV.filter(i=>i.draft).length;
+ h+=`<div class="card"><div class="row"><div><div class="mut">Vystavené</div><b>${INV.filter(i=>!i.draft).length}</b>${nDraft?` <span class="mut">+${nDraft} návrh</span>`:''}</div><div><div class="mut">Zaplatené</div><b style="color:var(--grn)">${eur(paid)}</b></div><div><div class="mut">Nezaplatené</div><b style="color:var(--red)">${eur(unpaid)}</b></div></div></div>`;
  h+='<div class="card"><b>Faktúry</b>';
- if(!INV.length)h+='<p class="mut">Zatiaľ žiadne. Vytvor v „➕ Nová faktúra".</p>';
+ if(!INV.length)h+='<p class="mut">Zatiaľ žiadne. Vytvor v „➕ Faktúra".</p>';
  else{h+='<table><thead><tr><th>Číslo</th><th>Klient</th><th class="r">Suma</th><th></th></tr></thead><tbody>';
- INV.forEach(i=>{const c=CLI[i.cli];h+=`<tr><td>${esc(i.no)}<br><span class="mut">${esc(i.dvyst)}</span></td><td>${esc(c?c.meno:'—')}<br><span class="pill ${i.paid?'pd':'un'}">${i.paid?'zaplatená':'nezaplatená'}</span></td><td class="r"><b>${eur(totals(i).total)}</b></td>
- <td class="r"><button class="mini" onclick="previewInv(INV.find(x=>x.id===${i.id}))">👁️</button><button class="mini" onclick="editInv(${i.id})">✏️</button><button class="mini" onclick="togglePaid(${i.id})">${i.paid?'↺':'✓'}</button><button class="mini" onclick="delInv(${i.id})">✕</button></td></tr>`});
+ INV.forEach(i=>{const c=CLI[i.cli];const pill=i.draft?'<span class="pill" style="background:rgba(230,200,106,.15);color:var(--gold)">návrh</span>':`<span class="pill ${i.paid?'pd':'un'}">${i.paid?'zaplatená':'nezaplatená'}</span>`;
+  h+=`<tr><td>${i.draft?'<span class="mut">NÁVRH</span>':esc(i.no)}<br><span class="mut">${esc(i.dvyst)}</span></td><td>${esc(c?c.meno:'—')}<br>${pill}</td><td class="r"><b>${eur(totals(i).total)}</b></td>
+ <td class="r"><button class="mini" onclick="previewInv(INV.find(x=>x.id===${i.id}))">👁️</button><button class="mini" onclick="editInv(${i.id})">✏️</button>${i.draft?`<button class="mini" onclick="issueDraft(${i.id})" title="Vystaviť naostro">✅</button>`:`<button class="mini" onclick="togglePaid(${i.id})">${i.paid?'↺':'✓'}</button>`}<button class="mini" onclick="delInv(${i.id})">✕</button></td></tr>`});
  h+='</tbody></table>'}
  h+='</div>';$('s-fak').innerHTML=h;
 }
@@ -237,7 +245,7 @@ function previewInv(inv){
  const rows=inv.items.filter(it=>it.d).map(it=>`<tr><td>${esc(it.d)}</td><td class="r">${it.q}</td><td class="r">${eur(it.p)}</td><td class="r">${eur((+it.q||0)*(+it.p||0))}</td></tr>`).join('');
  $('print').innerHTML=`<div class="inv">
   <div style="display:flex;justify-content:space-between;align-items:flex-start">
-   <div><h2>${TYPLBL[inv.typ||'faktúra']}</h2><div>č. ${esc(inv.no)}${inv.typ==='dobropis'&&inv.ref?' · opravuje faktúru č. '+esc(inv.ref):''}</div></div>
+   <div><h2>${inv.draft?'NÁVRH – '+TYPLBL[inv.typ||'faktúra']:TYPLBL[inv.typ||'faktúra']}</h2><div>${inv.draft?'(nezáväzný návrh – bez čísla)':'č. '+esc(inv.no)}${inv.typ==='dobropis'&&inv.ref?' · opravuje faktúru č. '+esc(inv.ref):''}</div></div>
    <div style="text-align:right;font-size:12px">Dátum vystavenia: ${esc(inv.dvyst)}<br>Dátum dodania: ${esc(inv.ddod)}<br><b>Splatnosť: ${esc(inv.dspl)}</b></div>
   </div>
   <div style="display:flex;gap:14px;margin:14px 0">
@@ -249,6 +257,7 @@ function previewInv(inv){
     <tr><td>Základ</td><td class="r">${eur(t.base)}</td></tr>
     ${t.rate>0?`<tr><td>DPH ${Math.round(t.rate*100)} %</td><td class="r">${eur(t.dph)}</td></tr>`:''}
     <tr><td><b>SPOLU</b></td><td class="r"><b>${eur(t.total)}</b></td></tr></table></div>
+  ${inv.draft?'<div class="box" style="margin-top:12px;font-size:11px">NÁVRH — nezáväzná ukážka na odsúhlasenie klientom. Nie je daňový doklad. Po potvrdení sa vystaví riadna faktúra s prideleným číslom.</div>':''}
   ${inv.typ==='zálohová'?'<div class="box" style="margin-top:12px;font-size:11px">Zálohová faktúra — nie je daňový doklad. Slúži ako výzva na úhradu zálohy.</div>':''}
   ${dphNote(inv.dph)?`<div class="box" style="margin-top:12px;font-size:11px">${dphNote(inv.dph)}</div>`:''}
   <div style="margin-top:24px;font-size:12px">Vystavil: ${esc(SUP.konatel)}</div>
@@ -408,9 +417,10 @@ function delMaj(id){MAJ=MAJ.filter(m=>m.id!==id);LS.set('assets',MAJ);renderMaj(
 
 // ===== DASHBOARD / DPH PREHĽAD =====
 function renderDash(){
- const trzby=INV.reduce((s,i)=>s+totals(i).base,0);
- const dphOut=INV.reduce((s,i)=>s+totals(i).dph,0);
- const rcEU=INV.filter(i=>i.dph==='rc').reduce((s,i)=>s+totals(i).base,0);
+ const RINV=INV.filter(i=>!i.draft);
+ const trzby=RINV.reduce((s,i)=>s+totals(i).base,0);
+ const dphOut=RINV.reduce((s,i)=>s+totals(i).dph,0);
+ const rcEU=RINV.filter(i=>i.dph==='rc').reduce((s,i)=>s+totals(i).base,0);
  const naklE=EXP.filter(e=>e.uzn).reduce((s,e)=>s+(+e.sum||0),0);
  const nahr=JAZ.reduce((s,j)=>s+nahrada(j).total,0);
  const odp=MAJ.reduce((s,m)=>s+majOdpis(m).rocny,0);
