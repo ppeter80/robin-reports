@@ -1,4 +1,4 @@
-<!-- Practeo Admin — Faktúry (Etapa 1, prototyp, lokálne dáta) -->
+<!-- Practeo Admin — Faktúry (cloud verzia: Supabase backend + prihlásenie) -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Practeo Admin — Faktúry</title>
@@ -51,7 +51,7 @@ th{color:var(--mut);font-weight:600;font-size:.72rem}
 </style>
 
 <header>
-  <h1>📊 Practeo Admin <span class="tag">Faktúry · prototyp</span></h1>
+  <h1>📊 Practeo Admin <span class="tag">Faktúry · cloud</span><span id="syncdot" title="ukladám do cloudu…" style="margin-left:auto;font-size:.6rem;color:var(--gold);opacity:0;transition:.3s">● sync</span><button onclick="logout()" class="mini" style="color:var(--mut);font-size:.72rem">Odhlásiť</button></h1>
   <nav>
     <button id="t-dash" onclick="tab('dash')">📈 Dashboard</button>
     <button id="t-fak" class="on" onclick="tab('fak')">🧾 Faktúry</button>
@@ -79,11 +79,64 @@ th{color:var(--mut);font-weight:600;font-size:.72rem}
 </main>
 <div id="print"></div>
 <div id="toast"></div>
+<div id="login" style="display:none;position:fixed;inset:0;background:var(--bg);z-index:50;align-items:center;justify-content:center;padding:20px">
+  <div class="card" style="max-width:340px;width:100%">
+    <div style="font-size:1.15rem;font-weight:700;margin-bottom:2px">📊 Practeo Admin</div>
+    <p class="mut" style="margin:0 0 6px">Prihlás sa do účtovnej appky</p>
+    <label>Email</label><input id="lg_email" type="email" autocomplete="username" inputmode="email">
+    <label>Heslo</label><input id="lg_pass" type="password" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+    <div id="lg_err" style="color:var(--red);font-size:.78rem;min-height:16px;margin-top:6px"></div>
+    <button class="act" style="width:100%;margin-top:6px" onclick="doLogin()">Prihlásiť sa</button>
+  </div>
+</div>
 
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script>
 const $=id=>document.getElementById(id);
-const LS={get:(k,d)=>{try{return JSON.parse(localStorage.getItem('practeo_'+k))??d}catch(e){return d}},set:(k,v)=>localStorage.setItem('practeo_'+k,JSON.stringify(v))};
+// ===== Cloud úložisko (Supabase) — dáta sú v cloude, localStorage slúži ako offline záloha =====
+const SB_URL='https://eboaxggsmlbcjsosfjyu.supabase.co';
+const SB_KEY='sb_publishable_KRN9iGyNXGLGRru7p_UXRA_7XK3FwZ8';
+let sb=null, CACHE={}, _sync={};
+function sbInit(){if(!sb)sb=supabase.createClient(SB_URL,SB_KEY,{auth:{persistSession:true,autoRefreshToken:true}});return sb}
+const LS={
+  get:(k,d)=>{const v=CACHE[k];return (v===undefined||v===null)?d:v},
+  set:(k,v)=>{CACHE[k]=v;try{localStorage.setItem('practeo_'+k,JSON.stringify(v))}catch(e){}cloudPush(k,v)}
+};
+async function cloudPush(k,v){
+  if(!sb)return;
+  _sync[k]=(_sync[k]||0)+1;syncBadge();
+  try{const {error}=await sb.from('practeo_data').upsert({key:k,value:v,updated_at:new Date().toISOString()},{onConflict:'key'});if(error)throw error}
+  catch(e){toast('⚠️ Cloud: '+(e.message||'nezapísané'))}
+  finally{_sync[k]=(_sync[k]||1)-1;syncBadge()}
+}
+function syncBadge(){const n=Object.values(_sync).reduce((a,b)=>a+Math.max(0,b),0);const el=$('syncdot');if(el)el.style.opacity=n>0?'1':'0'}
+async function cloudLoadAll(){const {data,error}=await sb.from('practeo_data').select('key,value');if(error){toast('⚠️ Načítanie zlyhalo');return}CACHE={};(data||[]).forEach(r=>{CACHE[r.key]=r.value})}
+async function migrateLocalIfNeeded(){
+  const keys=['supplier','clients','invoices','expenses','vehicles','trips','dohodari','assets','counters'];
+  if(!keys.every(k=>CACHE[k]===undefined))return;
+  let any=false;
+  for(const k of keys){const raw=localStorage.getItem('practeo_'+k);if(raw!=null){try{CACHE[k]=JSON.parse(raw);await cloudPush(k,CACHE[k]);any=true}catch(e){}}}
+  if(any)toast('Lokálne dáta prenesené do cloudu ✅');
+}
+function loadGlobals(){
+  SUP=LS.get('supplier',SUP);CLI=LS.get('clients',CLI);INV=LS.get('invoices',INV);
+  EXP=LS.get('expenses',EXP);VOZ=LS.get('vehicles',VOZ);JAZ=LS.get('trips',JAZ);
+  DOH=LS.get('dohodari',DOH);MAJ=LS.get('assets',MAJ);CNT=LS.get('counters',CNT);
+}
+async function doLogin(){
+  const email=$('lg_email').value.trim(),pass=$('lg_pass').value;$('lg_err').textContent='';
+  const {error}=await sb.auth.signInWithPassword({email,password:pass});
+  if(error){$('lg_err').textContent='Prihlásenie zlyhalo: '+error.message;return}
+  await afterAuth();
+}
+async function afterAuth(){$('login').style.display='none';await cloudLoadAll();await migrateLocalIfNeeded();loadGlobals();renderFak()}
+async function logout(){try{await sb.auth.signOut()}catch(e){}location.reload()}
+async function init(){
+  sbInit();
+  try{const {data:{session}}=await sb.auth.getSession();if(session){await afterAuth();return}}catch(e){}
+  $('login').style.display='flex';
+}
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const eur=n=>(Math.round((+n||0)*100)/100).toLocaleString('sk-SK',{minimumFractionDigits:2,maximumFractionDigits:2})+' €';
 function toast(t){const e=$('toast');e.textContent=t;e.classList.add('show');setTimeout(()=>e.classList.remove('show'),2200)}
@@ -151,7 +204,7 @@ function renderSet(){
  <div style="margin-top:12px"><button class="act" onclick="saveSup()">Uložiť</button></div></div>
  <div class="card"><b>📤 Export pre účtovníka</b><p class="mut">Stiahni prehľady a pošli účtovníkovi.</p>
   <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="ghost" onclick="exportFakCSV()">🧾 Faktúry (CSV)</button><button class="ghost" onclick="exportNakCSV()">💸 Náklady (CSV)</button></div></div>
- <div class="card"><b>💾 Záloha dát</b><p class="mut">Prototyp má dáta v tomto prehliadači — odporúčam občas zálohovať. (V cloud verzii to bude automatické.)</p>
+ <div class="card"><b>💾 Záloha dát</b><p class="mut">Dáta sú v cloude (Supabase) a synchronizujú sa automaticky medzi zariadeniami. JSON záloha nižšie je navyše, na stiahnutie do počítača.</p>
   <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><button class="ghost" onclick="exportJSON()">⬇️ Stiahnuť zálohu (JSON)</button>
   <label class="ghost" style="cursor:pointer">⬆️ Obnoviť zo zálohy<input type="file" accept=".json,application/json" style="display:none" onchange="importJSON(this)"></label></div></div>`;
 }
@@ -495,5 +548,5 @@ function importJSON(inp){const f=inp.files[0];if(!f)return;const r=new FileReade
 function today(){return new Date().toISOString().slice(0,10)}
 function plus(days){const d=new Date();d.setDate(d.getDate()+days);return d.toISOString().slice(0,10)}
 
-renderFak();
+init();
 </script>
