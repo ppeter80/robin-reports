@@ -128,11 +128,12 @@ function dietaFor(h){if(h==null||h<5)return 0;if(h<=12)return 8.80;if(h<=18)retu
 function tripHours(od,pr){if(!od||!pr)return null;const a=new Date(od),b=new Date(pr);const h=(b-a)/3600000;return h>0?h:null}
 
 let cur=null; // rozpracovaná faktúra
-function newInvoiceNo(){
- const y=new Date().getFullYear();
- const n=INV.filter(i=>i.no&&i.no.startsWith(y+'')).length+1;
- return `${y}${String(n).padStart(3,'0')}`;
-}
+// Číslovanie: perzistentné počítadlá podľa typu (číslo sa nikdy nepoužije 2x → žiadne duplikáty)
+let CNT=LS.get('counters',{F:0,Z:0,D:0});
+const TYPPFX={'faktúra':'F','zálohová':'Z','dobropis':'D'};
+const TYPLBL={'faktúra':'FAKTÚRA','zálohová':'ZÁLOHOVÁ FAKTÚRA','dobropis':'DOBROPIS'};
+function peekNo(typ){const k=TYPPFX[typ]||'F';return `${k}${new Date().getFullYear()}${String((CNT[k]||0)+1).padStart(3,'0')}`}
+function nextNo(typ){const k=TYPPFX[typ]||'F';CNT[k]=(CNT[k]||0)+1;LS.set('counters',CNT);return `${k}${new Date().getFullYear()}${String(CNT[k]).padStart(3,'0')}`}
 
 function tab(t){for(const k of ['dash','fak','new','nak','ces','doh','maj','cli','set']){$('s-'+k).style.display=k===t?'':'none';$('t-'+k).classList.toggle('on',k===t)}
  if(t==='dash')renderDash();if(t==='fak')renderFak();if(t==='new')renderNew();if(t==='nak')renderNak();if(t==='ces')renderCes();if(t==='doh')renderDoh();if(t==='maj')renderMaj();if(t==='cli')renderCli();if(t==='set')renderSet()}
@@ -167,11 +168,17 @@ function delCli(i){CLI.splice(i,1);LS.set('clients',CLI);renderCli()}
 
 // ===== NOVÁ FAKTÚRA =====
 function renderNew(){
- if(!cur)cur={no:newInvoiceNo(),cli:null,dvyst:today(),ddod:today(),dspl:plus(14),items:[{d:'',q:1,p:0}],dph:'rc',paid:false};
+ if(!cur)cur={no:'',typ:'faktúra',ref:'',cli:null,dvyst:today(),ddod:today(),dspl:plus(14),items:[{d:'',q:1,p:0}],dph:'rc',paid:false};
  const opt=CLI.map((c,i)=>`<option value="${i}" ${cur.cli===i?'selected':''}>${esc(c.meno)}</option>`).join('');
  let h=`<div class="card">
-  <div class="row"><div><label>Číslo faktúry</label><input id="f_no" value="${esc(cur.no)}"></div>
-  <div><label>Klient</label><select id="f_cli" onchange="cur.cli=this.value===''?null:+this.value"><option value="">— vyber —</option>${opt}</select></div></div>
+  <div class="row"><div><label>Typ dokladu</label><select id="f_typ" onchange="cur.typ=this.value;renderNew()">
+    <option value="faktúra" ${cur.typ==='faktúra'?'selected':''}>Faktúra (daňový doklad)</option>
+    <option value="zálohová" ${cur.typ==='zálohová'?'selected':''}>Zálohová faktúra</option>
+    <option value="dobropis" ${cur.typ==='dobropis'?'selected':''}>Dobropis (opravná faktúra)</option></select></div>
+  <div><label>Číslo${cur.no?'':' (pridelí sa pri uložení)'}</label><input id="f_no" value="${esc(cur.no)}" placeholder="${esc(peekNo(cur.typ))}"></div></div>
+  ${cur.typ==='dobropis'?`<label>Opravuje faktúru č.</label><input id="f_ref" value="${esc(cur.ref||'')}" placeholder="napr. F2026001"><div class="help">Dobropis opravuje pôvodnú faktúru — sumy zadaj so znamienkom mínus (napr. -100).</div>`:''}
+  ${cur.typ==='zálohová'?'<div class="help">Zálohová faktúra je výzva na úhradu — NIE je daňový doklad. Po zaplatení vystavíš riadnu faktúru.</div>':''}
+  <div><label>Klient</label><select id="f_cli" onchange="cur.cli=this.value===''?null:+this.value"><option value="">— vyber —</option>${opt}</select></div>
   <div class="row"><div><label>Dátum vystavenia</label><input type="date" id="f_dvyst" value="${cur.dvyst}"></div>
   <div><label>Dátum dodania</label><input type="date" id="f_ddod" value="${cur.ddod}"></div>
   <div><label>Splatnosť</label><input type="date" id="f_dspl" value="${cur.dspl}"></div></div>
@@ -199,9 +206,11 @@ function drawItems(){$('f_items').innerHTML=cur.items.map((it,i)=>`<div class="i
 function syncItems(){}
 function totals(inv){const base=inv.items.reduce((s,it)=>s+(+it.q||0)*(+it.p||0),0);const rate=(DPHM[inv.dph]||{}).r||0;const dph=base*rate;return{base,dph,total:base+dph,rate}}
 function drawTot(){const t=totals(cur);$('f_tot').innerHTML=`<div class="tot"><span>Základ</span><b>${eur(t.base)}</b></div>${t.rate>0?`<div class="tot"><span>DPH ${Math.round(t.rate*100)} %</span><b>${eur(t.dph)}</b></div>`:''}<div class="tot big"><span>Spolu</span><span>${eur(t.total)}</span></div>`}
-function saveInv(){cur.no=$('f_no').value;if(cur.cli==null){toast('Vyber klienta');return}if(!cur.items.some(it=>it.d)){toast('Pridaj aspoň 1 položku');return}
+function saveInv(){cur.typ=$('f_typ').value;if($('f_ref'))cur.ref=$('f_ref').value;cur.no=$('f_no').value.trim();
+ if(cur.cli==null){toast('Vyber klienta');return}if(!cur.items.some(it=>it.d)){toast('Pridaj aspoň 1 položku');return}
+ if(!cur.no)cur.no=nextNo(cur.typ);
  const ex=INV.findIndex(i=>i.id===cur.id);if(!cur.id)cur.id=Date.now();
- if(ex>=0)INV[ex]=cur;else INV.unshift(cur);LS.set('invoices',INV);toast('Faktúra uložená ✅');cur=null;tab('fak')}
+ if(ex>=0)INV[ex]=cur;else INV.unshift(cur);LS.set('invoices',INV);toast((TYPLBL[cur.typ]||'Doklad')+' uložený ✅');cur=null;tab('fak')}
 
 // ===== ZOZNAM FAKTÚR =====
 function renderFak(){
@@ -220,7 +229,7 @@ function renderFak(){
 }
 function editInv(id){cur=JSON.parse(JSON.stringify(INV.find(i=>i.id===id)));tab('new')}
 function togglePaid(id){const i=INV.find(x=>x.id===id);i.paid=!i.paid;LS.set('invoices',INV);renderFak()}
-function delInv(id){if(!confirm('Zmazať faktúru?'))return;INV=INV.filter(i=>i.id!==id);LS.set('invoices',INV);renderFak()}
+function delInv(id){if(!confirm('Zmazať tento doklad?\n\nČíslo sa už znova nepoužije (žiadne duplikáty). Pri už odoslanej/zaúčtovanej faktúre je správnejšie vystaviť DOBROPIS (storno) než mazať — číslovanie má byť súvislé.'))return;INV=INV.filter(i=>i.id!==id);LS.set('invoices',INV);renderFak()}
 
 // ===== NÁHĽAD / PDF =====
 function previewInv(inv){
@@ -228,7 +237,7 @@ function previewInv(inv){
  const rows=inv.items.filter(it=>it.d).map(it=>`<tr><td>${esc(it.d)}</td><td class="r">${it.q}</td><td class="r">${eur(it.p)}</td><td class="r">${eur((+it.q||0)*(+it.p||0))}</td></tr>`).join('');
  $('print').innerHTML=`<div class="inv">
   <div style="display:flex;justify-content:space-between;align-items:flex-start">
-   <div><h2>FAKTÚRA</h2><div>č. ${esc(inv.no)}</div></div>
+   <div><h2>${TYPLBL[inv.typ||'faktúra']}</h2><div>č. ${esc(inv.no)}${inv.typ==='dobropis'&&inv.ref?' · opravuje faktúru č. '+esc(inv.ref):''}</div></div>
    <div style="text-align:right;font-size:12px">Dátum vystavenia: ${esc(inv.dvyst)}<br>Dátum dodania: ${esc(inv.ddod)}<br><b>Splatnosť: ${esc(inv.dspl)}</b></div>
   </div>
   <div style="display:flex;gap:14px;margin:14px 0">
@@ -240,6 +249,7 @@ function previewInv(inv){
     <tr><td>Základ</td><td class="r">${eur(t.base)}</td></tr>
     ${t.rate>0?`<tr><td>DPH ${Math.round(t.rate*100)} %</td><td class="r">${eur(t.dph)}</td></tr>`:''}
     <tr><td><b>SPOLU</b></td><td class="r"><b>${eur(t.total)}</b></td></tr></table></div>
+  ${inv.typ==='zálohová'?'<div class="box" style="margin-top:12px;font-size:11px">Zálohová faktúra — nie je daňový doklad. Slúži ako výzva na úhradu zálohy.</div>':''}
   ${dphNote(inv.dph)?`<div class="box" style="margin-top:12px;font-size:11px">${dphNote(inv.dph)}</div>`:''}
   <div style="margin-top:24px;font-size:12px">Vystavil: ${esc(SUP.konatel)}</div>
  </div>`;
