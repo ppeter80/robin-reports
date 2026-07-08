@@ -1,0 +1,208 @@
+<!-- Practeo Admin — Faktúry (Etapa 1, prototyp, lokálne dáta) -->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Practeo Admin — Faktúry</title>
+<style>
+:root{--bg:#0b0d12;--card:#141821;--line:#252b36;--txt:#e6e9ef;--mut:#8a90a0;--acc:#4c7dff;--grn:#2fbf6b;--red:#e0715f;--gold:#e6c86a}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--txt);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;font-size:15px}
+header{background:#0d1017;border-bottom:1px solid var(--line);padding:12px 14px;position:sticky;top:0;z-index:5}
+h1{margin:0;font-size:1.05rem;display:flex;align-items:center;gap:8px}
+h1 .tag{font-size:.62rem;color:var(--mut);border:1px solid var(--line);padding:2px 6px;border-radius:6px;font-weight:400}
+nav{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
+nav button{flex:1;min-width:90px;background:#11151d;color:var(--mut);border:1px solid var(--line);padding:9px;border-radius:9px;font-weight:600;cursor:pointer;font-size:.85rem}
+nav button.on{background:var(--acc);color:#fff;border-color:var(--acc)}
+main{max-width:820px;margin:0 auto;padding:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px}
+label{display:block;font-size:.78rem;color:var(--mut);margin:8px 0 3px}
+input,select,textarea{width:100%;background:#0f131a;border:1px solid var(--line);color:var(--txt);border-radius:8px;padding:9px;font-size:.9rem;font-family:inherit}
+textarea{min-height:52px;resize:vertical}
+.row{display:flex;gap:8px}.row>*{flex:1}
+button.act{background:var(--acc);color:#fff;border:none;border-radius:9px;padding:11px 14px;font-weight:700;cursor:pointer;font-size:.9rem}
+button.ghost{background:#11151d;color:var(--txt);border:1px solid var(--line);border-radius:9px;padding:9px 12px;cursor:pointer;font-size:.85rem}
+button.mini{background:none;border:none;color:var(--mut);cursor:pointer;font-size:.85rem}
+.mut{color:var(--mut);font-size:.82rem}
+table{width:100%;border-collapse:collapse;font-size:.85rem}
+th,td{text-align:left;padding:7px 6px;border-bottom:1px solid var(--line)}
+th{color:var(--mut);font-weight:600;font-size:.72rem}
+.r{text-align:right}
+.pill{display:inline-block;font-size:.68rem;padding:2px 7px;border-radius:20px}
+.pill.pd{background:rgba(47,191,107,.15);color:var(--grn)}
+.pill.un{background:rgba(224,113,95,.15);color:var(--red)}
+.itrow{display:flex;gap:6px;margin-bottom:6px;align-items:center}
+.itrow input{font-size:.82rem;padding:7px}
+.itrow .d{flex:3}.itrow .q{flex:1}.itrow .p{flex:1.4}.itrow .x{flex:0 0 auto}
+.tot{display:flex;justify-content:space-between;padding:5px 0;font-size:.9rem}
+.tot.big{font-weight:800;font-size:1.1rem;border-top:1px solid var(--line);margin-top:6px;padding-top:8px}
+.help{background:rgba(76,125,255,.08);border:1px solid rgba(76,125,255,.25);border-radius:9px;padding:9px 11px;font-size:.8rem;color:#b9c4e6;margin-bottom:10px}
+/* Faktúra na tlač */
+#print{display:none}
+@media print{
+  body{background:#fff}
+  header,main,#toast{display:none!important}
+  #print{display:block!important;color:#000;font-size:12px;padding:0}
+}
+#print .inv{color:#000;background:#fff;max-width:800px;margin:0 auto;padding:24px;font-family:Arial,sans-serif}
+#print h2{font-size:22px;margin:0 0 2px}
+#print .box{border:1px solid #bbb;border-radius:6px;padding:10px;font-size:12px}
+#print table{font-size:12px}#print th,#print td{border-bottom:1px solid #ddd;color:#000}
+#toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:#222836;color:#fff;padding:10px 16px;border-radius:10px;opacity:0;transition:.2s;font-size:.85rem;z-index:20}
+#toast.show{opacity:1}
+</style>
+
+<header>
+  <h1>📊 Practeo Admin <span class="tag">Faktúry · prototyp</span></h1>
+  <nav>
+    <button id="t-fak" class="on" onclick="tab('fak')">🧾 Faktúry</button>
+    <button id="t-new" onclick="tab('new')">➕ Nová faktúra</button>
+    <button id="t-cli" onclick="tab('cli')">👥 Klienti</button>
+    <button id="t-set" onclick="tab('set')">⚙️ Nastavenia</button>
+  </nav>
+</header>
+<main>
+  <div id="s-fak"></div>
+  <div id="s-new" style="display:none"></div>
+  <div id="s-cli" style="display:none"></div>
+  <div id="s-set" style="display:none"></div>
+</main>
+<div id="print"></div>
+<div id="toast"></div>
+
+<script>
+const $=id=>document.getElementById(id);
+const LS={get:(k,d)=>{try{return JSON.parse(localStorage.getItem('practeo_'+k))??d}catch(e){return d}},set:(k,v)=>localStorage.setItem('practeo_'+k,JSON.stringify(v))};
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const eur=n=>(Math.round((+n||0)*100)/100).toLocaleString('sk-SK',{minimumFractionDigits:2,maximumFractionDigits:2})+' €';
+function toast(t){const e=$('toast');e.textContent=t;e.classList.add('show');setTimeout(()=>e.classList.remove('show'),2200)}
+
+// ---- default dodávateľ (Practeo) ----
+let SUP=LS.get('supplier',{meno:'Practeo, s.r.o.',sidlo:'SNP 1786/72, 069 01 Snina',ico:'',dic:'',icdph:'',iban:'',konatel:'Ing. Peter Pčola'});
+let CLI=LS.get('clients',[]);
+let INV=LS.get('invoices',[]);
+
+let cur=null; // rozpracovaná faktúra
+function newInvoiceNo(){
+ const y=new Date().getFullYear();
+ const n=INV.filter(i=>i.no&&i.no.startsWith(y+'')).length+1;
+ return `${y}${String(n).padStart(3,'0')}`;
+}
+
+function tab(t){for(const k of ['fak','new','cli','set']){$('s-'+k).style.display=k===t?'':'none';$('t-'+k).classList.toggle('on',k===t)}
+ if(t==='fak')renderFak();if(t==='new')renderNew();if(t==='cli')renderCli();if(t==='set')renderSet()}
+
+// ===== NASTAVENIA =====
+function renderSet(){
+ $('s-set').innerHTML=`<div class="card"><b>Údaje dodávateľa (Practeo)</b><p class="mut">Zobrazia sa na každej faktúre. Doplň IČO/DIČ/IČ DPH/IBAN po zápise.</p>
+ <label>Obchodné meno</label><input id="su_meno" value="${esc(SUP.meno)}">
+ <label>Sídlo</label><input id="su_sidlo" value="${esc(SUP.sidlo)}">
+ <div class="row"><div><label>IČO</label><input id="su_ico" value="${esc(SUP.ico)}"></div><div><label>DIČ</label><input id="su_dic" value="${esc(SUP.dic)}"></div></div>
+ <div class="row"><div><label>IČ DPH</label><input id="su_icdph" value="${esc(SUP.icdph)}" placeholder="SK..."></div><div><label>IBAN</label><input id="su_iban" value="${esc(SUP.iban)}"></div></div>
+ <label>Konateľ</label><input id="su_kon" value="${esc(SUP.konatel)}">
+ <div style="margin-top:12px"><button class="act" onclick="saveSup()">Uložiť</button></div></div>`;
+}
+function saveSup(){SUP={meno:$('su_meno').value,sidlo:$('su_sidlo').value,ico:$('su_ico').value,dic:$('su_dic').value,icdph:$('su_icdph').value,iban:$('su_iban').value,konatel:$('su_kon').value};LS.set('supplier',SUP);toast('Uložené ✅')}
+
+// ===== KLIENTI =====
+function renderCli(){
+ let h=`<div class="card"><b>Nový klient</b>
+ <label>Názov / meno</label><input id="cl_meno">
+ <label>Adresa</label><input id="cl_adr">
+ <div class="row"><div><label>IČO</label><input id="cl_ico"></div><div><label>IČ DPH</label><input id="cl_icdph" placeholder="napr. CZ..."></div></div>
+ <label>Krajina</label><select id="cl_kraj"><option>Slovensko</option><option>Česko</option><option>iná EÚ</option><option>mimo EÚ</option></select>
+ <div style="margin-top:10px"><button class="act" onclick="addCli()">Pridať klienta</button></div></div>
+ <div class="card"><b>Klienti (${CLI.length})</b>`;
+ if(!CLI.length)h+='<p class="mut">Zatiaľ žiadni klienti.</p>';
+ CLI.forEach((c,i)=>{h+=`<div style="border-bottom:1px solid var(--line);padding:7px 0"><b>${esc(c.meno)}</b> <span class="mut">· ${esc(c.kraj)}</span><br><span class="mut">${esc(c.adr||'')} ${c.icdph?'· IČ DPH '+esc(c.icdph):''}</span> <button class="mini" onclick="delCli(${i})">✕ zmazať</button></div>`});
+ h+='</div>';$('s-cli').innerHTML=h;
+}
+function addCli(){const m=$('cl_meno').value.trim();if(!m){toast('Zadaj názov');return}CLI.push({meno:m,adr:$('cl_adr').value,ico:$('cl_ico').value,icdph:$('cl_icdph').value,kraj:$('cl_kraj').value});LS.set('clients',CLI);renderCli();toast('Klient pridaný ✅')}
+function delCli(i){CLI.splice(i,1);LS.set('clients',CLI);renderCli()}
+
+// ===== NOVÁ FAKTÚRA =====
+function renderNew(){
+ if(!cur)cur={no:newInvoiceNo(),cli:null,dvyst:today(),ddod:today(),dspl:plus(14),items:[{d:'',q:1,p:0}],dph:'rc',paid:false};
+ const opt=CLI.map((c,i)=>`<option value="${i}" ${cur.cli===i?'selected':''}>${esc(c.meno)}</option>`).join('');
+ let h=`<div class="card">
+  <div class="row"><div><label>Číslo faktúry</label><input id="f_no" value="${esc(cur.no)}"></div>
+  <div><label>Klient</label><select id="f_cli" onchange="cur.cli=this.value===''?null:+this.value"><option value="">— vyber —</option>${opt}</select></div></div>
+  <div class="row"><div><label>Dátum vystavenia</label><input type="date" id="f_dvyst" value="${cur.dvyst}"></div>
+  <div><label>Dátum dodania</label><input type="date" id="f_ddod" value="${cur.ddod}"></div>
+  <div><label>Splatnosť</label><input type="date" id="f_dspl" value="${cur.dspl}"></div></div>
+  <label>Režim DPH</label>
+  <select id="f_dph" onchange="cur.dph=this.value;renderNew()">
+    <option value="none" ${cur.dph==='none'?'selected':''}>Neplatiteľ DPH (bez DPH)</option>
+    <option value="sk" ${cur.dph==='sk'?'selected':''}>Platiteľ SK — DPH 23 %</option>
+    <option value="rc" ${cur.dph==='rc'?'selected':''}>Reverse charge (do ČR/EÚ) — prenesenie daňovej povinnosti</option>
+  </select>
+  ${cur.dph==='rc'?'<div class="help">Faktúra bude bez DPH s poznámkou „Prenesenie daňovej povinnosti / Reverse charge — čl. 196 smernice 2006/112/ES". Uveď IČ DPH klienta.</div>':''}
+  <label style="margin-top:10px">Položky</label><div id="f_items"></div>
+  <button class="ghost" onclick="cur.items.push({d:'',q:1,p:0});syncItems();renderNew()" style="margin-top:4px">+ pridať položku</button>
+  <div style="margin-top:12px" id="f_tot"></div>
+  <div class="row" style="margin-top:12px"><button class="act" onclick="saveInv()">💾 Uložiť faktúru</button><button class="ghost" onclick="previewInv(cur)">👁️ Náhľad / PDF</button></div>
+  <div style="margin-top:6px"><button class="mini" onclick="cur=null;renderNew()">↺ nová prázdna</button></div>
+ </div>`;
+ $('s-new').innerHTML=h;drawItems();drawTot();
+ ['f_no','f_dvyst','f_ddod','f_dspl'].forEach(id=>{const k={f_no:'no',f_dvyst:'dvyst',f_ddod:'ddod',f_dspl:'dspl'}[id];$(id).oninput=e=>cur[k]=e.target.value});
+}
+function drawItems(){$('f_items').innerHTML=cur.items.map((it,i)=>`<div class="itrow">
+ <input class="d" placeholder="Popis položky" value="${esc(it.d)}" oninput="cur.items[${i}].d=this.value">
+ <input class="q" type="number" step="0.01" value="${it.q}" oninput="cur.items[${i}].q=+this.value;drawTot()">
+ <input class="p" type="number" step="0.01" placeholder="cena/j." value="${it.p}" oninput="cur.items[${i}].p=+this.value;drawTot()">
+ <button class="mini x" onclick="cur.items.splice(${i},1);renderNew()">✕</button></div>`).join('')}
+function syncItems(){}
+function totals(inv){const base=inv.items.reduce((s,it)=>s+(+it.q||0)*(+it.p||0),0);const rate=inv.dph==='sk'?0.23:0;const dph=base*rate;return{base,dph,total:base+dph,rate}}
+function drawTot(){const t=totals(cur);$('f_tot').innerHTML=`<div class="tot"><span>Základ</span><b>${eur(t.base)}</b></div>${cur.dph==='sk'?`<div class="tot"><span>DPH 23 %</span><b>${eur(t.dph)}</b></div>`:''}<div class="tot big"><span>Spolu</span><span>${eur(t.total)}</span></div>`}
+function saveInv(){cur.no=$('f_no').value;if(cur.cli==null){toast('Vyber klienta');return}if(!cur.items.some(it=>it.d)){toast('Pridaj aspoň 1 položku');return}
+ const ex=INV.findIndex(i=>i.id===cur.id);if(!cur.id)cur.id=Date.now();
+ if(ex>=0)INV[ex]=cur;else INV.unshift(cur);LS.set('invoices',INV);toast('Faktúra uložená ✅');cur=null;tab('fak')}
+
+// ===== ZOZNAM FAKTÚR =====
+function renderFak(){
+ let h='';
+ if(!SUP.ico)h+='<div class="help">Tip: v ⚙️ Nastaveniach doplň IČO/DIČ/IČ DPH/IBAN Practeo — po zápise firmy.</div>';
+ const paid=INV.filter(i=>i.paid).reduce((s,i)=>s+totals(i).total,0);
+ const unpaid=INV.filter(i=>!i.paid).reduce((s,i)=>s+totals(i).total,0);
+ h+=`<div class="card"><div class="row"><div><div class="mut">Vystavené</div><b>${INV.length}</b></div><div><div class="mut">Zaplatené</div><b style="color:var(--grn)">${eur(paid)}</b></div><div><div class="mut">Nezaplatené</div><b style="color:var(--red)">${eur(unpaid)}</b></div></div></div>`;
+ h+='<div class="card"><b>Faktúry</b>';
+ if(!INV.length)h+='<p class="mut">Zatiaľ žiadne. Vytvor v „➕ Nová faktúra".</p>';
+ else{h+='<table><thead><tr><th>Číslo</th><th>Klient</th><th class="r">Suma</th><th></th></tr></thead><tbody>';
+ INV.forEach(i=>{const c=CLI[i.cli];h+=`<tr><td>${esc(i.no)}<br><span class="mut">${esc(i.dvyst)}</span></td><td>${esc(c?c.meno:'—')}<br><span class="pill ${i.paid?'pd':'un'}">${i.paid?'zaplatená':'nezaplatená'}</span></td><td class="r"><b>${eur(totals(i).total)}</b></td>
+ <td class="r"><button class="mini" onclick="previewInv(INV.find(x=>x.id===${i.id}))">👁️</button><button class="mini" onclick="editInv(${i.id})">✏️</button><button class="mini" onclick="togglePaid(${i.id})">${i.paid?'↺':'✓'}</button><button class="mini" onclick="delInv(${i.id})">✕</button></td></tr>`});
+ h+='</tbody></table>'}
+ h+='</div>';$('s-fak').innerHTML=h;
+}
+function editInv(id){cur=JSON.parse(JSON.stringify(INV.find(i=>i.id===id)));tab('new')}
+function togglePaid(id){const i=INV.find(x=>x.id===id);i.paid=!i.paid;LS.set('invoices',INV);renderFak()}
+function delInv(id){if(!confirm('Zmazať faktúru?'))return;INV=INV.filter(i=>i.id!==id);LS.set('invoices',INV);renderFak()}
+
+// ===== NÁHĽAD / PDF =====
+function previewInv(inv){
+ const c=CLI[inv.cli]||{};const t=totals(inv);
+ const rows=inv.items.filter(it=>it.d).map(it=>`<tr><td>${esc(it.d)}</td><td class="r">${it.q}</td><td class="r">${eur(it.p)}</td><td class="r">${eur((+it.q||0)*(+it.p||0))}</td></tr>`).join('');
+ $('print').innerHTML=`<div class="inv">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start">
+   <div><h2>FAKTÚRA</h2><div>č. ${esc(inv.no)}</div></div>
+   <div style="text-align:right;font-size:12px">Dátum vystavenia: ${esc(inv.dvyst)}<br>Dátum dodania: ${esc(inv.ddod)}<br><b>Splatnosť: ${esc(inv.dspl)}</b></div>
+  </div>
+  <div style="display:flex;gap:14px;margin:14px 0">
+   <div class="box" style="flex:1"><b>Dodávateľ</b><br>${esc(SUP.meno)}<br>${esc(SUP.sidlo)}<br>IČO: ${esc(SUP.ico)||'—'} · DIČ: ${esc(SUP.dic)||'—'}<br>IČ DPH: ${esc(SUP.icdph)||'—'}<br>IBAN: ${esc(SUP.iban)||'—'}</div>
+   <div class="box" style="flex:1"><b>Odberateľ</b><br>${esc(c.meno||'—')}<br>${esc(c.adr||'')}<br>IČO: ${esc(c.ico)||'—'}<br>IČ DPH: ${esc(c.icdph)||'—'}<br>${esc(c.kraj||'')}</div>
+  </div>
+  <table style="width:100%;border-collapse:collapse"><thead><tr><th style="text-align:left">Popis</th><th class="r">Množ.</th><th class="r">Cena/j.</th><th class="r">Spolu</th></tr></thead><tbody>${rows}</tbody></table>
+  <div style="display:flex;justify-content:flex-end;margin-top:12px"><table style="min-width:240px">
+    <tr><td>Základ</td><td class="r">${eur(t.base)}</td></tr>
+    ${inv.dph==='sk'?`<tr><td>DPH 23 %</td><td class="r">${eur(t.dph)}</td></tr>`:''}
+    <tr><td><b>SPOLU</b></td><td class="r"><b>${eur(t.total)}</b></td></tr></table></div>
+  ${inv.dph==='rc'?'<div class="box" style="margin-top:12px;font-size:11px">Prenesenie daňovej povinnosti — Reverse charge. Daň odvedie príjemca (čl. 196 smernice Rady 2006/112/ES). Dodanie služby s miestom dodania podľa § 15 ods. 1 zákona o DPH.</div>':''}
+  ${inv.dph==='none'?'<div style="margin-top:10px;font-size:11px">Dodávateľ nie je platiteľom DPH.</div>':''}
+  <div style="margin-top:24px;font-size:12px">Vystavil: ${esc(SUP.konatel)}</div>
+ </div>`;
+ window.print();
+}
+
+// ---- utils ----
+function today(){return new Date().toISOString().slice(0,10)}
+function plus(days){const d=new Date();d.setDate(d.getDate()+days);return d.toISOString().slice(0,10)}
+
+renderFak();
+</script>
