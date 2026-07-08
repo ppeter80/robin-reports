@@ -59,6 +59,7 @@ th{color:var(--mut);font-weight:600;font-size:.72rem}
     <button id="t-nak" onclick="tab('nak')">🧾 Náklady</button>
     <button id="t-ces" onclick="tab('ces')">🚗 Cesty</button>
     <button id="t-doh" onclick="tab('doh')">🧑‍🎓 Dohodári</button>
+    <button id="t-maj" onclick="tab('maj')">🏢 Majetok</button>
     <button id="t-cli" onclick="tab('cli')">👥 Klienti</button>
     <button id="t-set" onclick="tab('set')">⚙️ Nastavenia</button>
   </nav>
@@ -70,6 +71,7 @@ th{color:var(--mut);font-weight:600;font-size:.72rem}
   <div id="s-nak" style="display:none"></div>
   <div id="s-ces" style="display:none"></div>
   <div id="s-doh" style="display:none"></div>
+  <div id="s-maj" style="display:none"></div>
   <div id="s-cli" style="display:none"></div>
   <div id="s-set" style="display:none"></div>
 </main>
@@ -110,6 +112,9 @@ const VRATE={none:0,'23':0.23,'5':0.05,'19':0.19};
 let VOZ=LS.get('vehicles',[]);
 let JAZ=LS.get('trips',[]);
 let DOH=LS.get('dohodari',[]);
+let MAJ=LS.get('assets',[]);
+const ODS={1:{r:4,d:'1 – 4 roky (autá, motorky, PC, technika)'},2:{r:6,d:'2 – 6 rokov (nábytok, stroje)'},3:{r:8,d:'3 – 8 rokov'},4:{r:12,d:'4 – 12 rokov'},5:{r:20,d:'5 – 20 rokov (priemyselné budovy)'},6:{r:40,d:'6 – 40 rokov (admin/bytové budovy)'}};
+function majOdpis(m){const c=+m.cena||0;if(c<=1700)return{rocny:c,roky:1,drobny:true};const roky=(ODS[m.sk]||ODS[1]).r;return{rocny:c/roky,roky,drobny:false}}
 const NCZD_M=5966.73/12;   // mesačná nezdaniteľná časť
 function dohCalc(d){
  const o=+d.odmena||0;let ee=0,er=0,danZ;
@@ -129,8 +134,8 @@ function newInvoiceNo(){
  return `${y}${String(n).padStart(3,'0')}`;
 }
 
-function tab(t){for(const k of ['dash','fak','new','nak','ces','doh','cli','set']){$('s-'+k).style.display=k===t?'':'none';$('t-'+k).classList.toggle('on',k===t)}
- if(t==='dash')renderDash();if(t==='fak')renderFak();if(t==='new')renderNew();if(t==='nak')renderNak();if(t==='ces')renderCes();if(t==='doh')renderDoh();if(t==='cli')renderCli();if(t==='set')renderSet()}
+function tab(t){for(const k of ['dash','fak','new','nak','ces','doh','maj','cli','set']){$('s-'+k).style.display=k===t?'':'none';$('t-'+k).classList.toggle('on',k===t)}
+ if(t==='dash')renderDash();if(t==='fak')renderFak();if(t==='new')renderNew();if(t==='nak')renderNak();if(t==='ces')renderCes();if(t==='doh')renderDoh();if(t==='maj')renderMaj();if(t==='cli')renderCli();if(t==='set')renderSet()}
 
 // ===== NASTAVENIA =====
 function renderSet(){
@@ -369,6 +374,28 @@ function dohPrev(){const t=$('d_typ');if(!t)return;const d={typ:t.value,odmena:+
 function addDoh(){const m=$('d_meno').value.trim();if(!m){toast('Zadaj meno');return}const o=+$('d_odm').value;if(!o){toast('Zadaj odmenu');return}DOH.unshift({id:Date.now(),meno:m,typ:$('d_typ').value,odmena:o,oop:$('d_oop').checked});LS.set('dohodari',DOH);toast('Dohodár uložený ✅');renderDoh()}
 function delDoh(id){DOH=DOH.filter(d=>d.id!==id);LS.set('dohodari',DOH);renderDoh()}
 
+// ===== MAJETOK + ODPISY =====
+function renderMaj(){
+ let h=`<div class="card"><b>🏢 Nový majetok</b>
+  <label>Názov</label><input id="m_naz" placeholder="napr. motorka, notebook, byt…">
+  <div class="row"><div><label>Obstarávacia cena (€)</label><input type="number" step="1" id="m_cena" oninput="majPrev()"></div>
+  <div><label>Dátum obstarania</label><input type="date" id="m_dat" value="${today()}"></div></div>
+  <label>Odpisová skupina</label><select id="m_sk" onchange="majPrev()">${Object.keys(ODS).map(k=>`<option value="${k}">${esc(ODS[k].d)}</option>`).join('')}</select>
+  <div id="m_prev" class="help" style="display:none"></div>
+  <div class="help">Pozn.: majetok do <b>1 700 €</b> = priamy náklad (neodpisuje sa). <b>Pozemok</b> sa neodpisuje nikdy (eviduj len stavbu).</div>
+  <div style="margin-top:8px"><button class="act" onclick="addMaj()">Pridať majetok</button></div></div>
+  <div class="card"><b>Majetok (${MAJ.length})</b>`;
+ if(!MAJ.length)h+='<p class="mut">Zatiaľ žiadny.</p>';
+ else{h+='<table><thead><tr><th>Názov</th><th>Cena / skupina</th><th class="r">Ročný odpis</th><th></th></tr></thead><tbody>';
+  MAJ.forEach(m=>{const o=majOdpis(m);h+=`<tr><td>${esc(m.naz)}<br><span class="mut">${esc((m.dat||'').slice(0,10))}</span></td><td>${eur(m.cena)}<br><span class="mut">${o.drobny?'drobný majetok':'skup. '+m.sk+' · '+o.roky+' r.'}</span></td><td class="r"><b>${eur(o.rocny)}</b>${o.drobny?'<br><span class="mut">jednorazovo</span>':'/rok'}</td><td class="r"><button class="mini" onclick="delMaj(${m.id})">✕</button></td></tr>`});
+  h+='</tbody></table>'}
+ h+='</div>';$('s-maj').innerHTML=h;majPrev();
+}
+function majPrev(){const c=+($('m_cena')||{}).value||0;const sk=($('m_sk')||{}).value||'1';const o=majOdpis({cena:c,sk});const p=$('m_prev');if(!p)return;if(!c){p.style.display='none';return}p.style.display='';
+ p.innerHTML=o.drobny?`Do 1 700 € → <b>priamy náklad ${eur(c)}</b> (neodpisuje sa)`:`Odpisuje sa <b>${o.roky} rokov</b> → ročný odpis <b>${eur(o.rocny)}</b>`;}
+function addMaj(){const n=$('m_naz').value.trim();if(!n){toast('Zadaj názov');return}const c=+$('m_cena').value;if(!c){toast('Zadaj cenu');return}MAJ.unshift({id:Date.now(),naz:n,cena:c,dat:$('m_dat').value,sk:$('m_sk').value});LS.set('assets',MAJ);toast('Majetok pridaný ✅');renderMaj()}
+function delMaj(id){MAJ=MAJ.filter(m=>m.id!==id);LS.set('assets',MAJ);renderMaj()}
+
 // ===== DASHBOARD / DPH PREHĽAD =====
 function renderDash(){
  const trzby=INV.reduce((s,i)=>s+totals(i).base,0);
@@ -376,13 +403,15 @@ function renderDash(){
  const rcEU=INV.filter(i=>i.dph==='rc').reduce((s,i)=>s+totals(i).base,0);
  const naklE=EXP.filter(e=>e.uzn).reduce((s,e)=>s+(+e.sum||0),0);
  const nahr=JAZ.reduce((s,j)=>s+nahrada(j).total,0);
- const naklUzn=naklE+nahr;
+ const odp=MAJ.reduce((s,m)=>s+majOdpis(m).rocny,0);
+ const naklUzn=naklE+nahr+odp;
  const dphIn=EXP.reduce((s,e)=>{const r=VRATE[e.dph]||0;const t=+e.sum||0;return s+(t-t/(1+r))},0);
  const zisk=trzby-naklUzn;const danPO=Math.max(zisk*0.10,0);const saldo=dphOut-dphIn;
  $('s-dash').innerHTML=`<div class="card"><b>📈 Prehľad</b> <span class="mut">(všetky doklady)</span>
   <div class="tot"><span>Tržby (základ faktúr)</span><b>${eur(trzby)}</b></div>
   <div class="tot"><span>Náklady – doklady</span><b>${eur(naklE)}</b></div>
   <div class="tot"><span>Náklady – cestovné náhrady</span><b>${eur(nahr)}</b></div>
+  <div class="tot"><span>Náklady – odpisy majetku (ročne)</span><b>${eur(odp)}</b></div>
   <div class="tot big"><span>Zisk (odhad)</span><span>${eur(zisk)}</span></div>
   <div class="tot"><span>Odhad dane PO (10 %)</span><b>${eur(danPO)}</b></div></div>
   <div class="card"><b>🧾 DPH prehľad</b> <span class="mut">(podklad pre účtovníka)</span>
