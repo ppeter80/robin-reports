@@ -308,8 +308,9 @@ async function previewInv(inv){
  let qrImg='';
  try{
   if(window.PracteoPay&&SUP.iban&&inv.typ!=='dobropis'&&t.total>0){
-   const durl=await window.PracteoPay.qrDataUrl({iban:SUP.iban,amount:t.total,vs:inv.no,note:(TYPLBL[inv.typ]||'Faktúra')+(inv.no?' '+inv.no:''),name:SUP.meno,currency:'EUR'});
-   qrImg=`<div style="text-align:center;margin-top:14px"><img src="${durl}" style="width:150px;height:150px"><div style="font-size:11px;color:#555;margin-top:2px"><b>Zaplatiť QR</b> (PAY by square) — naskenuj v bankovej aplikácii<br>${esc(SUP.iban)} · VS ${esc((inv.no||'').replace(/\D/g,''))||'—'} · ${eur(t.total)}</div></div>`;
+   const kraj=(CLI[inv.cli]||{}).kraj||'';
+   const r=await window.PracteoPay.qrPay({iban:SUP.iban,amount:t.total,vs:inv.no,note:(TYPLBL[inv.typ]||'Faktúra')+(inv.no?' '+inv.no:''),name:SUP.meno,currency:'EUR',country:kraj});
+   qrImg=`<div style="text-align:center;margin-top:14px"><img src="${r.dataUrl}" style="width:150px;height:150px"><div style="font-size:11px;color:#555;margin-top:2px"><b>Zaplatiť QR</b> (${esc(r.std)}) — naskenuj v bankovej aplikácii<br>${esc(SUP.iban)} · VS ${esc((inv.no||'').replace(/\D/g,''))||'—'} · ${eur(t.total)}</div></div>`;
   }
  }catch(e){qrImg=''}
  $('print').innerHTML=`<div class="inv">
