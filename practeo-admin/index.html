@@ -92,6 +92,7 @@ th{color:var(--mut);font-weight:600;font-size:.72rem}
 
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="paybysquare.bundle.js"></script>
 <script>
 const $=id=>document.getElementById(id);
 // ===== Cloud úložisko (Supabase) — dáta sú v cloude, localStorage slúži ako offline záloha =====
@@ -301,9 +302,16 @@ function togglePaid(id){const i=INV.find(x=>x.id===id);i.paid=!i.paid;LS.set('in
 function delInv(id){if(!confirm('Zmazať tento doklad?\n\nČíslo sa už znova nepoužije (žiadne duplikáty). Pri už odoslanej/zaúčtovanej faktúre je správnejšie vystaviť DOBROPIS (storno) než mazať — číslovanie má byť súvislé.'))return;INV=INV.filter(i=>i.id!==id);LS.set('invoices',INV);renderFak()}
 
 // ===== NÁHĽAD / PDF =====
-function previewInv(inv){
+async function previewInv(inv){
  const c=CLI[inv.cli]||{};const t=totals(inv);
  const rows=inv.items.filter(it=>it.d).map(it=>`<tr><td>${esc(it.d)}</td><td class="r">${it.q}</td><td class="r">${eur(it.p)}</td><td class="r">${eur((+it.q||0)*(+it.p||0))}</td></tr>`).join('');
+ let qrImg='';
+ try{
+  if(window.PracteoPay&&SUP.iban&&inv.typ!=='dobropis'&&t.total>0){
+   const durl=await window.PracteoPay.qrDataUrl({iban:SUP.iban,amount:t.total,vs:inv.no,note:(TYPLBL[inv.typ]||'Faktúra')+(inv.no?' '+inv.no:''),name:SUP.meno,currency:'EUR'});
+   qrImg=`<div style="text-align:center;margin-top:14px"><img src="${durl}" style="width:150px;height:150px"><div style="font-size:11px;color:#555;margin-top:2px"><b>Zaplatiť QR</b> (PAY by square) — naskenuj v bankovej aplikácii<br>${esc(SUP.iban)} · VS ${esc((inv.no||'').replace(/\D/g,''))||'—'} · ${eur(t.total)}</div></div>`;
+  }
+ }catch(e){qrImg=''}
  $('print').innerHTML=`<div class="inv">
   <div style="display:flex;justify-content:space-between;align-items:flex-start">
    <div><h2>${inv.draft?'NÁVRH – '+TYPLBL[inv.typ||'faktúra']:TYPLBL[inv.typ||'faktúra']}</h2><div>${inv.draft?'(nezáväzný návrh – bez čísla)':'č. '+esc(inv.no)}${inv.typ==='dobropis'&&inv.ref?' · opravuje faktúru č. '+esc(inv.ref):''}</div></div>
@@ -318,6 +326,7 @@ function previewInv(inv){
     <tr><td>Základ</td><td class="r">${eur(t.base)}</td></tr>
     ${t.rate>0?`<tr><td>DPH ${Math.round(t.rate*100)} %</td><td class="r">${eur(t.dph)}</td></tr>`:''}
     <tr><td><b>SPOLU</b></td><td class="r"><b>${eur(t.total)}</b></td></tr></table></div>
+  ${qrImg}
   ${inv.draft?'<div class="box" style="margin-top:12px;font-size:11px">NÁVRH — nezáväzná ukážka na odsúhlasenie klientom. Nie je daňový doklad. Po potvrdení sa vystaví riadna faktúra s prideleným číslom.</div>':''}
   ${inv.typ==='zálohová'?'<div class="box" style="margin-top:12px;font-size:11px">Zálohová faktúra — nie je daňový doklad. Slúži ako výzva na úhradu zálohy.</div>':''}
   ${dphNote(inv.dph)?`<div class="box" style="margin-top:12px;font-size:11px">${dphNote(inv.dph)}</div>`:''}
