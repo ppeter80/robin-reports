@@ -57,6 +57,7 @@ th{color:var(--mut);font-weight:600;font-size:.72rem}
     <button id="t-fak" class="on" onclick="tab('fak')">🧾 Faktúry</button>
     <button id="t-new" onclick="tab('new')">➕ Faktúra</button>
     <button id="t-nak" onclick="tab('nak')">🧾 Náklady</button>
+    <button id="t-ces" onclick="tab('ces')">🚗 Cesty</button>
     <button id="t-cli" onclick="tab('cli')">👥 Klienti</button>
     <button id="t-set" onclick="tab('set')">⚙️ Nastavenia</button>
   </nav>
@@ -66,6 +67,7 @@ th{color:var(--mut);font-weight:600;font-size:.72rem}
   <div id="s-fak"></div>
   <div id="s-new" style="display:none"></div>
   <div id="s-nak" style="display:none"></div>
+  <div id="s-ces" style="display:none"></div>
   <div id="s-cli" style="display:none"></div>
   <div id="s-set" style="display:none"></div>
 </main>
@@ -103,6 +105,11 @@ let INV=LS.get('invoices',[]);
 let EXP=LS.get('expenses',[]);
 const KAT=['Nájom / sídlo','Účtovníctvo / právne','Technika a softvér / AI','Auto / PHM / servis','Telefón / internet','Cestovné / diéty','Marketing / web','Vzdelávanie / knihy','Poistenie','Bankové poplatky','Materiál / kancelária','Nehnuteľnosti (náklady)','Ostatné'];
 const VRATE={none:0,'23':0.23,'5':0.05,'19':0.19};
+let VOZ=LS.get('vehicles',[]);
+let JAZ=LS.get('trips',[]);
+const KMRATE=0.313;                 // základná náhrada €/km (2026)
+function dietaFor(h){if(h==null||h<5)return 0;if(h<=12)return 8.80;if(h<=18)return 13.10;return 19.50}
+function tripHours(od,pr){if(!od||!pr)return null;const a=new Date(od),b=new Date(pr);const h=(b-a)/3600000;return h>0?h:null}
 
 let cur=null; // rozpracovaná faktúra
 function newInvoiceNo(){
@@ -111,8 +118,8 @@ function newInvoiceNo(){
  return `${y}${String(n).padStart(3,'0')}`;
 }
 
-function tab(t){for(const k of ['dash','fak','new','nak','cli','set']){$('s-'+k).style.display=k===t?'':'none';$('t-'+k).classList.toggle('on',k===t)}
- if(t==='dash')renderDash();if(t==='fak')renderFak();if(t==='new')renderNew();if(t==='nak')renderNak();if(t==='cli')renderCli();if(t==='set')renderSet()}
+function tab(t){for(const k of ['dash','fak','new','nak','ces','cli','set']){$('s-'+k).style.display=k===t?'':'none';$('t-'+k).classList.toggle('on',k===t)}
+ if(t==='dash')renderDash();if(t==='fak')renderFak();if(t==='new')renderNew();if(t==='nak')renderNak();if(t==='ces')renderCes();if(t==='cli')renderCli();if(t==='set')renderSet()}
 
 // ===== NASTAVENIA =====
 function renderSet(){
@@ -276,17 +283,72 @@ function addExp(){const s=+$('e_sum').value;if(!s){toast('Zadaj sumu');return}tr
 function delExp(id){EXP=EXP.filter(e=>e.id!==id);LS.set('expenses',EXP);renderNak()}
 function viewFoto(id){const e=EXP.find(x=>x.id===id);if(e&&e.foto){const w=window.open();w.document.write('<img src="'+e.foto+'" style="max-width:100%">')}}
 
+// ===== CESTY / KNIHA JÁZD =====
+function renderCes(){
+ let h=`<div class="card"><b>🚗 Vozidlá</b>
+  <label>Názov / model</label><input id="v_naz">
+  <div class="row"><div><label>ŠPZ</label><input id="v_spz"></div>
+  <div><label>Typ</label><select id="v_typ"><option>vlastné</option><option>priateľkino</option><option>firemné</option></select></div></div>
+  <div class="row"><div><label>Palivo</label><select id="v_pal"><option>benzín</option><option>nafta</option><option>elektro</option></select></div>
+  <div><label>Spotreba (l/100 · kWh/100)</label><input type="number" step="0.1" id="v_spot"></div>
+  <div><label>Cena (€/l · €/kWh)</label><input type="number" step="0.001" id="v_cena"></div></div>
+  <div style="margin-top:8px"><button class="act" onclick="addVoz()">Pridať vozidlo</button></div>`;
+ if(VOZ.length){h+='<div style="margin-top:8px">';VOZ.forEach((v,i)=>h+=`<div class="mut" style="border-top:1px solid var(--line);padding:5px 0">${esc(v.naz)} · ${esc(v.spz||'')} · ${esc(v.typ)} · ${esc(v.pal)} ${v.spot||0} · ${v.cena||0} € <button class="mini" onclick="delVoz(${i})">✕</button></div>`);h+='</div>'}
+ h+='</div>';
+ const vopt=VOZ.map((v,i)=>`<option value="${i}">${esc(v.naz)} (${esc(v.typ)})</option>`).join('');
+ h+=`<div class="card"><b>Nová služobná cesta</b>
+  ${!VOZ.length?'<p class="mut">Najprv pridaj vozidlo ↑</p>':''}
+  <div class="row"><div><label>Vozidlo</label><select id="j_voz" onchange="jazPrev()">${vopt}</select></div>
+  <div><label>Km</label><input type="number" step="1" id="j_km" oninput="jazPrev()"></div></div>
+  <div class="row"><div><label>Odkiaľ</label><input id="j_from"></div><div><label>Kam</label><input id="j_to"></div></div>
+  <label>Účel cesty</label><input id="j_ucel" placeholder="obhliadka nehnuteľnosti, rokovanie…">
+  <div class="row"><div><label>Odchod</label><input type="datetime-local" id="j_od" oninput="jazPrev()"></div>
+  <div><label>Príchod</label><input type="datetime-local" id="j_pr" oninput="jazPrev()"></div></div>
+  <div id="j_prev" class="help" style="display:none"></div>
+  <div style="margin-top:8px"><button class="act" onclick="addJaz()">Uložiť cestu</button></div></div>`;
+ h+=`<div class="card"><b>Cesty (${JAZ.length})</b>`;
+ if(!JAZ.length)h+='<p class="mut">Zatiaľ žiadne.</p>';
+ else{h+='<table><thead><tr><th>Dátum</th><th>Trasa</th><th class="r">Náhrada</th><th></th></tr></thead><tbody>';
+  JAZ.forEach(j=>{const n=nahrada(j);h+=`<tr><td>${esc((j.od||'').slice(0,10))}</td><td>${esc(j.from)}–${esc(j.to)}<br><span class="mut">${j.km} km${j.dietH?' · '+(+j.dietH).toFixed(1)+'h':''}</span></td><td class="r"><b>${eur(n.total)}</b></td><td class="r"><button class="mini" onclick="cestPrikaz(${j.id})">📄</button><button class="mini" onclick="delJaz(${j.id})">✕</button></td></tr>`});
+  h+='</tbody></table>'}
+ h+='</div>';$('s-ces').innerHTML=h;
+}
+function addVoz(){const n=$('v_naz').value.trim();if(!n){toast('Zadaj názov vozidla');return}VOZ.push({naz:n,spz:$('v_spz').value,typ:$('v_typ').value,pal:$('v_pal').value,spot:+$('v_spot').value,cena:+$('v_cena').value});LS.set('vehicles',VOZ);renderCes();toast('Vozidlo pridané ✅')}
+function delVoz(i){VOZ.splice(i,1);LS.set('vehicles',VOZ);renderCes()}
+function nahrada(j){const v=VOZ[j.voz]||{};const zakl=(+j.km||0)*KMRATE;const phm=(+v.spot||0)/100*(+j.km||0)*(+v.cena||0);const diet=dietaFor(j.dietH);return{zakl,phm,diet,total:zakl+phm+diet}}
+function jazPrev(){const km=+$('j_km').value||0;const h=tripHours($('j_od').value,$('j_pr').value);const v=VOZ[+($('j_voz')||{}).value]||{};const zakl=km*KMRATE;const phm=(+v.spot||0)/100*km*(+v.cena||0);const diet=dietaFor(h);const p=$('j_prev');if(!p)return;p.style.display='';p.innerHTML=`Základná: <b>${eur(zakl)}</b> · ${v.pal==='elektro'?'Elektrina':'PHM'}: <b>${eur(phm)}</b> · Diéty${h?' ('+h.toFixed(1)+'h)':''}: <b>${eur(diet)}</b> → Spolu: <b>${eur(zakl+phm+diet)}</b>`}
+function addJaz(){if(!VOZ.length){toast('Najprv pridaj vozidlo');return}const km=+$('j_km').value;if(!km){toast('Zadaj km');return}const h=tripHours($('j_od').value,$('j_pr').value);JAZ.unshift({id:Date.now(),voz:+$('j_voz').value,km:km,from:$('j_from').value,to:$('j_to').value,ucel:$('j_ucel').value,od:$('j_od').value,pr:$('j_pr').value,dietH:h});LS.set('trips',JAZ);toast('Cesta uložená ✅');renderCes()}
+function delJaz(id){JAZ=JAZ.filter(j=>j.id!==id);LS.set('trips',JAZ);renderCes()}
+function cestPrikaz(id){const j=JAZ.find(x=>x.id===id);const v=VOZ[j.voz]||{};const n=nahrada(j);
+ $('print').innerHTML=`<div class="inv"><h2>CESTOVNÝ PRÍKAZ</h2>
+  <div style="font-size:12px;margin:8px 0">Zamestnanec / konateľ: <b>${esc(SUP.konatel)}</b> · ${esc(SUP.meno)}</div>
+  <div class="box" style="font-size:12px"><b>Vozidlo:</b> ${esc(v.naz||'')} ${esc(v.spz||'')} (${esc(v.typ||'')}, ${esc(v.pal||'')})<br>
+   <b>Trasa:</b> ${esc(j.from)} – ${esc(j.to)} · <b>${j.km} km</b><br>
+   <b>Účel cesty:</b> ${esc(j.ucel||'')}<br>
+   <b>Odchod:</b> ${esc((j.od||'').replace('T',' '))} · <b>Príchod:</b> ${esc((j.pr||'').replace('T',' '))}${j.dietH?' ('+(+j.dietH).toFixed(1)+' h)':''}</div>
+  <div style="display:flex;justify-content:flex-end;margin-top:12px"><table style="min-width:290px">
+   <tr><td>Základná náhrada (${j.km} km × ${KMRATE.toFixed(3)} €)</td><td class="r">${eur(n.zakl)}</td></tr>
+   <tr><td>${v.pal==='elektro'?'Náhrada za elektrinu':'Náhrada za PHM'} (${v.spot||0} ${v.pal==='elektro'?'kWh':'l'}/100 × ${v.cena||0} €)</td><td class="r">${eur(n.phm)}</td></tr>
+   <tr><td>Stravné (diéty)</td><td class="r">${eur(n.diet)}</td></tr>
+   <tr><td><b>SPOLU NÁHRADA</b></td><td class="r"><b>${eur(n.total)}</b></td></tr></table></div>
+  <div style="margin-top:24px;font-size:12px">Dátum a podpis: ......................................</div></div>`;
+ window.print();
+}
+
 // ===== DASHBOARD / DPH PREHĽAD =====
 function renderDash(){
  const trzby=INV.reduce((s,i)=>s+totals(i).base,0);
  const dphOut=INV.reduce((s,i)=>s+totals(i).dph,0);
  const rcEU=INV.filter(i=>i.dph==='rc').reduce((s,i)=>s+totals(i).base,0);
- const naklUzn=EXP.filter(e=>e.uzn).reduce((s,e)=>s+(+e.sum||0),0);
+ const naklE=EXP.filter(e=>e.uzn).reduce((s,e)=>s+(+e.sum||0),0);
+ const nahr=JAZ.reduce((s,j)=>s+nahrada(j).total,0);
+ const naklUzn=naklE+nahr;
  const dphIn=EXP.reduce((s,e)=>{const r=VRATE[e.dph]||0;const t=+e.sum||0;return s+(t-t/(1+r))},0);
  const zisk=trzby-naklUzn;const danPO=Math.max(zisk*0.10,0);const saldo=dphOut-dphIn;
  $('s-dash').innerHTML=`<div class="card"><b>📈 Prehľad</b> <span class="mut">(všetky doklady)</span>
   <div class="tot"><span>Tržby (základ faktúr)</span><b>${eur(trzby)}</b></div>
-  <div class="tot"><span>Náklady (uznateľné)</span><b>${eur(naklUzn)}</b></div>
+  <div class="tot"><span>Náklady – doklady</span><b>${eur(naklE)}</b></div>
+  <div class="tot"><span>Náklady – cestovné náhrady</span><b>${eur(nahr)}</b></div>
   <div class="tot big"><span>Zisk (odhad)</span><span>${eur(zisk)}</span></div>
   <div class="tot"><span>Odhad dane PO (10 %)</span><b>${eur(danPO)}</b></div></div>
   <div class="card"><b>🧾 DPH prehľad</b> <span class="mut">(podklad pre účtovníka)</span>
