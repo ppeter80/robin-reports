@@ -74,6 +74,22 @@ const LS={get:(k,d)=>{try{return JSON.parse(localStorage.getItem('practeo_'+k))?
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const eur=n=>(Math.round((+n||0)*100)/100).toLocaleString('sk-SK',{minimumFractionDigits:2,maximumFractionDigits:2})+' €';
 function toast(t){const e=$('toast');e.textContent=t;e.classList.add('show');setTimeout(()=>e.classList.remove('show'),2200)}
+// režimy DPH (2026): 23 základná, 19 a 5 znížené, oslobodené (§38 prenájom), reverse charge
+const DPHM={
+ none:{r:0,lbl:'Neplatiteľ DPH (bez DPH)'},
+ sk23:{r:0.23,lbl:'Platiteľ SK — 23 % (poradenstvo, tovar)'},
+ sk:{r:0.23,lbl:'Platiteľ SK — 23 %'},
+ sk5:{r:0.05,lbl:'Znížená 5 % (ubytovanie / apartmán / krátkodobý prenájom)'},
+ sk19:{r:0.19,lbl:'Znížená 19 %'},
+ exempt:{r:0,lbl:'Oslobodené — dlhodobý prenájom nehnuteľnosti (§38)'},
+ rc:{r:0,lbl:'Reverse charge (do ČR/EÚ) — prenesenie daňovej povinnosti'}
+};
+function dphNote(m){
+ if(m==='rc')return'Prenesenie daňovej povinnosti — Reverse charge. Daň odvedie príjemca (čl. 196 smernice Rady 2006/112/ES). Miesto dodania podľa § 15 ods. 1 zákona o DPH.';
+ if(m==='exempt')return'Oslobodené od dane podľa § 38 zákona o DPH (nájom nehnuteľnosti).';
+ if(m==='none')return'Dodávateľ nie je platiteľom DPH.';
+ return'';
+}
 
 // ---- default dodávateľ (Practeo) ----
 let SUP=LS.get('supplier',{meno:'Practeo, s.r.o.',sidlo:'SNP 1786/72, 069 01 Snina',ico:'',dic:'',icdph:'',iban:'',konatel:'Ing. Peter Pčola'});
@@ -130,11 +146,11 @@ function renderNew(){
   <div><label>Splatnosť</label><input type="date" id="f_dspl" value="${cur.dspl}"></div></div>
   <label>Režim DPH</label>
   <select id="f_dph" onchange="cur.dph=this.value;renderNew()">
-    <option value="none" ${cur.dph==='none'?'selected':''}>Neplatiteľ DPH (bez DPH)</option>
-    <option value="sk" ${cur.dph==='sk'?'selected':''}>Platiteľ SK — DPH 23 %</option>
-    <option value="rc" ${cur.dph==='rc'?'selected':''}>Reverse charge (do ČR/EÚ) — prenesenie daňovej povinnosti</option>
+    ${['none','sk23','sk5','sk19','exempt','rc'].map(k=>`<option value="${k}" ${cur.dph===k||(cur.dph==='sk'&&k==='sk23')?'selected':''}>${DPHM[k].lbl}</option>`).join('')}
   </select>
-  ${cur.dph==='rc'?'<div class="help">Faktúra bude bez DPH s poznámkou „Prenesenie daňovej povinnosti / Reverse charge — čl. 196 smernice 2006/112/ES". Uveď IČ DPH klienta.</div>':''}
+  ${cur.dph==='rc'?'<div class="help">Bez DPH — prenesenie daňovej povinnosti. Uveď IČ DPH klienta.</div>':''}
+  ${cur.dph==='exempt'?'<div class="help">Bez DPH — oslobodené (§38, dlhodobý nájom nehnuteľnosti). Pozn.: krátkodobé ubytovanie NIE je oslobodené — použi 5 %.</div>':''}
+  ${cur.dph==='sk5'?'<div class="help">Znížená sadzba 5 % — ubytovacie služby / krátkodobý (apartmánový) prenájom.</div>':''}
   <label style="margin-top:10px">Položky</label><div id="f_items"></div>
   <button class="ghost" onclick="cur.items.push({d:'',q:1,p:0});syncItems();renderNew()" style="margin-top:4px">+ pridať položku</button>
   <div style="margin-top:12px" id="f_tot"></div>
@@ -150,8 +166,8 @@ function drawItems(){$('f_items').innerHTML=cur.items.map((it,i)=>`<div class="i
  <input class="p" type="number" step="0.01" placeholder="cena/j." value="${it.p}" oninput="cur.items[${i}].p=+this.value;drawTot()">
  <button class="mini x" onclick="cur.items.splice(${i},1);renderNew()">✕</button></div>`).join('')}
 function syncItems(){}
-function totals(inv){const base=inv.items.reduce((s,it)=>s+(+it.q||0)*(+it.p||0),0);const rate=inv.dph==='sk'?0.23:0;const dph=base*rate;return{base,dph,total:base+dph,rate}}
-function drawTot(){const t=totals(cur);$('f_tot').innerHTML=`<div class="tot"><span>Základ</span><b>${eur(t.base)}</b></div>${cur.dph==='sk'?`<div class="tot"><span>DPH 23 %</span><b>${eur(t.dph)}</b></div>`:''}<div class="tot big"><span>Spolu</span><span>${eur(t.total)}</span></div>`}
+function totals(inv){const base=inv.items.reduce((s,it)=>s+(+it.q||0)*(+it.p||0),0);const rate=(DPHM[inv.dph]||{}).r||0;const dph=base*rate;return{base,dph,total:base+dph,rate}}
+function drawTot(){const t=totals(cur);$('f_tot').innerHTML=`<div class="tot"><span>Základ</span><b>${eur(t.base)}</b></div>${t.rate>0?`<div class="tot"><span>DPH ${Math.round(t.rate*100)} %</span><b>${eur(t.dph)}</b></div>`:''}<div class="tot big"><span>Spolu</span><span>${eur(t.total)}</span></div>`}
 function saveInv(){cur.no=$('f_no').value;if(cur.cli==null){toast('Vyber klienta');return}if(!cur.items.some(it=>it.d)){toast('Pridaj aspoň 1 položku');return}
  const ex=INV.findIndex(i=>i.id===cur.id);if(!cur.id)cur.id=Date.now();
  if(ex>=0)INV[ex]=cur;else INV.unshift(cur);LS.set('invoices',INV);toast('Faktúra uložená ✅');cur=null;tab('fak')}
@@ -191,10 +207,9 @@ function previewInv(inv){
   <table style="width:100%;border-collapse:collapse"><thead><tr><th style="text-align:left">Popis</th><th class="r">Množ.</th><th class="r">Cena/j.</th><th class="r">Spolu</th></tr></thead><tbody>${rows}</tbody></table>
   <div style="display:flex;justify-content:flex-end;margin-top:12px"><table style="min-width:240px">
     <tr><td>Základ</td><td class="r">${eur(t.base)}</td></tr>
-    ${inv.dph==='sk'?`<tr><td>DPH 23 %</td><td class="r">${eur(t.dph)}</td></tr>`:''}
+    ${t.rate>0?`<tr><td>DPH ${Math.round(t.rate*100)} %</td><td class="r">${eur(t.dph)}</td></tr>`:''}
     <tr><td><b>SPOLU</b></td><td class="r"><b>${eur(t.total)}</b></td></tr></table></div>
-  ${inv.dph==='rc'?'<div class="box" style="margin-top:12px;font-size:11px">Prenesenie daňovej povinnosti — Reverse charge. Daň odvedie príjemca (čl. 196 smernice Rady 2006/112/ES). Dodanie služby s miestom dodania podľa § 15 ods. 1 zákona o DPH.</div>':''}
-  ${inv.dph==='none'?'<div style="margin-top:10px;font-size:11px">Dodávateľ nie je platiteľom DPH.</div>':''}
+  ${dphNote(inv.dph)?`<div class="box" style="margin-top:12px;font-size:11px">${dphNote(inv.dph)}</div>`:''}
   <div style="margin-top:24px;font-size:12px">Vystavil: ${esc(SUP.konatel)}</div>
  </div>`;
  window.print();
