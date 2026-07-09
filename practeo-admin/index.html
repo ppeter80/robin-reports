@@ -460,7 +460,7 @@ function renderDoh(){
   <div class="card"><b>Dohodári (${DOH.length})</b>`;
  if(!DOH.length)h+='<p class="mut">Zatiaľ žiadni.</p>';
  else{h+='<table><thead><tr><th>Meno</th><th>Typ / odmena</th><th class="r">Čistá / náklad</th><th></th></tr></thead><tbody>';
-  DOH.forEach(d=>{const c=dohCalc(d);h+=`<tr><td>${esc(d.meno)}</td><td>${esc(d.typ)}<br><span class="mut">${eur(d.odmena)}/mes</span></td><td class="r">čistá <b>${eur(c.cista)}</b><br><span class="mut">náklad ${eur(c.naklad)}</span></td><td class="r"><button class="mini" onclick="delDoh(${d.id})">✕</button></td></tr>`});
+  DOH.forEach(d=>{const c=dohCalc(d);h+=`<tr><td>${esc(d.meno)}</td><td>${esc(d.typ)}<br><span class="mut">${eur(d.odmena)}/mes</span></td><td class="r">čistá <b>${eur(c.cista)}</b><br><span class="mut">náklad ${eur(c.naklad)}</span></td><td class="r"><button class="mini" onclick="genDohoda(${d.id})" title="Vygenerovať dohodu (PDF)">📄</button><button class="mini" onclick="delDoh(${d.id})">✕</button></td></tr>`});
   h+='</tbody></table><p class="mut" style="margin-top:6px">„Čistá" = čo dostane dohodár; „náklad" = odmena + odvody zamestnávateľa (mesačne).</p>'}
  h+='</div>';$('s-doh').innerHTML=h;dohPrev();
 }
@@ -533,7 +533,55 @@ function renderZml(){
   <div><label>Doba do <span style="opacity:.7">(voliteľné)</span></label><input type="date" id="z_do"></div></div>
   <label style="margin-top:8px"><input type="checkbox" id="z_rc" style="width:auto;margin-right:6px;vertical-align:middle">Cezhranične do EÚ/ČR — reverse charge (bez DPH)</label>
   <div style="margin-top:10px"><button class="act" onclick="genZmluva()">👁️ Vygenerovať / PDF</button></div></div>
-  <div class="card"><p class="mut">Ďalšie šablóny (nájomná zmluva, súhlas so sídlom) sú v zakladacom balíku Practeo; cestovný príkaz je v module Cesty.</p></div>`;
+  <div class="card"><b>📋 Protokol o odovzdaní a prevzatí práce</b>
+  <p class="mut">Potvrdenie, že práca/dielo bolo odovzdané a prevzaté — príloha k faktúre alebo dohode.</p>
+  <div class="row"><div><label>Odovzdávajúci</label><input id="p_od" value="${esc(SUP.meno)}"></div>
+  <div><label>Preberajúci</label><input id="p_pre" placeholder="klient / zamestnávateľ"></div></div>
+  <label>Predmet / opis vykonanej práce</label><textarea id="p_pred" placeholder="napr. poradenské služby za 07/2026 podľa zmluvy…"></textarea>
+  <div class="row"><div><label>Dátum odovzdania</label><input type="date" id="p_dat" value="${today()}"></div>
+  <div><label>Miesto</label><input id="p_miesto" value="Bratislava"></div></div>
+  <label>Poznámka <span style="opacity:.7">(voliteľné — odkaz na zmluvu/faktúru)</span></label><input id="p_note">
+  <div style="margin-top:10px"><button class="act" onclick="genProtokol()">📋 Vygenerovať protokol / PDF</button></div></div>
+  <div class="card"><p class="mut">Ďalšie šablóny (nájomná zmluva, súhlas so sídlom) sú v zakladacom balíku Practeo; cestovný príkaz je v module Cesty; dohodu pre dohodára vygeneruješ v module 🧑‍🎓 Dohodári (tlačidlo 📄).</p></div>`;
+}
+function genDohoda(id){
+ const d=DOH.find(x=>x.id===id);if(!d)return;
+ const stud=d.typ==='študent';
+ const nazov=stud?'DOHODA O BRIGÁDNICKEJ PRÁCI ŠTUDENTOV':'DOHODA O PRACOVNEJ ČINNOSTI';
+ const par=stud?'§ 227 a § 228 Zákonníka práce':'§ 228a Zákonníka práce';
+ const maxh=stud?'v priemere najviac 20 hodín týždenne':'v priemere najviac 10 hodín týždenne';
+ const oop=d.oop!==false&&(stud||d.typ==='dôchodca');
+ $('print').innerHTML=`<div class="inv" style="font-size:12px;line-height:1.55">
+  <h2 style="text-align:center">${nazov}</h2>
+  <p style="text-align:center;color:#555">uzatvorená podľa ${par}</p>
+  <p><b>Zamestnávateľ:</b> ${esc(SUP.meno)}, so sídlom ${esc(SUP.sidlo)}, IČO: ${esc(SUP.ico)||'—'}, zastúpený konateľom ${esc(SUP.konatel)}</p>
+  <p><b>Zamestnanec:</b> ${esc(d.meno)}, nar. [doplniť], trvale bytom [doplniť]${stud?', študent [názov školy]':''}</p>
+  <p><b>Čl. I – Druh práce</b><br>Zamestnanec bude pre zamestnávateľa vykonávať: [doplniť druh práce].</p>
+  <p><b>Čl. II – Odmena</b><br>Za vykonanú prácu patrí zamestnancovi odmena vo výške <b>${eur(d.odmena)}</b> mesačne, splatná najneskôr do konca kalendárneho mesiaca nasledujúceho po mesiaci, v ktorom bola práca vykonaná, prevodom na účet zamestnanca.</p>
+  <p><b>Čl. III – Rozsah a miesto práce</b><br>Práca sa vykonáva ${maxh}. Miesto výkonu práce: ${esc(SUP.sidlo)}, prípadne podľa pokynov zamestnávateľa.</p>
+  <p><b>Čl. IV – Doba trvania</b><br>Dohoda sa uzatvára na dobu určitú od [dátum] do [dátum] (najviac 12 mesiacov). Deň nástupu do práce: [dátum].</p>
+  ${oop?'<p><b>Čl. V – Odvodová výnimka</b><br>Zamestnanec si uplatňuje výnimku z platenia poistného (odvodová odpočítateľná položka do 200 € mesačne) na základe písomného oznámenia a čestného vyhlásenia, ktoré tvoria prílohu tejto dohody.</p>':''}
+  <p><b>Čl. ${oop?'VI':'V'} – Záverečné ustanovenia</b><br>Vzťahy neupravené touto dohodou sa riadia Zákonníkom práce. Dohoda je vyhotovená v dvoch rovnopisoch po jednom pre každú stranu.${stud?' Podmienkou platnosti je štatút študenta, ktorý zamestnanec preukazuje potvrdením o návšteve školy.':''}</p>
+  <div style="display:flex;justify-content:space-between;margin-top:40px">
+   <div>........................................<br>Zamestnávateľ<br>${esc(SUP.konatel)}</div>
+   <div>........................................<br>Zamestnanec<br>${esc(d.meno)}</div></div></div>`;
+ window.print();
+}
+function genProtokol(){
+ const od=($('p_od')||{}).value||SUP.meno,pre=($('p_pre')||{}).value||'',pred=($('p_pred')||{}).value||'',dat=($('p_dat')||{}).value||'',miesto=($('p_miesto')||{}).value||'',note=($('p_note')||{}).value||'';
+ $('print').innerHTML=`<div class="inv" style="font-size:12px;line-height:1.6">
+  <h2 style="text-align:center">PROTOKOL O ODOVZDANÍ A PREVZATÍ PRÁCE</h2>
+  <p><b>Odovzdávajúci:</b> ${esc(od||'—')}</p>
+  <p><b>Preberajúci:</b> ${esc(pre||'—')}</p>
+  <p><b>Miesto a dátum odovzdania:</b> ${esc(miesto||'')}${miesto&&dat?', ':''}${esc(dat||'')}</p>
+  <p><b>Predmet odovzdania (vykonaná práca / dielo):</b><br>${esc(pred||'[doplniť opis práce]')}</p>
+  <p>Odovzdávajúci týmto odovzdáva a preberajúci preberá vyššie uvedenú prácu. Preberajúci vyhlasuje, že prácu si prezrel a preberá ju:</p>
+  <p style="margin-left:10px">☐ bez výhrad<br>☐ s výhradami: ...........................................................................................</p>
+  ${note?`<p><b>Poznámka:</b> ${esc(note)}</p>`:''}
+  <div style="display:flex;justify-content:space-between;margin-top:48px">
+   <div>........................................<br>Odovzdávajúci</div>
+   <div>........................................<br>Preberajúci</div></div></div>`;
+ window.print();
 }
 function genZmluva(){
  const ci=$('z_cli').value;const c=ci!==''?CLI[+ci]:{};const odm=+$('z_odm').value||0;const rc=$('z_rc').checked;const doOd=$('z_od').value,doDo=$('z_do').value;
