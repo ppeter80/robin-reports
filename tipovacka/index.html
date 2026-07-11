@@ -662,7 +662,7 @@ async function renderLive(){
    h+=`<tr><td class="rank">${i+1}</td><td class="${r.pl===me?'me':''}">${r.pl}</td><td class="r"><b>${r.tot}</b></td>${trumpOn?`<td class="r">${tz}</td>`:''}<td class="r">${dz}</td></tr>`;
  });
  h+=`</tbody></table>`;
- if(trumpOn)h+=`<p class="note" style="margin-top:8px">🇺🇸 <b>Trump body:</b> „Dávam Peťovi a Paľovi 20 bodov. A aj Remča. Ja som rozhodol!" 😎 Žartovný stĺpec pre zápas Anglicko–Nórsko — do finálneho poradia sa <b>nezaráta</b>.</p>`;
+ if(trumpOn)h+=`<p class="note" style="margin-top:8px">🇺🇸 <b>Trump body:</b> „Dávam Peťovi a Paľovi 20 bodov. A aj Remča. Ja som rozhodol!" 😎</p>`;
  if(live.length)h+=`<p class="note" style="margin-top:8px">„+ zo živého" = body, čo hráčovi pribudli z práve hraného zápasu (keby skončil týmto výsledkom). Po skončení sa započítajú napevno.</p>`;
  $("modalBody").innerHTML=h;
 }
