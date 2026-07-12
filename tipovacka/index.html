@@ -477,7 +477,7 @@ async function loadBoard(){
    return {pl,tot,champ,champBonus,champCorrect:champBonus?1:0,postupCount,exactCount};
  }).sort((x,y)=> (x.pl===ROBIN_NAME?1:y.pl===ROBIN_NAME?-1: (y.tot-x.tot) || (y.champCorrect-x.champCorrect) || (y.postupCount-x.postupCount) || (y.exactCount-x.exactCount) || x.pl.localeCompare(y.pl,'sk')));
  const finished=M.filter(m=>RESULTS[m[0]]&&RESULTS[m[0]].finished).length;
- let h=`<div class="card"><span class="pill">${rows.length} hráčov</span> <span class="pill">${finished}/16 zápasov odohraných</span></div>`;
+ let h=`<div class="card"><span class="pill">${rows.length} hráčov</span> <span class="pill">${finished}/${KO_TOTAL} zápasov vyraďovačky odohraných</span></div>`;
  h+=`<div class="card"><p class="note" style="margin-top:0">Klikni na meno → uvidíš, za čo dostal body pri každom zápase.</p><table><thead><tr><th class="rank">#</th><th>Hráč</th><th class="r">Body</th></tr></thead><tbody>`;
  rows.forEach((r,i)=>{
    const pid="pl"+i;
@@ -513,6 +513,7 @@ async function loadBoard(){
 const R16NOS=[89,90,91,92,93,94,95,96];
 const R32NOS=[73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88];
 const QFNOS=[97,98,99,100];
+const KO_TOTAL=32; // celkovo zápasov vo vyraďovačke: 16 (R32) + 8 (R16) + 4 (QF) + 2 (SF) + 1 (o 3.) + 1 (finále)
 function statRows(players,nos){
  return Object.keys(players).map(pl=>{
    let body=0,maxM=0,p90=0,pred=0,pen=0,postup=0,b7=0,b3=0,b2=0,b1=0,b0=0,bine=0,tipped=0;
