@@ -552,7 +552,7 @@ function statAnnouncement(rows,players){
  const hum=rows.filter(r=>r.pl!==ROBIN_NAME); if(!hum.length) return "";
  const by=n=>rows.find(r=>r.pl===n);
  let avc=0; const ap=players['Avalanche']||{};
- for(const k in ap){const p=ap[k]; if(p&&((p.t1_90===2&&p.t2_90===1)||(p.t1_90===1&&p.t2_90===2)))avc++;}
+ for(const k in ap){if(+k>96)continue; const p=ap[k]; if(p&&((p.t1_90===2&&p.t2_90===1)||(p.t1_90===1&&p.t2_90===2)))avc++;}
  const rob=by(ROBIN_NAME); const L=hum[0];
  let a=`<div class="card" style="background:#0d0d12;border:1px solid #333">
    <div style="font-weight:800;font-size:1.05rem;color:#8a8f98;margin-bottom:8px">🏆 Osemfinále je za nami — čo hovorí tabuľka?</div>
@@ -619,6 +619,7 @@ async function loadStats(){
  const allNos=M.map(m=>m[0]);
  const rows=statRows(players,allNos);
  const qfrows=statRows(players,QFNOS.filter(no=>allNos.includes(no)));
+ const ofRows=statRows(players,allNos.filter(no=>no<=96)); // poradie DO osemfinále vrátane — vyhlásenie sa tým zamrazí
  const r16rows=statRows(players,R16NOS.filter(no=>allNos.includes(no)));
  const r32rows=statRows(players,R32NOS.filter(no=>allNos.includes(no)));
  const finQF=QFNOS.filter(no=>RESULTS[no]&&RESULTS[no].finished).length;
@@ -628,7 +629,7 @@ async function loadStats(){
  let h=qfAnnouncement(qfrows);
  h+=`<div class="card"><p class="note" style="margin-top:0"><b>📊 Celková tabuľka.</b> „Max" = 7 b za rozhodnutý zápas, 12 b za penaltový; <b>%</b> = body / max. 🤖 Robin ráta len zápasy, ktoré tipoval.</p>${statTable(rows,me)}</div>`;
  h+=`<div class="card"><p class="note" style="margin-top:0"><b>🏅 Štvrťfinále — tabuľka bodov</b> (${finQF}/4 zápasov). Kto ako tipoval v štvrťfinále (M97–100).</p>${qfrows.length?statTable(qfrows,me):'<p class="note">Zatiaľ žiadne odohraté zápasy štvrťfinále.</p>'}</div>`;
- h+=statAnnouncement(rows,players);
+ h+=statAnnouncement(ofRows,players);
  h+=`<div class="card"><p class="note" style="margin-top:0"><b>🏆 Osemfinále — tabuľka bodov</b> (zatiaľ ${finR16}/8 zápasov). Kto ako tipoval v osemfinále a kto tam získal najviac bodov.</p>${r16rows.length?statTable(r16rows,me):'<p class="note">Zatiaľ žiadne odohraté zápasy osemfinále.</p>'}</div>`;
  h+=r32Announcement(r32rows);
  h+=`<div class="card"><p class="note" style="margin-top:0"><b>🥈 Šestnásťfinále — tabuľka bodov</b> (${finR32}/16 zápasov). Kto ako tipoval v šestnásťfinále.</p>${r32rows.length?statTable(r32rows,me):'<p class="note">Zatiaľ žiadne odohraté zápasy šestnásťfinále.</p>'}</div>`;
