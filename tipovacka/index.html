@@ -512,6 +512,7 @@ async function loadBoard(){
 // ================= ŠTATISTIKA =================
 const R16NOS=[89,90,91,92,93,94,95,96];
 const R32NOS=[73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88];
+const QFNOS=[97,98,99,100];
 function statRows(players,nos){
  return Object.keys(players).map(pl=>{
    let body=0,maxM=0,p90=0,pred=0,pen=0,postup=0,b7=0,b3=0,b2=0,b1=0,b0=0,bine=0,tipped=0;
@@ -587,6 +588,27 @@ function r32Announcement(rows){
  a+=`Osemfinále rozdalo nové karty. 🎩</p></div>`;
  return a;
 }
+function qfAnnouncement(rows){
+ const finQF=QFNOS.filter(no=>RESULTS[no]&&RESULTS[no].finished).length;
+ if(finQF<4) return `<div class="card" style="border:1px dashed #444"><p class="note" style="margin:0">📢 <b>Vyhlásenie po štvrťfinále</b> sa zobrazí po dohratí všetkých 4 zápasov (zatiaľ ${finQF}/4).</p></div>`;
+ const hum=rows.filter(r=>r.pl!==ROBIN_NAME); if(!hum.length) return "";
+ const L=hum[0],s2=hum[1],last=hum[hum.length-1];
+ const rob=rows.find(r=>r.pl===ROBIN_NAME);
+ const peto=hum.find(r=>/^pe[tť]o$/i.test(r.pl));
+ const maxPct=Math.max(...rows.map(r=>r.pct));
+ let a=`<div class="card" style="background:#0d0d12;border:1px solid #333">
+   <div style="font-weight:800;font-size:1.05rem;color:#e0b64a;margin-bottom:6px">📢 Vyhlásenie po štvrťfinále</div>
+   <p style="line-height:1.65;color:#cdd2db;margin:0;font-size:.95rem">`;
+ a+=`Štvrťfinále je za nami a v pavúku ostali štyri veľmoci — <b>Francúzsko</b>, <b>Španielsko</b>, <b>Anglicko</b> a <b>Argentína</b>. A ako to zvládli naši tipéri? `;
+ a+=`🥇 Najlepšie oko malo <b>${esc(L.pl)}</b> — <b>${L.body} b</b>${L.p90?` a ${L.p90} presných výsledkov`:""}. `;
+ if(s2&&s2.body===L.body) a+=`Rovnako sa darilo aj <b>${esc(s2.pl)}</b> — plece pri pleci. `;
+ else if(s2) a+=`Tesne za ním <b>${esc(s2.pl)}</b> (${s2.body} b). `;
+ if(peto&&peto!==L) a+=`Náš organizátor <b>${esc(peto.pl)}</b> nazbieral ${peto.body} b — „nech vyhrá Peter" ešte stále beží. 😅 `;
+ if(rob) a+=`<b>🤖 Robin</b> mal v štvrťfinále <b>${rob.pct} %</b> — ${rob.pct>=maxPct?"najlepšiu mušku v lige":"slušnú mušku"}, ale ostáva dobrovoľne posledný. 🤫 `;
+ if(last&&last!==L) a+=`Na chvoste <b>${esc(last.pl)}</b> (${last.body} b) — semifinále je šanca na reparát. `;
+ a+=`Teraz sa tipuje o finalistov! 🎯</p></div>`;
+ return a;
+}
 async function loadStats(){
  $("s-stat").innerHTML='<p class="note">Načítavam…</p>';
  await loadResults(); await loadRobin();
@@ -596,13 +618,17 @@ async function loadStats(){
  const me=localStorage.getItem("tip_name")||"";
  const allNos=M.map(m=>m[0]);
  const rows=statRows(players,allNos);
+ const qfrows=statRows(players,QFNOS.filter(no=>allNos.includes(no)));
  const r16rows=statRows(players,R16NOS.filter(no=>allNos.includes(no)));
  const r32rows=statRows(players,R32NOS.filter(no=>allNos.includes(no)));
+ const finQF=QFNOS.filter(no=>RESULTS[no]&&RESULTS[no].finished).length;
  const finR16=R16NOS.filter(no=>RESULTS[no]&&RESULTS[no].finished).length;
  const finR32=R32NOS.filter(no=>RESULTS[no]&&RESULTS[no].finished).length;
  const anyIne=rows.some(r=>r.bine>0);
  let h=statAnnouncement(rows,players);
  h+=`<div class="card"><p class="note" style="margin-top:0"><b>📊 Celková tabuľka.</b> „Max" = 7 b za rozhodnutý zápas, 12 b za penaltový; <b>%</b> = body / max. 🤖 Robin ráta len zápasy, ktoré tipoval.</p>${statTable(rows,me)}</div>`;
+ h+=qfAnnouncement(qfrows);
+ h+=`<div class="card"><p class="note" style="margin-top:0"><b>🏅 Štvrťfinále — tabuľka bodov</b> (${finQF}/4 zápasov). Kto ako tipoval v štvrťfinále (M97–100).</p>${qfrows.length?statTable(qfrows,me):'<p class="note">Zatiaľ žiadne odohraté zápasy štvrťfinále.</p>'}</div>`;
  h+=`<div class="card"><p class="note" style="margin-top:0"><b>🏆 Osemfinále — tabuľka bodov</b> (zatiaľ ${finR16}/8 zápasov). Kto ako tipoval v osemfinále a kto tam získal najviac bodov.</p>${r16rows.length?statTable(r16rows,me):'<p class="note">Zatiaľ žiadne odohraté zápasy osemfinále.</p>'}</div>`;
  h+=r32Announcement(r32rows);
  h+=`<div class="card"><p class="note" style="margin-top:0"><b>🥈 Šestnásťfinále — tabuľka bodov</b> (${finR32}/16 zápasov). Kto ako tipoval v šestnásťfinále.</p>${r32rows.length?statTable(r32rows,me):'<p class="note">Zatiaľ žiadne odohraté zápasy šestnásťfinále.</p>'}</div>`;
