@@ -538,6 +538,7 @@ async function loadBoard(){
 const R16NOS=[89,90,91,92,93,94,95,96];
 const R32NOS=[73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88];
 const QFNOS=[97,98,99,100];
+const SFNOS=[101,102];
 const KO_TOTAL=32; // celkovo zápasov vo vyraďovačke: 16 (R32) + 8 (R16) + 4 (QF) + 2 (SF) + 1 (o 3.) + 1 (finále)
 function statRows(players,nos){
  return Object.keys(players).map(pl=>{
@@ -635,6 +636,37 @@ function qfAnnouncement(rows){
  a+=`Teraz sa tipuje o finalistov! 🎯</p></div>`;
  return a;
 }
+function semiAnnouncement(rows,players){
+ const finSF=SFNOS.filter(no=>RESULTS[no]&&RESULTS[no].finished).length;
+ if(finSF<2) return `<div class="card" style="border:1px dashed #444"><p class="note" style="margin:0">📢 <b>Vyhlásenie po semifinále</b> sa zobrazí po dohratí oboch semifinále (zatiaľ ${finSF}/2).</p></div>`;
+ const hum=rows.filter(r=>r.pl!==ROBIN_NAME); if(!hum.length) return "";
+ const nrm=s=>String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]/g,'');
+ const byN={}; rows.forEach(r=>byN[nrm(r.pl)]=r);
+ const find=k=>hum.find(r=>nrm(r.pl)===k);
+ const luc=find('luc'),ajo=find('ajo'),ava=find('avalanche'),palop=find('palop');
+ const rankOf=r=>hum.indexOf(r)+1;
+ const TEAMS=[{name:'Team Pcola',m:['peto','palop','remca']},{name:'Team Polc',m:['messi','luc']},{name:'Team Rafaj',m:['avalanche','ajo']},{name:'Team Rasto',m:['rasto']},{name:'Team Stevo',m:['stevo']},{name:'Team AI',m:['robin']}];
+ const tstand=TEAMS.map(t=>({name:t.name,tot:t.m.reduce((s,mn)=>s+((byN[mn]&&byN[mn].body)||0),0)})).sort((a,b)=>b.tot-a.tot);
+ const lead=tstand[0];
+ let a=`<div class="card" style="background:#0d0d12;border:1px solid #333">
+   <div style="font-weight:800;font-size:1.05rem;color:#e0b64a;margin-bottom:6px">📢 Vyhlásenie po semifinále</div>
+   <p style="line-height:1.7;color:#cdd2db;margin:0;font-size:.95rem">`;
+ a+=`Semifinále je za nami, o titul si to rozdajú <b>Španielsko</b> 🇪🇸 a <b>Argentína</b> 🇦🇷 — a v <b>súťaži jednotlivcov (kategória 2)</b> sa práve rozbieha dráma! `;
+ if(ajo&&ava){
+   a+=`Na špici tipérskej vojny sedia <b>Ajo</b> (${ajo.body} b) a <b>Avalanche</b> (${ava.body} b) 🎯 — `;
+   if(luc){
+     const gap=Math.min(ajo.body,ava.body)-luc.body;
+     if(gap>0) a+=`lenže <b>Luc</b> 💅 (${luc.body} b) im dýcha na krk: len <b>${gap} ${bodPl(gap)}</b> za nimi a jedným dobrým kolom im to víťazstvo pokojne <b>vyfúkne</b>! 💨👑 Dve dámy a jeden Avalanche — kto z koho. `;
+     else a+=`lenže <b>Luc</b> 💅 (${luc.body} b) ich už <b>dobehla</b> a ide si po víťazstvo v kategórii — chalani, pozor, dáma vám to vyfúkne! 💨👑 `;
+   }
+ } else if(luc){ a+=`<b>Luc</b> 💅 (${luc.body} b) tlačí na čelo súťaže jednotlivcov a chce v kategórii 2 vyfúknuť víťazstvo súperom. 👑 `; }
+ if(palop){
+   const last=rankOf(palop)===hum.length; const leadPcola=lead&&lead.name==='Team Pcola';
+   a+=`<br><br>A na opačnom konci? <b>PaloP</b> zatiaľ ${last?'hrdo <b>kraľuje spodku</b> tabuľky':'statočne drží baštu na chvoste'} 😅 — ale žiadny smútok: ako člen ${leadPcola?'<b>vedúceho tímu</b> ':''}<b>${lead?lead.name:'svojho družstva'}</b> robí prvotriedny <b>back-up</b>. Niekto tie body musí podržať aj naspodku — pravý tímový hráč, ktorý vedúcemu družstvu kryje chrbát! 🤝`;
+ }
+ a+=`</p></div>`;
+ return a;
+}
 async function loadStats(){
  $("s-stat").innerHTML='<p class="note">Načítavam…</p>';
  await loadResults(); await loadRobin();
@@ -645,6 +677,8 @@ async function loadStats(){
  const allNos=M.map(m=>m[0]);
  const rows=statRows(players,allNos);
  const qfrows=statRows(players,QFNOS.filter(no=>allNos.includes(no)));
+ const sfrows=statRows(players,SFNOS.filter(no=>allNos.includes(no)));
+ const finSF=SFNOS.filter(no=>RESULTS[no]&&RESULTS[no].finished).length;
  const ofRows=statRows(players,allNos.filter(no=>no<=96)); // poradie DO osemfinále vrátane — vyhlásenie sa tým zamrazí
  const r16rows=statRows(players,R16NOS.filter(no=>allNos.includes(no)));
  const r32rows=statRows(players,R32NOS.filter(no=>allNos.includes(no)));
@@ -652,8 +686,10 @@ async function loadStats(){
  const finR16=R16NOS.filter(no=>RESULTS[no]&&RESULTS[no].finished).length;
  const finR32=R32NOS.filter(no=>RESULTS[no]&&RESULTS[no].finished).length;
  const anyIne=rows.some(r=>r.bine>0);
- let h=qfAnnouncement(qfrows);
+ let h=semiAnnouncement(rows,players);
+ h+=qfAnnouncement(qfrows);
  h+=`<div class="card"><p class="note" style="margin-top:0"><b>📊 Celková tabuľka.</b> „Max" = 7 b za rozhodnutý zápas, 12 b za penaltový; <b>%</b> = body / max. 🤖 Robin ráta len zápasy, ktoré tipoval.</p>${statTable(rows,me)}</div>`;
+ h+=`<div class="card"><p class="note" style="margin-top:0"><b>🥅 Semifinále — tabuľka bodov</b> (${finSF}/2 zápasov). Kto ako tipoval v semifinále (M101–102).</p>${sfrows.length?statTable(sfrows,me):'<p class="note">Zatiaľ žiadne odohraté zápasy semifinále.</p>'}</div>`;
  h+=`<div class="card"><p class="note" style="margin-top:0"><b>🏅 Štvrťfinále — tabuľka bodov</b> (${finQF}/4 zápasov). Kto ako tipoval v štvrťfinále (M97–100).</p>${qfrows.length?statTable(qfrows,me):'<p class="note">Zatiaľ žiadne odohraté zápasy štvrťfinále.</p>'}</div>`;
  h+=statAnnouncement(ofRows,players);
  h+=`<div class="card"><p class="note" style="margin-top:0"><b>🏆 Osemfinále — tabuľka bodov</b> (zatiaľ ${finR16}/8 zápasov). Kto ako tipoval v osemfinále a kto tam získal najviac bodov.</p>${r16rows.length?statTable(r16rows,me):'<p class="note">Zatiaľ žiadne odohraté zápasy osemfinále.</p>'}</div>`;
