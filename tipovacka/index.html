@@ -499,6 +499,9 @@ async function loadBoard(){
    h+=`<tr id="${tid}" style="display:none"><td colspan="3" style="background:#070707;padding:8px 10px">${d}</td></tr>`;
  });
  h+=`</tbody></table></div>`;
+ // humorná hláška — tipovanie je kolektívna hra (pod tabuľkou družstiev)
+ h+=`<div class="card" style="text-align:center;background:#0d0d12;border:1px dashed #3a3f4a">
+   <p class="note" style="margin:0;font-size:.92rem;line-height:1.65">🤝 <b>Tipovanie je kolektívna hra.</b> Sám dotipuješ rýchlo — v tíme dotipuješ ďaleko. A keď to nevyjde, aspoň je na koho hodiť vinu. 😅⚽</p></div>`;
  // ---- TABUĽKA JEDNOTLIVCOV ----
  h+=`<div class="card"><div style="font-weight:700;margin-bottom:4px">👤 Tabuľka jednotlivcov</div><p class="note" style="margin-top:0">Klikni na meno → uvidíš, za čo dostal body pri každom zápase.</p><table><thead><tr><th class="rank">#</th><th>Hráč</th><th class="r">Body</th></tr></thead><tbody>`;
  rows.forEach((r,i)=>{
@@ -516,9 +519,6 @@ async function loadBoard(){
    h+=`<tr id="${pid}" style="display:none"><td colspan="3" style="background:#070707;padding:8px 10px">${d||'<span class="bd">žiadne odohraté zápasy</span>'}</td></tr>`;
  });
  h+=`</tbody></table></div>`;
- // humorná hláška — tipovanie je kolektívna hra
- h+=`<div class="card" style="text-align:center;background:#0d0d12;border:1px dashed #3a3f4a">
-   <p class="note" style="margin:0;font-size:.92rem;line-height:1.65">🤝 <b>Tipovanie je kolektívna hra.</b> Sám dotipuješ rýchlo — v tíme dotipuješ ďaleko. A keď to nevyjde, aspoň je na koho hodiť vinu. 😅⚽</p></div>`;
  // per-match breakdown
  h+=`<details open><summary>Detail po zápasoch (tipy sa zobrazia po výkope)</summary>`;
  for(const m of M){const no=m[0];if(!isLocked(no))continue;const R=RESULTS[no];const fin=R&&R.finished;
