@@ -201,10 +201,17 @@ const POLL_Q=`Súhlasíš, aby <b>Peto</b> dostal <b>7 bodov</b> za zápas <b>Ka
 let POLL_VOTER=null;
 let MODAL_LOCK=false;
 function showThanks(name,rows){
+ const tippedFinal=Array.isArray(rows)&&rows.some(r=>r.match_no===104);
+ const top=tippedFinal
+   ?`<div style="border-radius:12px;overflow:hidden;margin:-6px -6px 12px"><img src="final_thanks.jpg?v=1" alt="" style="width:100%;display:block"></div>`
+   :`<div style="font-size:2.8rem;margin:8px 0 6px">🎉⚽🏆</div>`;
+ const sub=tippedFinal
+   ?`Tip na <b>FINÁLE</b> prijatý — Španielsko 🇪🇸 vs Argentína 🇦🇷! Mačky rozhodli. 🐱`
+   :`Tip je uložený. Veľa šťastia! 😎`;
  $("modalBody").innerHTML=`<div style="text-align:center">
-   <div style="font-size:2.8rem;margin:8px 0 6px">🎉⚽🏆</div>
+   ${top}
    <div style="font-weight:800;font-size:1.2rem;margin:2px 0 3px">${esc(name)}, ďakujeme za tvoj tip! 🎉</div>
-   <div class="note" style="margin-bottom:11px">Tip je uložený. Veľa šťastia! 😎</div>
+   <div class="note" style="margin-bottom:11px">${sub}</div>
    <button class="btn" style="margin-bottom:0" onclick="closeModal(true)">Zavrieť ✕</button></div>`;
  MODAL_LOCK=true; const cb=$("modalClose"); if(cb)cb.style.display='none';
  $("modal").classList.add("show");
