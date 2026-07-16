@@ -653,11 +653,11 @@ function semiAnnouncement(rows,players){
    <p style="line-height:1.7;color:#cdd2db;margin:0;font-size:.95rem">`;
  a+=`Semifinále je za nami, o titul si to rozdajú <b>Španielsko</b> 🇪🇸 a <b>Argentína</b> 🇦🇷 — a v <b>súťaži jednotlivcov (kategória 2)</b> sa práve rozbieha dráma! `;
  if(ajo&&ava){
-   a+=`Na špici tipérskej vojny sedia <b>Ajo</b> (${ajo.body} b) a <b>Avalanche</b> (${ava.body} b) 🎯 — `;
+   a+=`Na špici tipérskej vojny sedia dvaja chalani <b>Ajo</b> (${ajo.body} b) a <b>Avalanche</b> (${ava.body} b) 🎯 — `;
    if(luc){
      const gap=Math.min(ajo.body,ava.body)-luc.body;
-     if(gap>0) a+=`lenže <b>Luc</b> 💅 (${luc.body} b) im dýcha na krk: len <b>${gap} ${bodPl(gap)}</b> za nimi a jedným dobrým kolom im to víťazstvo pokojne <b>vyfúkne</b>! 💨👑 Dve dámy a jeden Avalanche — kto z koho. `;
-     else a+=`lenže <b>Luc</b> 💅 (${luc.body} b) ich už <b>dobehla</b> a ide si po víťazstvo v kategórii — chalani, pozor, dáma vám to vyfúkne! 💨👑 `;
+     if(gap>0) a+=`lenže jediná dáma v hre <b>Luc</b> 💅 (${luc.body} b) im dýcha na krk: len <b>${gap} ${bodPl(gap)}</b> za dvojicou chalanov a jedným dobrým kolom im to víťazstvo pokojne <b>vyfúkne</b>! 💨👑 Chalani, pozor — dáma vám dýcha na krk. `;
+     else a+=`lenže jediná dáma v hre <b>Luc</b> 💅 (${luc.body} b) ich už <b>dobehla</b> a ide si po víťazstvo v kategórii — chalani, pozor, dáma vám to vyfúkne! 💨👑 `;
    }
  } else if(luc){ a+=`<b>Luc</b> 💅 (${luc.body} b) tlačí na čelo súťaže jednotlivcov a chce v kategórii 2 vyfúknuť víťazstvo súperom. 👑 `; }
  if(palop){
@@ -687,9 +687,9 @@ async function loadStats(){
  const finR32=R32NOS.filter(no=>RESULTS[no]&&RESULTS[no].finished).length;
  const anyIne=rows.some(r=>r.bine>0);
  let h=semiAnnouncement(rows,players);
- h+=qfAnnouncement(qfrows);
  h+=`<div class="card"><p class="note" style="margin-top:0"><b>📊 Celková tabuľka.</b> „Max" = 7 b za rozhodnutý zápas, 12 b za penaltový; <b>%</b> = body / max. 🤖 Robin ráta len zápasy, ktoré tipoval.</p>${statTable(rows,me)}</div>`;
  h+=`<div class="card"><p class="note" style="margin-top:0"><b>🥅 Semifinále — tabuľka bodov</b> (${finSF}/2 zápasov). Kto ako tipoval v semifinále (M101–102).</p>${sfrows.length?statTable(sfrows,me):'<p class="note">Zatiaľ žiadne odohraté zápasy semifinále.</p>'}</div>`;
+ h+=qfAnnouncement(qfrows);
  h+=`<div class="card"><p class="note" style="margin-top:0"><b>🏅 Štvrťfinále — tabuľka bodov</b> (${finQF}/4 zápasov). Kto ako tipoval v štvrťfinále (M97–100).</p>${qfrows.length?statTable(qfrows,me):'<p class="note">Zatiaľ žiadne odohraté zápasy štvrťfinále.</p>'}</div>`;
  h+=statAnnouncement(ofRows,players);
  h+=`<div class="card"><p class="note" style="margin-top:0"><b>🏆 Osemfinále — tabuľka bodov</b> (zatiaľ ${finR16}/8 zápasov). Kto ako tipoval v osemfinále a kto tam získal najviac bodov.</p>${r16rows.length?statTable(r16rows,me):'<p class="note">Zatiaľ žiadne odohraté zápasy osemfinále.</p>'}</div>`;
