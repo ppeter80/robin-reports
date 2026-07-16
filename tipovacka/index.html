@@ -140,6 +140,8 @@ const M=[
  [100,"Argentína","Švajčiarsko","ne 12.7. 03:00","2026-07-12T01:00:00Z"],
  [101,"Francúzsko","Španielsko","ut 14.7. 21:00","2026-07-14T19:00:00Z"],
  [102,"Anglicko","Argentína","st 15.7. 21:00","2026-07-15T19:00:00Z"],
+ [103,"Francúzsko","Anglicko","so 18.7. 21:00","2026-07-18T19:00:00Z"],
+ [104,"Španielsko","Argentína","ne 19.7. 21:00","2026-07-19T19:00:00Z"],
 ];
 const TEAM={};M.forEach(m=>TEAM[m[0]]=[m[1],m[2]]);
 const KO={};M.forEach(m=>KO[m[0]]=new Date(m[4]));
@@ -200,18 +202,12 @@ let POLL_VOTER=null;
 let MODAL_LOCK=false;
 function showThanks(name,rows){
  $("modalBody").innerHTML=`<div style="text-align:center">
-   <div style="position:relative;border-radius:12px;overflow:hidden;margin:-6px -6px 12px;background:#000">
-     <video id="thxVid" src="prezident.mp4" playsinline preload="auto" style="width:100%;display:block"></video>
-     <div id="thxUnmute" onclick="unmuteThx()" style="display:none;position:absolute;bottom:8px;right:8px;background:rgba(0,0,0,.62);color:#fff;padding:6px 11px;border-radius:20px;font-size:.8rem;font-weight:600;cursor:pointer">🔊 Ťukni pre zvuk</div>
-   </div>
+   <div style="font-size:2.8rem;margin:8px 0 6px">🎉⚽🏆</div>
    <div style="font-weight:800;font-size:1.2rem;margin:2px 0 3px">${esc(name)}, ďakujeme za tvoj tip! 🎉</div>
-   <div class="note" style="margin-bottom:11px">Prezident rozhodol. 😎</div>
+   <div class="note" style="margin-bottom:11px">Tip je uložený. Veľa šťastia! 😎</div>
    <button class="btn" style="margin-bottom:0" onclick="closeModal(true)">Zavrieť ✕</button></div>`;
  MODAL_LOCK=true; const cb=$("modalClose"); if(cb)cb.style.display='none';
  $("modal").classList.add("show");
- const v=$("thxVid");
- if(v){ try{v.currentTime=0;}catch(e){} const p=v.play();
-   if(p&&p.catch)p.catch(()=>{ v.muted=true; v.play().catch(()=>{}); const u=$("thxUnmute"); if(u)u.style.display='block'; }); }
 }
 function unmuteThx(){const v=$("thxVid"); if(v){v.muted=false; v.play().catch(()=>{});} const u=$("thxUnmute"); if(u)u.style.display='none';}
 // ---- ďakovné okno: kde hráč stojí voči Petovi (rodovo správne) ----
@@ -478,7 +474,33 @@ async function loadBoard(){
  }).sort((x,y)=> (x.pl===ROBIN_NAME?1:y.pl===ROBIN_NAME?-1: (y.tot-x.tot) || (y.champCorrect-x.champCorrect) || (y.postupCount-x.postupCount) || (y.exactCount-x.exactCount) || x.pl.localeCompare(y.pl,'sk')));
  const finished=M.filter(m=>RESULTS[m[0]]&&RESULTS[m[0]].finished).length;
  let h=`<div class="card"><span class="pill">${rows.length} hráčov</span> <span class="pill">${finished}/${KO_TOTAL} zápasov vyraďovačky odohraných</span></div>`;
- h+=`<div class="card"><p class="note" style="margin-top:0">Klikni na meno → uvidíš, za čo dostal body pri každom zápase.</p><table><thead><tr><th class="rank">#</th><th>Hráč</th><th class="r">Body</th></tr></thead><tbody>`;
+ // ---- TABUĽKA DRUŽSTIEV (súčet bodov členov) ----
+ const nrm=s=>String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]/g,'');
+ const TEAMS=[
+   {name:"Team Pcola",members:["peto","palop","remca"]},
+   {name:"Team Polc",members:["messi","luc"]},
+   {name:"Team Rafaj",members:["avalanche","ajo"]},
+   {name:"Team Rasto",members:["rasto"]},
+   {name:"Team Stevo",members:["stevo"]},
+   {name:"Team AI",members:["robin"]},
+ ];
+ const rowByNrm={}; rows.forEach(r=>{rowByNrm[nrm(r.pl)]=r;});
+ const teamRows=TEAMS.map(t=>{
+   let tot=0; const mem=[];
+   t.members.forEach(mn=>{const r=rowByNrm[nrm(mn)]; if(r){tot+=r.tot; mem.push({pl:r.pl,tot:r.tot});} else {mem.push({pl:mn,tot:null});}});
+   return {name:t.name,tot,mem};
+ }).sort((x,y)=>(y.tot-x.tot)||x.name.localeCompare(y.name,'sk'));
+ h+=`<div class="card"><p class="note" style="margin-top:0">🤝 <b>Tabuľka družstiev</b> — súčet bodov členov tímu. Klikni na tím → uvidíš jeho členov.</p>
+   <table><thead><tr><th class="rank">#</th><th>Družstvo</th><th class="r">Body</th></tr></thead><tbody>`;
+ teamRows.forEach((t,i)=>{
+   const tid="tm"+i; const medal=i===0?'🥇 ':i===1?'🥈 ':i===2?'🥉 ':'';
+   h+=`<tr style="cursor:pointer" onclick="tgl('${tid}')"><td class="rank">${i+1}</td><td>${medal}<b>${t.name}</b> <span style="color:var(--muted);font-size:.7rem">(${t.mem.map(m=>esc(m.pl)).join(', ')}) ▾</span></td><td class="r"><b>${t.tot}</b></td></tr>`;
+   const d=t.mem.map(m=>`<div class="bd">${esc(m.pl)}: <b>${m.tot==null?'— (zatiaľ netipoval)':m.tot+' b'}</b></div>`).join('');
+   h+=`<tr id="${tid}" style="display:none"><td colspan="3" style="background:#070707;padding:8px 10px">${d}</td></tr>`;
+ });
+ h+=`</tbody></table></div>`;
+ // ---- TABUĽKA JEDNOTLIVCOV ----
+ h+=`<div class="card"><div style="font-weight:700;margin-bottom:4px">👤 Tabuľka jednotlivcov</div><p class="note" style="margin-top:0">Klikni na meno → uvidíš, za čo dostal body pri každom zápase.</p><table><thead><tr><th class="rank">#</th><th>Hráč</th><th class="r">Body</th></tr></thead><tbody>`;
  rows.forEach((r,i)=>{
    const pid="pl"+i;
    h+=`<tr style="cursor:pointer" onclick="tgl('${pid}')"><td class="rank">${i+1}</td><td class="${r.pl===me?'me':''}">${r.pl} <span style="color:var(--muted);font-size:.7rem">▾</span></td><td class="r"><b>${r.tot}</b></td></tr>`;
@@ -494,6 +516,9 @@ async function loadBoard(){
    h+=`<tr id="${pid}" style="display:none"><td colspan="3" style="background:#070707;padding:8px 10px">${d||'<span class="bd">žiadne odohraté zápasy</span>'}</td></tr>`;
  });
  h+=`</tbody></table></div>`;
+ // humorná hláška — tipovanie je kolektívna hra
+ h+=`<div class="card" style="text-align:center;background:#0d0d12;border:1px dashed #3a3f4a">
+   <p class="note" style="margin:0;font-size:.92rem;line-height:1.65">🤝 <b>Tipovanie je kolektívna hra.</b> Sám dotipuješ rýchlo — v tíme dotipuješ ďaleko. A keď to nevyjde, aspoň je na koho hodiť vinu. 😅⚽</p></div>`;
  // per-match breakdown
  h+=`<details open><summary>Detail po zápasoch (tipy sa zobrazia po výkope)</summary>`;
  for(const m of M){const no=m[0];if(!isLocked(no))continue;const R=RESULTS[no];const fin=R&&R.finished;
