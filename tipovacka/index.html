@@ -497,7 +497,10 @@ async function loadBoard(){
    t.members.forEach(mn=>{const r=rowByNrm[nrm(mn)]; if(r){tot+=r.tot; mem.push({pl:r.pl,tot:r.tot});} else {mem.push({pl:mn,tot:null});}});
    return {name:t.name,tot,mem};
  }).sort((x,y)=>(y.tot-x.tot)||x.name.localeCompare(y.name,'sk'));
- h+=`<div class="card"><p class="note" style="margin-top:0">🤝 <b>Tabuľka družstiev</b> — súčet bodov členov tímu. Klikni na tím → uvidíš jeho členov.</p>
+ h+=`<div style="text-align:center;margin:16px 0 8px">
+   <div style="font-size:1.35rem;font-weight:800;color:var(--gold);letter-spacing:.02em">🏆 HLAVNÁ SÚŤAŽ</div>
+   <div style="font-size:.8rem;color:var(--muted);text-transform:uppercase;letter-spacing:.09em">Kategória A · Družstvá</div></div>`;
+ h+=`<div class="card" style="border-color:var(--gold)"><p class="note" style="margin-top:0">🤝 <b>Tabuľka družstiev</b> — súčet bodov členov tímu. Klikni na tím → uvidíš jeho členov.</p>
    <table><thead><tr><th class="rank">#</th><th>Družstvo</th><th class="r">Body</th></tr></thead><tbody>`;
  teamRows.forEach((t,i)=>{
    const tid="tm"+i; const medal=i===0?'🥇 ':i===1?'🥈 ':i===2?'🥉 ':'';
@@ -510,7 +513,10 @@ async function loadBoard(){
  h+=`<div class="card" style="text-align:center;background:#0d0d12;border:1px dashed #3a3f4a">
    <p class="note" style="margin:0;font-size:.92rem;line-height:1.65">🤝 <b>Tipovanie je kolektívna hra.</b> Sám dotipuješ rýchlo — v tíme dotipuješ ďaleko. A keď to nevyjde, aspoň je na koho hodiť vinu. 😅⚽</p></div>`;
  // ---- TABUĽKA JEDNOTLIVCOV ----
- h+=`<div class="card"><div style="font-weight:700;margin-bottom:4px">👤 Tabuľka jednotlivcov</div><p class="note" style="margin-top:0">Klikni na meno → uvidíš, za čo dostal body pri každom zápase.</p><table><thead><tr><th class="rank">#</th><th>Hráč</th><th class="r">Body</th></tr></thead><tbody>`;
+ h+=`<div style="text-align:center;margin:22px 0 8px">
+   <div style="font-size:1.35rem;font-weight:800;color:var(--accent);letter-spacing:.02em">🎯 VEDĽAJŠIA SÚŤAŽ</div>
+   <div style="font-size:.8rem;color:var(--muted);text-transform:uppercase;letter-spacing:.09em">Kategória B · Jednotlivci</div></div>`;
+ h+=`<div class="card"><p class="note" style="margin-top:0">🤝 <b>Tabuľka jednotlivcov</b> — klikni na meno → uvidíš, za čo dostal body pri každom zápase.</p><table><thead><tr><th class="rank">#</th><th>Hráč</th><th class="r">Body</th></tr></thead><tbody>`;
  rows.forEach((r,i)=>{
    const pid="pl"+i;
    h+=`<tr style="cursor:pointer" onclick="tgl('${pid}')"><td class="rank">${i+1}</td><td class="${r.pl===me?'me':''}">${r.pl} <span style="color:var(--muted);font-size:.7rem">▾</span></td><td class="r"><b>${r.tot}</b></td></tr>`;
