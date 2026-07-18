@@ -203,7 +203,7 @@ let MODAL_LOCK=false;
 function showThanks(name,rows){
  const tippedFinal=Array.isArray(rows)&&rows.some(r=>r.match_no===104);
  const top=tippedFinal
-   ?`<div style="border-radius:12px;overflow:hidden;margin:-6px -6px 12px"><img src="final_thanks.jpg?v=1" alt="" style="width:100%;display:block"></div>`
+   ?`<div id="igWrap" style="margin:-2px 0 12px;min-height:120px;display:flex;justify-content:center"><blockquote class="instagram-media" data-instgrm-permalink="https://www.instagram.com/reel/Da5xlx6NdM7/" data-instgrm-version="14" style="margin:0;width:100%;max-width:340px;min-width:0"></blockquote></div>`
    :`<div style="font-size:2.8rem;margin:8px 0 6px">🎉⚽🏆</div>`;
  const sub=tippedFinal
    ?`Tip na <b>FINÁLE</b> prijatý — Španielsko 🇪🇸 vs Argentína 🇦🇷! 🏆`
@@ -215,6 +215,15 @@ function showThanks(name,rows){
    <button class="btn" style="margin-bottom:0" onclick="closeModal(true)">Zavrieť ✕</button></div>`;
  MODAL_LOCK=true; const cb=$("modalClose"); if(cb)cb.style.display='none';
  $("modal").classList.add("show");
+ if(tippedFinal) loadIG();
+}
+// oficiálne vloženie Instagram reelu (prehráva sa z IG, s uvedením autora)
+function loadIG(){
+ function proc(){ if(window.instgrm&&window.instgrm.Embeds){window.instgrm.Embeds.process();} else setTimeout(proc,300); }
+ if(!document.getElementById('ig-embed-js')){
+   const s=document.createElement('script'); s.id='ig-embed-js'; s.async=true;
+   s.src='https://www.instagram.com/embed.js'; s.onload=proc; document.body.appendChild(s);
+ } else proc();
 }
 function unmuteThx(){const v=$("thxVid"); if(v){v.muted=false; v.play().catch(()=>{});} const u=$("thxUnmute"); if(u)u.style.display='none';}
 // ---- ďakovné okno: kde hráč stojí voči Petovi (rodovo správne) ----
