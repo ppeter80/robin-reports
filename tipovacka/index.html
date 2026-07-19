@@ -304,6 +304,8 @@ function advFromScores(t1_90,t2_90,t1_et,t2_et,pen_winner,m){
  return null;
 }
 
+// popis pri výsledku: M103 = zápas o bronz (nepostupuje sa), M104 = finále (majster)
+function advTxt(no,adv){ if(!adv) return adv||'?'; if(no===103) return '🥉 bronz — '+adv; if(no===104) return '🏆 majster MS — '+adv; return 'postúpil '+adv; }
 // ---- scoring ----
 // STARÉ pravidlá (1. kolo / osemfinále, match_no <= 88)
 function scoreDetailOld(P,R){
@@ -384,7 +386,7 @@ function renderTip(){
   if(fin){const R=RESULTS[no];const note=R.went_pens?`penalty ${R.pen_t1}:${R.pen_t2}`:(R.went_et?`po predĺžení ${R.t1_et}:${R.t2_et}`:"");
     h+=`<div class="card locked" id="m${no}"><div class="mhead"><span>Zápas M${no} · ${when}</span><span class="fin">✓ odohraté</span></div>
     <div class="teams"><div class="tn r">${A}${flag(A)}</div><div class="sc"><b style="font-size:1.15rem">${R.t1_90}</b><span class="x">:</span><b style="font-size:1.15rem">${R.t2_90}</b></div><div class="tn">${flag(B)}${B}</div></div>
-    <div class="adv" style="color:var(--green)">Výsledok ${R.t1_90}:${R.t2_90}${note?" ("+note+")":""} → postúpil ${R.advancer}</div>${robinBtn(no)}</div>`;
+    <div class="adv" style="color:var(--green)">Výsledok ${R.t1_90}:${R.t2_90}${note?" ("+note+")":""} → ${advTxt(no,R.advancer)}</div>${robinBtn(no)}</div>`;
     return;}
   h+=`<div class="card ${locked?'locked':''}" id="m${no}">
     <div class="mhead"><span>Zápas M${no} · ${when}</span><span>${locked?'<span class="fin">🔒 prebieha / uzamknuté</span>':''}</span></div>
@@ -539,7 +541,7 @@ async function loadBoard(){
      const sd=P?scoreDetail(P,R):{pts:0,parts:[]};
      let tipTxt=P?`${P.t1_90}:${P.t2_90}`+(P.t1_et!=null?` / pred. ${P.t1_et}:${P.t2_et}`:"")+(P.pen_t1!=null?` / pen ${P.pen_t1}:${P.pen_t2}`:""):"bez tipu";
      const resTxt=`${R.t1_90}:${R.t2_90}`+(R.went_pens?` (pen ${R.pen_t1}:${R.pen_t2})`:R.went_et?` (pred. ${R.t1_et}:${R.t2_et})`:"");
-     d+=`<div class="bd"><b>M${no} ${flag(A)}${A}–${flag(B)}${B}</b> ${resTxt} → ${R.advancer}<br>tip: ${tipTxt} → <b>${sd.pts} b</b>${sd.parts.length?' <span style="color:var(--green)">('+sd.parts.join(", ")+')</span>':' <span style="color:var(--muted)">(0)</span>'}</div>`;
+     d+=`<div class="bd"><b>M${no} ${flag(A)}${A}–${flag(B)}${B}</b> ${resTxt} → ${advTxt(no,R.advancer)}<br>tip: ${tipTxt} → <b>${sd.pts} b</b>${sd.parts.length?' <span style="color:var(--green)">('+sd.parts.join(", ")+')</span>':' <span style="color:var(--muted)">(0)</span>'}</div>`;
    }
    if(r.champ){const showC=championLocked()||r.pl===me;const cv=showC?`<b>${r.champ}</b>${champFinal?(r.champBonus?' — správne ✓ +7':' — nesprávne ✗'):' (vyhodnotí sa na konci súťaže)'}`:'<i>skryté do uzávierky</i>';d+=`<div class="bd">🏆 Tip na celkového víťaza: ${cv}</div>`;}
    d+=`<div class="bd" style="color:#778">Pri rovnosti bodov: postupy <b>${r.postupCount}</b> · presné výsledky <b>${r.exactCount}</b>${champFinal?(' · víťaz MS '+(r.champCorrect?'✓':'✗')):''}</div>`;
@@ -550,7 +552,7 @@ async function loadBoard(){
  h+=`<details open><summary>Detail po zápasoch (tipy sa zobrazia po výkope)</summary>`;
  for(const m of M){const no=m[0];if(!isLocked(no))continue;const R=RESULTS[no];const fin=R&&R.finished;
    const[A,B]=TEAM[no];
-   let res=fin?(`${flag(A)}${A} ${R.t1_90}:${R.t2_90}`+(R.went_et?` (pred. ${R.t1_et}:${R.t2_et})`:"")+(R.went_pens?` (pen ${R.pen_t1}:${R.pen_t2})`:"")+` ${flag(B)}${B} → ${R.advancer}`):(`${flag(A)}${A} – ${flag(B)}${B} · 🔒 prebieha`);
+   let res=fin?(`${flag(A)}${A} ${R.t1_90}:${R.t2_90}`+(R.went_et?` (pred. ${R.t1_et}:${R.t2_et})`:"")+(R.went_pens?` (pen ${R.pen_t1}:${R.pen_t2})`:"")+` ${flag(B)}${B} → ${advTxt(no,R.advancer)}`):(`${flag(A)}${A} – ${flag(B)}${B} · 🔒 prebieha`);
    h+=`<div class="card"><div class="mhead"><span>M${no}</span></div><div style="font-size:.85rem">${res}</div>`;
    const list=rows.map(r=>{const P=players[r.pl][no];return {pl:r.pl,P,s:(fin&&P)?scoreOne(P,R):null};});
    if(fin)list.sort((x,y)=>(y.s||0)-(x.s||0));
@@ -813,7 +815,7 @@ async function loadTipy(){
  const _ord=M.slice().sort((p,q)=>{const k1=+KO[p[0]],k2=+KO[q[0]];const s1=k1<=_now,s2=k2<=_now;return s1!==s2?(s1?1:-1):(s1?k2-k1:k1-k2);});
  for(const m of _ord){const no=m[0];const[A,B]=TEAM[no];const R=RESULTS[no];const list=byMatch[no]||[];const fin=R&&R.finished;
    const show=isLocked(no)||reveal;
-   const resTxt=fin?`<span class="fin">${R.t1_90}:${R.t2_90}${R.went_pens?' (pen)':R.went_et?' (pred.)':''} → ${R.advancer}</span>`:(isLocked(no)?`<span class="fin">🔒 prebieha</span>`:`<span>${list.length} tipov</span>`);
+   const resTxt=fin?`<span class="fin">${R.t1_90}:${R.t2_90}${R.went_pens?' (pen)':R.went_et?' (pred.)':''} → ${advTxt(no,R.advancer)}</span>`:(isLocked(no)?`<span class="fin">🔒 prebieha</span>`:`<span>${list.length} tipov</span>`);
    h+=`<div class="card"><div class="mhead"><span>M${no} · ${flag(A)}${A} – ${flag(B)}${B}</span><span>${resTxt}</span></div>`;
    if(show){
      if(!list.length){h+='<div class="bd">— zatiaľ bez tipov —</div>';}
