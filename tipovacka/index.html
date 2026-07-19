@@ -748,6 +748,9 @@ async function renderLive(){
  const live=Object.values(RESULTS).filter(R=>{if(!R||R.finished!==false||R.t1_90==null||R.t2_90==null)return false;
    const k=KO[R.match_no];return k&&NOW>=k&&NOW<=new Date(k.getTime()+6*3600*1000);});
  const liveSynth={};live.forEach(R=>liveSynth[R.match_no]=liveAsResult(R));
+ // predbežný majster: dohraté finále (M104) → jeho víťaz; inak aktuálny víťaz živého finála
+ const champPrelim = champFinal || (liveSynth[104] ? liveSynth[104].advancer : null);
+ const champIsPrelim = !!champPrelim && !champFinal;
  // 🇺🇸 žartovný "Trump" bonus pre zápas Anglicko–Nórsko (M99), kým je živý — „prezident rozhodol"
  const TRUMP=new Set(["Peto","PaloP","Remca"]), TRUMP_PTS=20, k99=KO[99];
  const trumpOn=!!k99 && !(RESULTS[99]&&RESULTS[99].finished) && NOW>=k99 && NOW<=new Date(k99.getTime()+6*3600*1000);
@@ -758,7 +761,7 @@ async function renderLive(){
      if(Rf&&Rf.finished){tot+=(scoreOne(P,Rf)||0);}
      else if(liveSynth[no]){const s=scoreOne(P,liveSynth[no])||0;tot+=s;delta+=s;}}
    const champ=players[pl][0]?players[pl][0].advancer:null;
-   if(champFinal&&champ===champFinal)tot+=7;
+   if(champPrelim&&champ===champPrelim)tot+=7;
    const trump=(trumpOn&&TRUMP.has(pl))?TRUMP_PTS:0; tot+=trump;
    return {pl,tot,delta,trump};
  }).sort((x,y)=>(x.pl===ROBIN_NAME?1:y.pl===ROBIN_NAME?-1:(y.tot-x.tot)||(y.delta-x.delta)||x.pl.localeCompare(y.pl,'sk')));
@@ -781,6 +784,7 @@ async function renderLive(){
  });
  h+=`</tbody></table>`;
  if(trumpOn)h+=`<p class="note" style="margin-top:8px">🇺🇸 <b>Trump body:</b> „Dávam Peťovi a Paľovi 20 bodov. A aj Remča. Ja som rozhodol!" 😎</p>`;
+ if(champIsPrelim)h+=`<p class="note" style="margin-top:8px">🏆 <b>Predbežné +7 za majstra</b> je už započítané v „Body" podľa aktuálneho stavu finále (M104). Po dohraní sa potvrdí napevno.</p>`;
  if(live.length)h+=`<p class="note" style="margin-top:8px">„+ zo živého" = body, čo hráčovi pribudli z práve hraného zápasu (keby skončil týmto výsledkom). Po skončení sa započítajú napevno.</p>`;
  $("modalBody").innerHTML=h;
 }
