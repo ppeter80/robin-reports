@@ -696,6 +696,21 @@ function semiAnnouncement(rows,players){
  a+=`</p></div>`;
  return a;
 }
+function finalAnnouncement(rows){
+ if(!(RESULTS[104]&&RESULTS[104].finished)) return `<div class="card" style="border:1px dashed #444"><p class="note" style="margin:0">🏆 <b>Finálové vyhlásenie</b> sa zobrazí po odohratí finále (M104).</p></div>`;
+ return `<div class="card" style="border:1px solid #c9a24a;background:linear-gradient(180deg,#191305,#0c0a02)">
+   <div style="font-weight:900;font-size:1.1rem;color:#f2c94c;margin-bottom:8px">🏆 FINÁLE ODPÍSKANÉ — MÁME MAJSTRA MS AJ MAJSTRA TIPOVAČKY! 🏆</div>
+   <p style="margin:0 0 10px">Španielsko zdvihlo pohár (0:0, v predĺžení 1:0) — a v našej tipovačke sa stalo niečo do dejín:</p>
+   <p style="margin:0 0 10px">👑 <b>LUC JE KRÁĽOVNÁ TIPOVAČKY!</b> Pred finále bola tretia, ale ako jediná z čela verila Španielsku na celé MS. +7 za majstra ju katapultovalo z bronzu rovno na trón (<b>84 b</b>). Dámy, klobúk dole — kým sa chalani bili o to, kto má väčší futbalový rozhľad, Luc ticho tipla víťaza a zobrala všetko. 💅</p>
+   <p style="margin:0 0 8px">🥈 <b>Ajo (82)</b> — vodca skoro celého turnaja, ktorému chýbal jediný tip: dal majstra na <b>Brazíliu</b>, čo sa do finále ani nepozrela. O bod a o jeden šampiónsky tip od zlata. Tak blízko, a predsa tak Brazília.</p>
+   <p style="margin:0 0 8px">🥉 <b>Avalanche (81)</b> — bronz. Stavil na Argentínu, tá padla vo finále a s ňou aj sen o zlate. Lavína, čo sa zastavila tesne pod vrcholom.</p>
+   <p style="margin:0 0 8px">4️⃣ <b>Remca (69)</b> — druhá dáma v poradí a dôkaz, že tipovanie nie je len chalanská disciplína. Pekné, stabilné 4. miesto.</p>
+   <p style="margin:0 0 8px">6️⃣ <b>Peto (56)</b> — náš organizátor. Turnaj zorganizoval, pravidlá napísal, appku vypiplal… a skončil pekne v strede tabuľky. „Nech vyhrá Peter" ostáva zbožným želaním aj po finále. 😅</p>
+   <p style="margin:0 0 8px">7️⃣ <b>Messi (56)</b> — menovec najväčšieho, s Argentínou vo finále… a 7. miesto. Aj legendy majú slabšie dni.</p>
+   <p style="margin:0 0 10px">8️⃣ <b>Rasťo (55)</b> a 9️⃣ <b>PaloP (52)</b> — Paľo zatvára tabuľku ako verný back-up Team Pcola. Niekto tie body musí podržať aj naspodku. 🤝</p>
+   <p style="margin:0;font-weight:700;color:#f2c94c">Gratulácia Luc — zaslúžená majsterka! 🇪🇸👑 Vidíme sa pri ďalšom turnaji! ⚽🎉</p>
+ </div>`;
+}
 async function loadStats(){
  $("s-stat").innerHTML='<p class="note">Načítavam…</p>';
  await loadResults(); await loadRobin();
@@ -715,7 +730,7 @@ async function loadStats(){
  const finR16=R16NOS.filter(no=>RESULTS[no]&&RESULTS[no].finished).length;
  const finR32=R32NOS.filter(no=>RESULTS[no]&&RESULTS[no].finished).length;
  const anyIne=rows.some(r=>r.bine>0);
- let h=semiAnnouncement(rows,players);
+ let h=finalAnnouncement(rows)+semiAnnouncement(rows,players);
  h+=`<div class="card"><p class="note" style="margin-top:0"><b>📊 Celková tabuľka.</b> „Max" = 7 b za rozhodnutý zápas, 12 b za penaltový; <b>%</b> = body / max. 🤖 Robin ráta len zápasy, ktoré tipoval.</p>${statTable(rows,me)}</div>`;
  h+=`<div class="card"><p class="note" style="margin-top:0"><b>🥅 Semifinále — tabuľka bodov</b> (${finSF}/2 zápasov). Kto ako tipoval v semifinále (M101–102).</p>${sfrows.length?statTable(sfrows,me):'<p class="note">Zatiaľ žiadne odohraté zápasy semifinále.</p>'}</div>`;
  h+=qfAnnouncement(qfrows);
