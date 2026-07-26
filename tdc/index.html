@@ -107,6 +107,7 @@ const SB_URL='https://lultodbmyhawlpfgfhmg.supabase.co';
 const SB_KEY='sb_publishable_c5ke1M0NDYzff_s7miJAHg_tFNM-Cn3';
 const JOIN_PIN='2026', ADMIN_PIN='palo50';
 const sb = supabase.createClient(SB_URL, SB_KEY);
+const VAPID_PUBLIC='BO3HLckvkWtHJMq71x2OLioQCtS2nSHFx0mXGGLAEoMBHEp7FRAIec06z9ug4QkUDmrZAU59cbTf_p8cnDEhbRI';
 let ME = JSON.parse(localStorage.getItem('tdc_me')||'null');
 let ADMIN=false, pendingPhoto=null, replyTo=null, openMsg=null, stick=true, openTeam=null, teamMode=null, openResults=null;
 let S = {participants:[],comps:[],teams:[],results:[],extra:[],msgs:[],reactions:[],plist:[]};
@@ -128,6 +129,7 @@ function boot(){ document.getElementById('gate').style.display='none';
  document.getElementById('whoami').innerHTML='Prihlásený: <b>'+esc(ME.name)+'</b> · <a onclick="hardRefresh()">↻ obnoviť</a> · <a onclick="logout()">odhlásiť</a>';
  loadAll(); setInterval(loadAll, 4000); heartbeat(); setInterval(heartbeat, 15000);
  positionOnline(); window.addEventListener('resize',positionOnline);
+ if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(()=>{}); if(window.Notification && Notification.permission==='granted') enablePush(true); }
  document.addEventListener('visibilitychange',()=>{ if(!document.hidden){ heartbeat(); loadAll(); } }); }
 function positionOnline(){ let h=document.querySelector('header'), bar=document.getElementById('onlinebar'); if(h&&bar) bar.style.top=h.offsetHeight+'px'; }
 async function heartbeat(){ if(!ME)return; try{ await sb.from('tdc_participants').update({last_seen:new Date().toISOString()}).eq('name',ME.name); }catch(e){} }
@@ -278,18 +280,29 @@ async function sendMsg(){ if(sending)return; let t=document.getElementById('msgt
  if(!t&&!photo_url)return;
  let payload={name:ME.name,body:t,photo_url}; if(replyTo)payload.reply_to=replyTo;
  stick=true; await sb.from('tdc_messages').insert(payload);
+ sb.functions.invoke('notify',{body:{sender:ME.name,body:msgPreview(payload)}}).catch(()=>{});
  let mb=document.getElementById('msgtext'); mb.value=''; growBox(mb); pendingPhoto=null; document.getElementById('photoprev').innerHTML=''; cancelReply(); await loadAll(); stick=true; chatToBottom(); }
 function fmtTime(iso){ if(!iso)return''; let d=new Date(iso); if(isNaN(d))return'';
  let t=d.toLocaleTimeString('sk-SK',{hour:'2-digit',minute:'2-digit'});
  let today=new Date().toDateString()==d.toDateString();
  return today? t : d.toLocaleDateString('sk-SK',{day:'numeric',month:'numeric'})+'. '+t; }
-function askNotif(){ if(window.Notification) Notification.requestPermission().then(()=>renderChat()); }
+function urlB64ToUint8(s){ let pad='='.repeat((4-s.length%4)%4); let base=(s+pad).replace(/-/g,'+').replace(/_/g,'/'); let raw=atob(base); let arr=new Uint8Array(raw.length); for(let i=0;i<raw.length;i++)arr[i]=raw.charCodeAt(i); return arr; }
+async function enablePush(silent){ if(!('serviceWorker' in navigator)||!('PushManager' in window)){ if(!silent)alert('Tento prehliadač nepodporuje push. Na iPhone: pridaj appku na plochu (Zdieľať → Pridať na plochu) a otvor ju odtiaľ, potom zapni upozornenia.'); return; }
+ try{ let reg=await navigator.serviceWorker.register('sw.js'); await navigator.serviceWorker.ready;
+  let perm=await Notification.requestPermission(); if(perm!=='granted'){ renderChat(); return; }
+  let sub=await reg.pushManager.getSubscription();
+  if(!sub) sub=await reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey:urlB64ToUint8(VAPID_PUBLIC) });
+  let j=sub.toJSON();
+  await sb.from('tdc_push_subs').upsert({ name:ME.name, endpoint:j.endpoint, p256dh:j.keys.p256dh, auth:j.keys.auth },{ onConflict:'endpoint' });
+  renderChat(); if(!silent) alert('Upozornenia zapnuté ✅ Teraz ti prídu aj keď je appka zavretá.');
+ }catch(e){ if(!silent) alert('Nepodarilo sa zapnúť upozornenia: '+(e.message||e)); } }
+function askNotif(){ enablePush(false); }
 const QUICK=['👍','❤️','😂','🔥','🍺','🍷','🚴','🎉'];
 function nameColor(n){ let h=0; for(let i=0;i<(n||'').length;i++) h=(h*31+n.charCodeAt(i))>>>0; return `hsl(${h%360},72%,68%)`; }
 function msgPreview(m){ if(!m)return''; if(m.body&&m.body.indexOf('##LOC##')===0) return '📍 poloha'; if(m.body) return m.body; if(m.photo_url) return '📷 fotka'; return ''; }
 function reactionsFor(mid){ let map={}; S.reactions.filter(r=>r.message_id==mid).forEach(r=>{ (map[r.emoji]=map[r.emoji]||[]).push(r.name); }); return map; }
 function renderChat(){ let h='';
- if(window.Notification && Notification.permission==='default') h+='<div class="notifbtn" onclick="askNotif()">🔔 Zapnúť upozornenia na nové správy</div>';
+ if(window.Notification && Notification.permission!=='granted') h+='<div class="notifbtn" onclick="enablePush(false)">🔔 Zapnúť upozornenia na nové správy (aj keď je appka zavretá)</div>';
  if(!S.msgs.length) h+='<div class="soon">Zatiaľ žiadne správy. Napíš prvú! 💬</div>';
  S.msgs.forEach(x=>{
   let q=''; if(x.reply_to){ let src=S.msgs.find(m=>m.id==x.reply_to); if(src) q=`<div class="qreply">↩︎ <b>${esc(src.name)}</b>: ${esc(msgPreview(src).slice(0,80))}</div>`; }
