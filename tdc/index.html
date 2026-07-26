@@ -49,6 +49,10 @@ input,select,textarea{width:100%;background:#1c0d14;border:1px solid rgba(228,17
 .tblwrap{overflow-x:auto;-webkit-overflow-scrolling:touch;} .lead th,.lead td{white-space:nowrap;text-align:center;} .lead th:nth-child(2),.lead td:nth-child(2){text-align:left;}
 .resform{margin-top:8px;} .resrow{display:flex;align-items:center;gap:8px;margin:5px 0;} .resrow span{flex:1;font-size:13px;} .resrow input{flex:0 0 60px;width:60px;text-align:center;margin-top:0;padding:7px;}
 .soon{color:var(--mut);font-size:13px;text-align:center;padding:16px;font-style:italic;}
+.gallery{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;} .gthumb{width:100%;aspect-ratio:1/1;object-fit:cover;border-radius:6px;cursor:pointer;background:#2a1420;}
+.lb{position:fixed;inset:0;z-index:30;background:rgba(0,0,0,.94);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px;} .lb>img{max-width:100%;max-height:76vh;border-radius:8px;object-fit:contain;}
+.lbtop{position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:center;padding:12px 16px;color:#eee;font-size:13px;} .lbx{cursor:pointer;font-size:24px;}
+.lbbar{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-top:14px;width:100%;max-width:420px;} .lbnav{font-size:34px;color:#fff;cursor:pointer;padding:0 10px;user-select:none;min-width:34px;text-align:center;}
 .admrow{display:flex;gap:8px;align-items:flex-end;} .admrow>*{flex:1;} #msgtext{line-height:1.35;overflow-y:auto;}
 #onlinebar{position:sticky;top:88px;z-index:4;font-size:11px;color:#9FE0B0;margin:0 -14px 6px;padding:7px 14px;min-height:16px;background:rgba(22,10,16,.97);border-bottom:1px solid rgba(228,178,76,.12);} .ondot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#3ddc84;box-shadow:0 0 6px #3ddc84;vertical-align:middle;margin-right:4px;}
 .mdel{font-size:11px;color:#ef6b6b;border:1px solid #ef6b6b;border-radius:8px;padding:2px 8px;}
@@ -93,12 +97,16 @@ nav button{flex:1;background:none;border:none;color:var(--mut);padding:8px 2px 7
  <div id="photoprev"></div>
 </div>
 <div id="v-lead" class="view"><div id="leadview"></div></div>
+<div id="v-gallery" class="view"><div id="galleryview"></div></div>
+
+<div id="lightbox" class="lb" style="display:none"></div>
 
 <nav>
  <button class="on" data-v="program" onclick="go(this)"><span class="ic">🗺️</span>Program</button>
  <button data-v="comps" onclick="go(this)"><span class="ic">🎯</span>Súťaže</button>
  <button data-v="teams" onclick="go(this)"><span class="ic">👥</span>Tímy</button>
  <button data-v="chat" onclick="go(this)"><span class="ic">💬</span>Chat</button>
+ <button data-v="gallery" onclick="go(this)"><span class="ic">🖼️</span>Galéria</button>
  <button data-v="lead" onclick="go(this)"><span class="ic">🏆</span>Rebríček</button>
 </nav>
 
@@ -157,7 +165,7 @@ async function loadAll(){ try{
  notify(); renderOnline(); }catch(err){ console.error(err); } }
 let lastSig='';
 function renderAll(){ let f=document.activeElement, typing=f&&/INPUT|SELECT|TEXTAREA/.test(f.tagName);
- if(!typing){ renderComps(); renderTeams(); } renderChat(); renderLead(); }
+ if(!typing){ renderComps(); renderTeams(); } renderChat(); renderLead(); renderGallery(); }
 
 // ---- admin & comps ----
 function unlockAdmin(){ let p=prompt('Admin PIN:'); if(p===ADMIN_PIN){ADMIN=true; renderComps(); alert('Admin odomknutý ✅');} else if(p!=null) alert('Zlý PIN'); }
@@ -384,5 +392,28 @@ function renderLead(){ let comps=S.comps, rows=computeMatrix();
  if(S.extra.length){ h+='<div class="card" style="margin-top:12px"><h3>⭐ Extra body</h3>'+S.extra.map(e=>`<div class="r"><b>${esc(e.name)}</b> +${e.points} <span style="color:var(--mut)">— ${esc(e.reason||'')}</span></div>`).join('')+'</div>'; }
  document.getElementById('leadview').innerHTML=h;
 }
+// ---- galéria ----
+let lbIdx=null, galPhotos=[];
+function galleryPhotos(){ return S.msgs.filter(m=>m.photo_url); }
+function renderGallery(){ let el=document.getElementById('galleryview'); if(!el)return; let ph=galleryPhotos();
+ if(!ph.length){ el.innerHTML='<div class="soon">Zatiaľ žiadne fotky. Pridajte ich v Chate 📷</div>'; return; }
+ el.innerHTML='<div class="r" style="color:var(--mut);font-size:12px;margin-bottom:6px">'+ph.length+' '+(ph.length==1?'fotka':(ph.length<5?'fotky':'fotiek'))+' · ťukni pre zväčšenie a stiahnutie</div>'+
+  '<div class="gallery">'+ph.map((m,i)=>`<img class="gthumb" loading="lazy" src="${m.photo_url}" onclick="openLightbox(${i})">`).join('')+'</div>';
+}
+function openLightbox(i){ galPhotos=galleryPhotos(); lbIdx=i; renderLightbox(); }
+function closeLightbox(){ lbIdx=null; renderLightbox(); }
+function lbGo(d){ if(lbIdx==null)return; lbIdx=Math.max(0,Math.min(galPhotos.length-1,lbIdx+d)); renderLightbox(); }
+function renderLightbox(){ let lb=document.getElementById('lightbox'); if(!lb)return;
+ if(lbIdx==null||!galPhotos[lbIdx]){ lb.style.display='none'; lb.innerHTML=''; return; }
+ let ph=galPhotos[lbIdx];
+ lb.style.display='flex';
+ lb.innerHTML=`<div class="lbtop"><span>${lbIdx+1}/${galPhotos.length}${ph.name?' · '+esc(ph.name):''}</span><span class="lbx" onclick="closeLightbox()">✕</span></div>`+
+   `<img src="${ph.photo_url}">`+
+   `<div class="lbbar"><span class="lbnav" onclick="lbGo(-1)">${lbIdx>0?'‹':''}</span>`+
+   `<button class="btn sm g" style="width:auto;flex:0 0 auto" onclick="dlPhoto('${js1(ph.photo_url)}')">⬇ Stiahnuť</button>`+
+   `<span class="lbnav" onclick="lbGo(1)">${lbIdx<galPhotos.length-1?'›':''}</span></div>`;
+}
+async function dlPhoto(url){ try{ let r=await fetch(url); let bl=await r.blob(); let u=URL.createObjectURL(bl); let a=document.createElement('a'); a.href=u; a.download='TdC_'+Date.now()+'.jpg'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(u),1500); }catch(e){ window.open(url,'_blank'); } }
+
 if(ME) boot();
 </script></body></html>
