@@ -1,6 +1,14 @@
 <!doctype html><html lang="sk"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <title>Tour de Croatia</title>
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="manifest" href="manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Tour de Croatia">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#1a0b12">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root{--bg:#160a10;--card:#2a1420;--gold:#E4B24C;--wine:#B02846;--pink:#E58AA0;--txt:#F1E6EB;--mut:#B79AA6;}
@@ -61,7 +69,7 @@ nav button{flex:1;background:none;border:none;color:var(--mut);padding:8px 2px 7
 <div id="v-teams" class="view"><div id="teamsview"></div></div>
 <div id="v-chat" class="view">
  <div id="msgs"></div>
- <input type="file" id="photo" accept="image/*" capture="environment" style="display:none" onchange="pickPhoto(event)">
+ <input type="file" id="photo" accept="image/*" style="display:none" onchange="pickPhoto(event)">
  <div class="admrow"><button class="btn sm" style="flex:0 0 46px" onclick="document.getElementById('photo').click()">📷</button><input id="msgtext" placeholder="Napíš správu…" style="margin-top:6px" onkeydown="if(event.key==='Enter')sendMsg()"><button class="btn sm" style="flex:0 0 70px" onclick="sendMsg()">Poslať</button></div>
  <div id="photoprev"></div>
 </div>
@@ -107,7 +115,8 @@ async function loadAll(){ try{
   sb.from('tdc_messages').select('*').order('created_at')]);
  S.participants=(p.data||[]).map(x=>x.name); S.comps=c.data||[]; S.teams=t.data||[]; S.results=r.data||[]; S.extra=e.data||[]; S.msgs=m.data||[];
  renderAll(); }catch(err){ console.error(err); } }
-function renderAll(){ renderComps(); renderTeams(); renderChat(); renderLead(); }
+function renderAll(){ let f=document.activeElement, typing=f&&/INPUT|SELECT|TEXTAREA/.test(f.tagName);
+ if(!typing){ renderComps(); renderTeams(); } renderChat(); renderLead(); }
 
 // ---- admin & comps ----
 function unlockAdmin(){ let p=prompt('Admin PIN:'); if(p===ADMIN_PIN){ADMIN=true; renderComps(); alert('Admin odomknutý ✅');} else if(p!=null) alert('Zlý PIN'); }
@@ -132,8 +141,8 @@ function renderComps(){
  S.comps.forEach(cp=>{ let done=S.results.some(r=>r.comp_id==cp.id);
   h+=`<div class="card"><h3>${esc(cp.name)} <span class="chip">${cp.type=='ind'?'Individuálna':'Tímová'}</span>${cp.day?'<span class="chip">'+esc(cp.day)+'</span>':''}${ADMIN?`<span onclick="delComp('${cp.id}')" style="margin-left:auto;cursor:pointer;color:#c66">🗑</span>`:''}</h3>
    <div class="r"><span class="lab">Body:</span> ${(cp.points||[]).join(' / ')}</div>${compResults(cp)}`;
-  if(ADMIN){ if(cp.type=='team') h+=`<button class="btn sm" onclick="manageTeams('${cp.id}')">👥 Spravovať tímy</button>`;
-             h+=`<button class="btn sm g" onclick="enterResults('${cp.id}')">${done?'Upraviť':'Zadať'} výsledky</button>`; }
+  if(cp.type=='team') h+=`<div class="r" style="color:var(--mut);font-size:11px">Tímy poskladáte v tabe 👥 Tímy.</div>`;
+  if(ADMIN){ h+=`<button class="btn sm g" onclick="enterResults('${cp.id}')">${done?'Upraviť':'Zadať'} výsledky</button>`; }
   h+='</div>'; });
  document.getElementById('complist').innerHTML=h;
 }
@@ -152,27 +161,32 @@ async function enterResults(cid){ let cp=S.comps.find(c=>c.id==cid); let es=entr
  await sb.from('tdc_results').delete().eq('comp_id',cid);
  if(rows.length) await sb.from('tdc_results').insert(rows); loadAll(); alert('Výsledky uložené ✅');
 }
-async function manageTeams(cid){ let act=prompt('Napíš:\n"novy Názov tímu" — vytvorí tím\n"clen Meno > Tím" — pridá člena\nPríklad: novy Vínni bratia\nalebo: clen Palo > Vínni bratia');
- if(!act)return; act=act.trim();
- if(act.toLowerCase().startsWith('novy ')){ let n=act.slice(5).trim(); await sb.from('tdc_teams').insert({id:uid(),comp_id:cid,name:n,members:[]}); }
- else if(act.toLowerCase().startsWith('clen ')){ let [who,tm]=act.slice(5).split('>').map(s=>s.trim());
-   let team=S.teams.find(x=>x.comp_id==cid&&x.name.toLowerCase()==(tm||'').toLowerCase());
-   if(!team){alert('Tím nenájdený (najprv vytvor)');return;} let mem=team.members||[]; if(!mem.includes(who))mem.push(who);
-   await sb.from('tdc_teams').update({members:mem}).eq('id',team.id); }
- await loadAll(); manageTeams(cid);
-}
 async function addExtra(){ let name=document.getElementById('e_who').value, pts=parseInt(document.getElementById('e_pts').value)||0, why=document.getElementById('e_why').value;
  await sb.from('tdc_extra').insert({name,points:pts,reason:why}); loadAll(); alert('Extra body pridané ✅'); }
 
 // ---- teams view ----
-function renderTeams(){ let c=S.comps.filter(x=>x.type=='team'), h='';
- if(!c.length) h='<div class="soon">Tímové súťaže sa zatiaľ nekonajú. Tímy sa skladajú pre každú tímovú súťaž zvlášť.</div>';
- c.forEach(cp=>{ let ts=S.teams.filter(t=>t.comp_id==cp.id); h+=`<div class="card"><h3>${esc(cp.name)}</h3>`;
-  if(!ts.length) h+='<div class="r" style="color:var(--mut)">Tímy ešte nezložené.</div>';
-  ts.forEach(t=>{ h+=`<div class="r"><b>${esc(t.name)}:</b> ${(t.members||[]).map(m=>'<span class="pill">'+esc(m)+'</span>').join('')||'—'}</div>`; });
-  h+='</div>'; });
+function renderTeams(){ let c=S.comps.filter(x=>x.type=='team');
+ if(!c.length){ document.getElementById('teamsview').innerHTML='<div class="soon">Tímové súťaže zatiaľ nie sú. Organizátor ich pridá v tabe 🎯 Súťaže, potom tu bude môcť každý skladať tímy.</div>'; return; }
+ let h='<div class="hint">Tím si vie vytvoriť ktokoľvek. Pridaj sa do tímu alebo pridaj prihlásených členov.</div>';
+ c.forEach(cp=>{ let ts=S.teams.filter(t=>t.comp_id==cp.id);
+  h+=`<div class="card"><h3>${esc(cp.name)}</h3>`;
+  if(!ts.length) h+='<div class="r" style="color:var(--mut)">Zatiaľ žiadne tímy — vytvor prvý nižšie.</div>';
+  ts.forEach(t=>{ let mem=t.members||[], inT=ME&&mem.includes(ME.name);
+   let opts=S.participants.filter(p=>!mem.includes(p)).map(p=>`<option>${esc(p)}</option>`).join('');
+   h+=`<div class="team"><b>${esc(t.name)}</b> · ${mem.length} čl.<br>`+
+      (mem.map(m=>`<span class="pill">${esc(m)} <span onclick="removeMember('${t.id}','${esc(m)}')" style="cursor:pointer;color:#d77">✕</span></span>`).join('')||'<span style="color:var(--mut);font-size:12px">— prázdny</span>')+
+      `<div class="admrow" style="margin-top:8px">`+
+      (inT?'':`<button class="btn sm g" onclick="joinTeam('${t.id}')">Pridať sa</button>`)+
+      (opts?`<select id="addsel_${t.id}">${opts}</select><button class="btn sm" style="flex:0 0 84px" onclick="addMember('${t.id}')">Pridať</button>`:'')+
+      `</div></div>`; });
+  h+=`<input id="newteam_${cp.id}" placeholder="Názov nového tímu"><button class="btn sm" onclick="createTeam('${cp.id}')">➕ Vytvoriť tím</button></div>`; });
  document.getElementById('teamsview').innerHTML=h;
 }
+async function createTeam(cid){ let el=document.getElementById('newteam_'+cid); let n=(el&&el.value||'').trim(); if(!n){alert('Zadaj názov tímu');return;}
+ await sb.from('tdc_teams').insert({id:uid(),comp_id:cid,name:n,members:ME?[ME.name]:[]}); loadAll(); }
+async function joinTeam(tid){ let t=S.teams.find(x=>x.id==tid); if(!t||!ME)return; let mem=t.members||[]; if(!mem.includes(ME.name)){mem.push(ME.name); await sb.from('tdc_teams').update({members:mem}).eq('id',tid); loadAll();} }
+async function addMember(tid){ let sel=document.getElementById('addsel_'+tid); if(!sel)return; let who=sel.value; let t=S.teams.find(x=>x.id==tid); if(!t)return; let mem=t.members||[]; if(who&&!mem.includes(who)){mem.push(who); await sb.from('tdc_teams').update({members:mem}).eq('id',tid); loadAll();} }
+async function removeMember(tid,name){ let t=S.teams.find(x=>x.id==tid); if(!t)return; let mem=(t.members||[]).filter(m=>m!=name); await sb.from('tdc_teams').update({members:mem}).eq('id',tid); loadAll(); }
 // ---- chat ----
 function pickPhoto(ev){ let f=ev.target.files[0]; if(!f)return; pendingPhoto=f;
  document.getElementById('photoprev').innerHTML='<div class="r">📎 fotka pripravená <img src="'+URL.createObjectURL(f)+'" style="max-height:80px;border-radius:6px;vertical-align:middle"></div>'; }
