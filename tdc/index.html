@@ -128,7 +128,10 @@ async function loadAll(){ try{
   sb.from('tdc_messages').select('*').order('created_at'),
   sb.from('tdc_reactions').select('*')]);
  S.participants=(p.data||[]).map(x=>x.name); S.comps=c.data||[]; S.teams=t.data||[]; S.results=r.data||[]; S.extra=e.data||[]; S.msgs=m.data||[]; S.reactions=rx.data||[];
- renderAll(); notify(); }catch(err){ console.error(err); } }
+ let sig=JSON.stringify([S.participants,S.comps,S.teams,S.results,S.extra,S.msgs,S.reactions]);
+ if(sig!==lastSig){ lastSig=sig; renderAll(); }
+ notify(); }catch(err){ console.error(err); } }
+let lastSig='';
 function renderAll(){ let f=document.activeElement, typing=f&&/INPUT|SELECT|TEXTAREA/.test(f.tagName);
  if(!typing){ renderComps(); renderTeams(); } renderChat(); renderLead(); }
 
