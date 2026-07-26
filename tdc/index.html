@@ -44,7 +44,9 @@ input,select,textarea{width:100%;background:#1c0d14;border:1px solid rgba(228,17
 .lead th{color:var(--gold);text-align:left;padding:8px;border-bottom:1px solid rgba(228,178,76,.3);}
 .lead td{padding:9px 8px;border-bottom:1px solid rgba(255,255,255,.06);} .lead tr td:last-child{text-align:right;font-weight:800;color:#F0D592;} .lead .me{background:rgba(228,178,76,.08);}
 .soon{color:var(--mut);font-size:13px;text-align:center;padding:16px;font-style:italic;}
-.admrow{display:flex;gap:8px;} .admrow>*{flex:1;}
+.admrow{display:flex;gap:8px;align-items:flex-end;} .admrow>*{flex:1;} #msgtext{line-height:1.35;overflow-y:auto;}
+#onlinebar{font-size:11px;color:#9FE0B0;margin-bottom:6px;padding:3px 2px;min-height:16px;} .ondot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#3ddc84;box-shadow:0 0 6px #3ddc84;vertical-align:middle;margin-right:4px;}
+.mdel{font-size:11px;color:#ef6b6b;border:1px solid #ef6b6b;border-radius:8px;padding:2px 8px;}
 .badge2{font-size:10px;background:var(--wine);color:#fff;padding:2px 8px;border-radius:10px;margin-left:6px;}
 nav{position:fixed;bottom:0;left:0;right:0;display:flex;background:#1c0d14;border-top:1px solid rgba(228,178,76,.2);z-index:6;}
 nav button{flex:1;background:none;border:none;color:var(--mut);padding:8px 2px 7px;font-size:9.5px;cursor:pointer;position:relative;} nav button .ic{font-size:18px;display:block;} nav button.on{color:var(--gold);}
@@ -78,10 +80,11 @@ nav button{flex:1;background:none;border:none;color:var(--mut);padding:8px 2px 7
 <div id="v-comps" class="view"><div id="admbox"></div><div id="complist"></div></div>
 <div id="v-teams" class="view"><div id="teamsview"></div></div>
 <div id="v-chat" class="view">
+ <div id="onlinebar"></div>
  <div id="msgs"></div>
  <input type="file" id="photo" accept="image/*" style="display:none" onchange="pickPhoto(event)">
  <div id="replybar" style="display:none"></div>
- <div class="admrow"><button class="btn sm" style="flex:0 0 44px" onclick="document.getElementById('photo').click()">📷</button><button class="btn sm" style="flex:0 0 44px" onclick="sendLocation()" title="Zdieľať polohu">📍</button><input id="msgtext" placeholder="Napíš správu…" style="margin-top:6px" onkeydown="if(event.key==='Enter')sendMsg()"><button class="btn sm" style="flex:0 0 66px" onclick="sendMsg()">Poslať</button></div>
+ <div class="admrow"><button class="btn sm" style="flex:0 0 44px" onclick="document.getElementById('photo').click()">📷</button><button class="btn sm" style="flex:0 0 44px" onclick="sendLocation()" title="Zdieľať polohu">📍</button><textarea id="msgtext" rows="1" placeholder="Napíš správu…" style="margin-top:6px;resize:none;max-height:120px" oninput="growBox(this)" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMsg();}"></textarea><button class="btn sm" style="flex:0 0 66px" onclick="sendMsg()">Poslať</button></div>
  <div id="photoprev"></div>
 </div>
 <div id="v-lead" class="view"><div id="leadview"></div></div>
@@ -101,7 +104,7 @@ const JOIN_PIN='2026', ADMIN_PIN='palo50';
 const sb = supabase.createClient(SB_URL, SB_KEY);
 let ME = JSON.parse(localStorage.getItem('tdc_me')||'null');
 let ADMIN=false, pendingPhoto=null, replyTo=null, openMsg=null, stick=true;
-let S = {participants:[],comps:[],teams:[],results:[],extra:[],msgs:[],reactions:[]};
+let S = {participants:[],comps:[],teams:[],results:[],extra:[],msgs:[],reactions:[],plist:[]};
 const esc=s=>(s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
 
@@ -117,7 +120,15 @@ function imgLoaded(){ if(chatOpen()&&stick) chatToBottom(); }
 window.addEventListener('scroll',()=>{ if(chatOpen()) stick=nearBottom(); },{passive:true});
 function boot(){ document.getElementById('gate').style.display='none';
  document.getElementById('whoami').innerHTML='Prihlásený: <b>'+esc(ME.name)+'</b> · <a onclick="hardRefresh()">↻ obnoviť</a> · <a onclick="logout()">odhlásiť</a>';
- loadAll(); setInterval(loadAll, 4000); }
+ loadAll(); setInterval(loadAll, 4000); heartbeat(); setInterval(heartbeat, 15000);
+ document.addEventListener('visibilitychange',()=>{ if(!document.hidden){ heartbeat(); loadAll(); } }); }
+async function heartbeat(){ if(!ME)return; try{ await sb.from('tdc_participants').update({last_seen:new Date().toISOString()}).eq('name',ME.name); }catch(e){} }
+function renderOnline(){ let bar=document.getElementById('onlinebar'); if(!bar)return; let now=Date.now();
+ let on=(S.plist||[]).filter(u=>u.last_seen && (now-new Date(u.last_seen).getTime())<45000).map(u=>u.name);
+ if(ME && !on.includes(ME.name)) on.push(ME.name); on=[...new Set(on)].sort((a,b)=>a.localeCompare(b));
+ let html = on.length ? `<span class="ondot"></span>Online (${on.length}): ${on.map(esc).join(', ')}` : '';
+ if(bar.innerHTML!==html) bar.innerHTML=html; }
+function growBox(el){ el.style.height='auto'; el.style.height=Math.min(el.scrollHeight,120)+'px'; }
 function go(btn){ document.querySelectorAll('nav button').forEach(b=>b.classList.remove('on')); btn.classList.add('on');
  document.querySelectorAll('.view').forEach(v=>v.classList.remove('on')); document.getElementById('v-'+btn.dataset.v).classList.add('on'); renderAll(); if(btn.dataset.v=='chat'){ markSeen(); stick=true; chatToBottom(); } }
 
@@ -130,10 +141,10 @@ async function loadAll(){ try{
   sb.from('tdc_extra').select('*').order('created_at'),
   sb.from('tdc_messages').select('*').order('created_at'),
   sb.from('tdc_reactions').select('*')]);
- S.participants=(p.data||[]).map(x=>x.name); S.comps=c.data||[]; S.teams=t.data||[]; S.results=r.data||[]; S.extra=e.data||[]; S.msgs=m.data||[]; S.reactions=rx.data||[];
+ S.plist=p.data||[]; S.participants=S.plist.map(x=>x.name); S.comps=c.data||[]; S.teams=t.data||[]; S.results=r.data||[]; S.extra=e.data||[]; S.msgs=m.data||[]; S.reactions=rx.data||[];
  let sig=JSON.stringify([S.participants,S.comps,S.teams,S.results,S.extra,S.msgs,S.reactions]);
  if(sig!==lastSig){ lastSig=sig; renderAll(); }
- notify(); }catch(err){ console.error(err); } }
+ notify(); renderOnline(); }catch(err){ console.error(err); } }
 let lastSig='';
 function renderAll(){ let f=document.activeElement, typing=f&&/INPUT|SELECT|TEXTAREA/.test(f.tagName);
  if(!typing){ renderComps(); renderTeams(); } renderChat(); renderLead(); }
@@ -230,7 +241,7 @@ async function sendMsg(){ if(sending)return; let t=document.getElementById('msgt
  if(!t&&!photo_url)return;
  let payload={name:ME.name,body:t,photo_url}; if(replyTo)payload.reply_to=replyTo;
  stick=true; await sb.from('tdc_messages').insert(payload);
- document.getElementById('msgtext').value=''; pendingPhoto=null; document.getElementById('photoprev').innerHTML=''; cancelReply(); await loadAll(); stick=true; chatToBottom(); }
+ let mb=document.getElementById('msgtext'); mb.value=''; growBox(mb); pendingPhoto=null; document.getElementById('photoprev').innerHTML=''; cancelReply(); await loadAll(); stick=true; chatToBottom(); }
 function fmtTime(iso){ if(!iso)return''; let d=new Date(iso); if(isNaN(d))return'';
  let t=d.toLocaleTimeString('sk-SK',{hour:'2-digit',minute:'2-digit'});
  let today=new Date().toDateString()==d.toDateString();
@@ -246,7 +257,8 @@ function renderChat(){ let h='';
  S.msgs.forEach(x=>{
   let q=''; if(x.reply_to){ let src=S.msgs.find(m=>m.id==x.reply_to); if(src) q=`<div class="qreply">↩︎ <b>${esc(src.name)}</b>: ${esc(msgPreview(src).slice(0,80))}</div>`; }
   let rmap=reactionsFor(x.id); let pills=Object.keys(rmap).map(em=>{ let ns=rmap[em]; let mine=ME&&ns.includes(ME.name); return `<span class="rxpill${mine?' mine':''}" title="${esc(ns.join(', '))}" onclick="event.stopPropagation();toggleReaction(${x.id},'${em}')">${em} ${ns.length}</span>`; }).join('');
-  let act=''; if(openMsg==x.id){ act=`<div class="msgact"><span class="rb" onclick="event.stopPropagation();startReply(${x.id})">↩︎ Odpovedať</span>`+QUICK.map(em=>`<span class="ra" onclick="event.stopPropagation();toggleReaction(${x.id},'${em}')">${em}</span>`).join('')+`</div>`; }
+  let act=''; if(openMsg==x.id){ let delBtn=(ME&&x.name==ME.name)?`<span class="mdel" onclick="event.stopPropagation();delMsg(${x.id})">🗑 Zmazať</span>`:'';
+   act=`<div class="msgact"><span class="rb" onclick="event.stopPropagation();startReply(${x.id})">↩︎ Odpovedať</span>`+delBtn+QUICK.map(em=>`<span class="ra" onclick="event.stopPropagation();toggleReaction(${x.id},'${em}')">${em}</span>`).join('')+`</div>`; }
   let mine=ME&&x.name==ME.name;
   let bodyHtml='';
   if(x.body&&x.body.indexOf('##LOC##')===0){ let c=x.body.slice(7).split(','),la=encodeURIComponent(c[0]||''),lo=encodeURIComponent(c[1]||'');
@@ -261,6 +273,9 @@ function startReply(id){ replyTo=id; openMsg=null; let m=S.msgs.find(x=>x.id==id
  bar.style.display='flex'; bar.innerHTML=`<div>Odpovedáš <b>${esc(m?m.name:'')}</b>: ${esc(msgPreview(m).slice(0,60))}</div><span onclick="cancelReply()">✕</span>`;
  document.getElementById('msgtext').focus(); renderChat(); }
 function cancelReply(){ replyTo=null; let bar=document.getElementById('replybar'); bar.style.display='none'; bar.innerHTML=''; }
+async function delMsg(id){ if(!confirm('Zmazať túto správu?'))return; let m=S.msgs.find(x=>x.id==id);
+ if(m&&m.photo_url){ let path=m.photo_url.split('/tdc-photos/')[1]; if(path){ try{ await sb.storage.from('tdc-photos').remove([path]); }catch(e){} } }
+ await sb.from('tdc_reactions').delete().eq('message_id',id); await sb.from('tdc_messages').delete().eq('id',id); openMsg=null; loadAll(); }
 function sendLocation(){ if(!ME)return; if(!navigator.geolocation){ alert('Tento prehliadač nepodporuje zdieľanie polohy.'); return; }
  if(!confirm('Zdieľať tvoju aktuálnu polohu v chate?')) return;
  navigator.geolocation.getCurrentPosition(async pos=>{
