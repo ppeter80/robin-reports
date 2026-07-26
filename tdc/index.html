@@ -174,8 +174,8 @@ function renderComps(){
    <button class="btn sm" onclick="addExtra()">Udeliť extra body</button></div>`
   : `<div class="card"><div class="r">🔒 Si organizátor? <a class="lab" style="cursor:pointer" onclick="unlockAdmin()">Odomkni admin</a> a pridávaj súťaže, tímy a výsledky.</div></div>`;
  let h=''; if(!S.comps.length) h='<div class="soon">Zatiaľ žiadne súťaže. '+(ADMIN?'Pridaj prvú hore.':'')+'</div>';
- S.comps.forEach(cp=>{ let done=S.results.some(r=>r.comp_id==cp.id);
-  h+=`<div class="card"><h3>${esc(cp.name)} <span class="chip">${cp.type=='ind'?'Individuálna':'Tímová'}</span>${cp.day?'<span class="chip">'+esc(cp.day)+'</span>':''}${ADMIN?`<span onclick="delComp('${cp.id}')" style="margin-left:auto;cursor:pointer;color:#c66">🗑</span>`:''}</h3>
+ S.comps.forEach((cp,ci)=>{ let done=S.results.some(r=>r.comp_id==cp.id);
+  h+=`<div class="card"><h3><span class="tag" style="background:#5A4A6A;color:#fff">${ci+1}</span> ${esc(cp.name)} <span class="chip">${cp.type=='ind'?'Individuálna':'Tímová'}</span>${cp.day?'<span class="chip">'+esc(cp.day)+'</span>':''}${ADMIN?`<span onclick="delComp('${cp.id}')" style="margin-left:auto;cursor:pointer;color:#c66">🗑</span>`:''}</h3>
    <div class="r"><span class="lab">Body:</span> ${(cp.points||[]).join(' / ')}</div>${compResults(cp)}`;
   if(cp.type=='team') h+=`<div class="r" style="color:var(--mut);font-size:11px">Tímy poskladáte v tabe 👥 Tímy.</div>`;
   if(ADMIN){ h+=`<button class="btn sm g" onclick="toggleResults('${cp.id}')">${done?'Upraviť':'Zadať'} výsledky ${openResults==cp.id?'▲':'▼'}</button>`;
