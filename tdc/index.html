@@ -209,6 +209,7 @@ async function saveResults(cid){ let cp=S.comps.find(c=>c.id==cid); if(!cp)retur
  es.forEach((e,i)=>{ let el=document.getElementById('rk_'+cid+'_'+i); if(!el)return; let v=parseInt(el.value); if(!isNaN(v)&&v>0) rows.push({comp_id:cid,entrant:e.id,rank:v}); });
  await sb.from('tdc_results').delete().eq('comp_id',cid);
  if(rows.length) await sb.from('tdc_results').insert(rows);
+ if(rows.length) sb.functions.invoke('bright-processor',{body:{sender:ME.name,body:'uzavrel súťaž „'+cp.name+'" — výsledky sú vonku 🏆'}}).catch(()=>{});
  openResults=null; await loadAll(); alert('Výsledky uložené a uzamknuté ✅'); }
 async function addExtra(){ let name=document.getElementById('e_who').value, pts=parseInt(document.getElementById('e_pts').value)||0, why=document.getElementById('e_why').value;
  await sb.from('tdc_extra').insert({name,points:pts,reason:why}); loadAll(); alert('Extra body pridané ✅'); }
