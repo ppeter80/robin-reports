@@ -164,7 +164,9 @@ function unlockAdmin(){ let p=prompt('Admin PIN:'); if(p===ADMIN_PIN){ADMIN=true
 async function addComp(){ let name=document.getElementById('c_name').value.trim(); if(!name){alert('Názov súťaže');return;}
  let type=document.getElementById('c_type').value, pts=document.getElementById('c_pts').value.split(/[ ,]+/).map(Number).filter(x=>!isNaN(x));
  if(!pts.length) pts=[5,3,1];
- await sb.from('tdc_comps').insert({id:uid(),name,type,points:pts}); loadAll(); }
+ await sb.from('tdc_comps').insert({id:uid(),name,type,points:pts});
+ sb.functions.invoke('bright-processor',{body:{sender:ME.name,body:'pridal súťaž „'+name+'" 🎯'}}).catch(()=>{});
+ loadAll(); }
 async function delComp(id){ if(!confirm('Zmazať súťaž?'))return;
  await sb.from('tdc_comps').delete().eq('id',id); await sb.from('tdc_teams').delete().eq('comp_id',id); await sb.from('tdc_results').delete().eq('comp_id',id); loadAll(); }
 function renderComps(){
@@ -241,7 +243,9 @@ function renderTeams(){ let c=S.comps.filter(x=>x.type=='team');
  document.getElementById('teamsview').innerHTML=h;
 }
 async function createTeam(cid){ let el=document.getElementById('newteam_'+cid); let n=(el&&el.value||'').trim(); if(!n){alert('Zadaj názov tímu');return;}
- await sb.from('tdc_teams').insert({id:uid(),comp_id:cid,name:n,members:[]}); loadAll(); }
+ await sb.from('tdc_teams').insert({id:uid(),comp_id:cid,name:n,members:[]});
+ sb.functions.invoke('bright-processor',{body:{sender:ME.name,body:'založil tím „'+n+'" 👥'}}).catch(()=>{});
+ loadAll(); }
 function teamOfPersonInComp(compId,name,exceptTid){ return S.teams.find(t=>t.comp_id==compId && t.id!=exceptTid && (t.members||[]).includes(name)); }
 function toggleTeam(tid){ openTeam=(openTeam==tid?null:tid); teamMode=null; renderTeams(); }
 function setTeamMode(m){ teamMode=(teamMode==m?null:m); renderTeams(); }
