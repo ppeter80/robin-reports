@@ -280,7 +280,7 @@ async function sendMsg(){ if(sending)return; let t=document.getElementById('msgt
  if(!t&&!photo_url)return;
  let payload={name:ME.name,body:t,photo_url}; if(replyTo)payload.reply_to=replyTo;
  stick=true; await sb.from('tdc_messages').insert(payload);
- sb.functions.invoke('notify',{body:{sender:ME.name,body:msgPreview(payload)}}).catch(()=>{});
+ sb.functions.invoke('bright-processor',{body:{sender:ME.name,body:msgPreview(payload)}}).catch(()=>{});
  let mb=document.getElementById('msgtext'); mb.value=''; growBox(mb); pendingPhoto=null; document.getElementById('photoprev').innerHTML=''; cancelReply(); await loadAll(); stick=true; chatToBottom(); }
 function fmtTime(iso){ if(!iso)return''; let d=new Date(iso); if(isNaN(d))return'';
  let t=d.toLocaleTimeString('sk-SK',{hour:'2-digit',minute:'2-digit'});
