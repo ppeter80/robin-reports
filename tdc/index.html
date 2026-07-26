@@ -234,7 +234,7 @@ function renderTeams(){ let c=S.comps.filter(x=>x.type=='team');
  document.getElementById('teamsview').innerHTML=h;
 }
 async function createTeam(cid){ let el=document.getElementById('newteam_'+cid); let n=(el&&el.value||'').trim(); if(!n){alert('Zadaj názov tímu');return;}
- await sb.from('tdc_teams').insert({id:uid(),comp_id:cid,name:n,members:ME?[ME.name]:[]}); loadAll(); }
+ await sb.from('tdc_teams').insert({id:uid(),comp_id:cid,name:n,members:[]}); loadAll(); }
 function teamOfPersonInComp(compId,name,exceptTid){ return S.teams.find(t=>t.comp_id==compId && t.id!=exceptTid && (t.members||[]).includes(name)); }
 function toggleTeam(tid){ openTeam=(openTeam==tid?null:tid); teamMode=null; renderTeams(); }
 function setTeamMode(m){ teamMode=(teamMode==m?null:m); renderTeams(); }
