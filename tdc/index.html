@@ -200,14 +200,16 @@ function renderTeams(){ let c=S.comps.filter(x=>x.type=='team');
  if(!c.length){ document.getElementById('teamsview').innerHTML='<div class="soon">Tímové súťaže zatiaľ nie sú. Organizátor ich pridá v tabe 🎯 Súťaže, potom tu bude môcť každý skladať tímy.</div>'; return; }
  let h='<div class="hint">Tím si vie vytvoriť ktokoľvek. Pridaj sa do tímu alebo pridaj prihlásených členov.</div>';
  c.forEach(cp=>{ let ts=S.teams.filter(t=>t.comp_id==cp.id);
+  let taken=new Set(ts.flatMap(t=>t.members||[]));
   h+=`<div class="card"><h3>${esc(cp.name)}</h3>`;
+  if(ME&&taken.has(ME.name)) h+='<div class="r" style="color:var(--mut);font-size:12px">Si prihlásený v jednom tíme pre túto súťaž. Ak chceš iný, najprv sa odhlás (✕ pri svojom mene).</div>';
   if(!ts.length) h+='<div class="r" style="color:var(--mut)">Zatiaľ žiadne tímy — vytvor prvý nižšie.</div>';
-  ts.forEach(t=>{ let mem=t.members||[], inT=ME&&mem.includes(ME.name);
-   let opts=S.participants.filter(p=>!mem.includes(p)).map(p=>`<option>${esc(p)}</option>`).join('');
+  ts.forEach(t=>{ let mem=t.members||[];
+   let opts=S.participants.filter(p=>!taken.has(p)).map(p=>`<option>${esc(p)}</option>`).join('');
    h+=`<div class="team"><b>${esc(t.name)}</b> · ${mem.length} čl.<br>`+
       (mem.map(m=>`<span class="pill">${esc(m)} <span onclick="removeMember('${t.id}','${esc(m)}')" style="cursor:pointer;color:#d77">✕</span></span>`).join('')||'<span style="color:var(--mut);font-size:12px">— prázdny</span>')+
       `<div class="admrow" style="margin-top:8px">`+
-      (inT?'':`<button class="btn sm g" onclick="joinTeam('${t.id}')">Pridať sa</button>`)+
+      ((ME&&!taken.has(ME.name))?`<button class="btn sm g" onclick="joinTeam('${t.id}')">Pridať sa</button>`:'')+
       (opts?`<select id="addsel_${t.id}">${opts}</select><button class="btn sm" style="flex:0 0 84px" onclick="addMember('${t.id}')">Pridať</button>`:'')+
       `</div></div>`; });
   h+=`<input id="newteam_${cp.id}" placeholder="Názov nového tímu"><button class="btn sm" onclick="createTeam('${cp.id}')">➕ Vytvoriť tím</button></div>`; });
@@ -215,8 +217,15 @@ function renderTeams(){ let c=S.comps.filter(x=>x.type=='team');
 }
 async function createTeam(cid){ let el=document.getElementById('newteam_'+cid); let n=(el&&el.value||'').trim(); if(!n){alert('Zadaj názov tímu');return;}
  await sb.from('tdc_teams').insert({id:uid(),comp_id:cid,name:n,members:ME?[ME.name]:[]}); loadAll(); }
-async function joinTeam(tid){ let t=S.teams.find(x=>x.id==tid); if(!t||!ME)return; let mem=t.members||[]; if(!mem.includes(ME.name)){mem.push(ME.name); await sb.from('tdc_teams').update({members:mem}).eq('id',tid); loadAll();} }
-async function addMember(tid){ let sel=document.getElementById('addsel_'+tid); if(!sel)return; let who=sel.value; let t=S.teams.find(x=>x.id==tid); if(!t)return; let mem=t.members||[]; if(who&&!mem.includes(who)){mem.push(who); await sb.from('tdc_teams').update({members:mem}).eq('id',tid); loadAll();} }
+function teamOfPersonInComp(compId,name,exceptTid){ return S.teams.find(t=>t.comp_id==compId && t.id!=exceptTid && (t.members||[]).includes(name)); }
+async function joinTeam(tid){ let t=S.teams.find(x=>x.id==tid); if(!t||!ME)return;
+ let other=teamOfPersonInComp(t.comp_id,ME.name,tid);
+ if(other){ alert('Už si v tíme „'+(other.name||'?')+'" pre túto súťaž. Najprv sa z neho odhlás (✕ pri svojom mene), potom sa vieš pridať inam.'); return; }
+ let mem=t.members||[]; if(!mem.includes(ME.name)){mem.push(ME.name); await sb.from('tdc_teams').update({members:mem}).eq('id',tid); loadAll();} }
+async function addMember(tid){ let sel=document.getElementById('addsel_'+tid); if(!sel)return; let who=sel.value; let t=S.teams.find(x=>x.id==tid); if(!t)return;
+ let other=teamOfPersonInComp(t.comp_id,who,tid);
+ if(other){ alert(who+' je už v tíme „'+(other.name||'?')+'" pre túto súťaž. Najprv ho z neho odhlás.'); return; }
+ let mem=t.members||[]; if(who&&!mem.includes(who)){mem.push(who); await sb.from('tdc_teams').update({members:mem}).eq('id',tid); loadAll();} }
 async function removeMember(tid,name){ let t=S.teams.find(x=>x.id==tid); if(!t)return; let mem=(t.members||[]).filter(m=>m!=name); await sb.from('tdc_teams').update({members:mem}).eq('id',tid); loadAll(); }
 // ---- chat ----
 function pickPhoto(ev){ let f=ev.target.files[0]; if(!f)return; pendingPhoto=f;
