@@ -212,7 +212,8 @@ function renderTeams(){ let c=S.comps.filter(x=>x.type=='team');
    if(open){
     h+=`<div class="admrow" style="margin-top:8px"><button class="btn sm g" onclick="setTeamMode('add')">➕ Pridať člena</button><button class="btn sm" onclick="setTeamMode('remove')">➖ Odobrať člena</button></div>`;
     if(teamMode=='add'){ let avail=S.participants.filter(p=>!taken.has(p));
-     h+=`<div class="chipbox">`+(avail.length?avail.map(p=>`<span class="pill pick" onclick="addMemberByName('${js1(t.id)}','${js1(p)}')">${esc(p)} +</span>`).join(''):'<span style="color:var(--mut);font-size:12px">Všetci prihlásení sú už v tíme pre túto súťaž.</span>')+`</div>`; }
+     h+=`<div class="chipbox">`+(avail.length?avail.map(p=>`<span class="pill pick" onclick="addMemberByName('${js1(t.id)}','${js1(p)}')">${esc(p)} +</span>`).join(''):'<span style="color:var(--mut);font-size:12px">Nikto voľný v zozname — napíš meno nižšie.</span>')+`</div>`;
+     h+=`<div class="admrow" style="margin-top:8px"><input id="newmem_${t.id}" placeholder="Alebo napíš meno a pridaj"><button class="btn sm g" style="flex:0 0 78px" onclick="addMemberTyped('${js1(t.id)}')">Pridať</button></div>`; }
     else if(teamMode=='remove'){ h+=`<div class="chipbox">`+(mem.length?mem.map(m=>`<span class="pill rem" onclick="removeMember('${js1(t.id)}','${js1(m)}')">${esc(m)} ✕</span>`).join(''):'<span style="color:var(--mut);font-size:12px">Tím je prázdny.</span>')+`</div>`; }
    }
    h+=`</div>`; });
@@ -228,6 +229,13 @@ async function addMemberByName(tid,who){ let t=S.teams.find(x=>x.id==tid); if(!t
  let other=teamOfPersonInComp(t.comp_id,who,tid);
  if(other){ alert(who+' je už v tíme „'+(other.name||'?')+'" pre túto súťaž. Najprv ho z neho odhlás.'); return; }
  let mem=t.members||[]; if(!mem.includes(who)){ mem.push(who); await sb.from('tdc_teams').update({members:mem}).eq('id',tid); loadAll(); } }
+async function addMemberTyped(tid){ let el=document.getElementById('newmem_'+tid); let who=(el&&el.value||'').trim(); if(!who)return;
+ let t=S.teams.find(x=>x.id==tid); if(!t)return;
+ let other=teamOfPersonInComp(t.comp_id,who,tid);
+ if(other){ alert(who+' je už v tíme „'+(other.name||'?')+'" pre túto súťaž.'); return; }
+ await sb.from('tdc_participants').upsert({name:who},{onConflict:'name'});
+ let mem=t.members||[]; if(!mem.includes(who)){ mem.push(who); await sb.from('tdc_teams').update({members:mem}).eq('id',tid); }
+ el.value=''; loadAll(); }
 async function removeMember(tid,name){ let t=S.teams.find(x=>x.id==tid); if(!t)return; let mem=(t.members||[]).filter(m=>m!=name); await sb.from('tdc_teams').update({members:mem}).eq('id',tid); loadAll(); }
 // ---- chat ----
 function pickPhoto(ev){ let f=ev.target.files[0]; if(!f)return; pendingPhoto=f;
