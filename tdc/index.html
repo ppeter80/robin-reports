@@ -44,7 +44,7 @@ input,select,textarea{width:100%;background:#1c0d14;border:1px solid rgba(228,17
 .locbtn,.locbtn2{display:block;text-align:center;text-decoration:none;border-radius:8px;padding:8px;font-size:12px;font-weight:700;margin-top:5px;} .locbtn{background:linear-gradient(90deg,#2E86DE,#1e5fa8);color:#fff;} .locbtn2{background:rgba(255,255,255,.08);color:#F0D592;border:1px solid rgba(228,178,76,.3);}
 .lead{width:100%;border-collapse:collapse;margin-top:8px;font-size:14px;}
 .lead th{color:var(--gold);text-align:left;padding:8px;border-bottom:1px solid rgba(228,178,76,.3);}
-.lead td{padding:9px 8px;border-bottom:1px solid rgba(255,255,255,.06);} .lead tr td:last-child{text-align:right;font-weight:800;color:#F0D592;} .lead .me{background:rgba(228,178,76,.08);}
+.lead td{padding:9px 8px;border-bottom:1px solid rgba(255,255,255,.06);} .lead td.tot{font-weight:800;color:#F0D592;} .lead .me{background:rgba(228,178,76,.08);}
 .tblwrap{overflow-x:auto;-webkit-overflow-scrolling:touch;} .lead th,.lead td{white-space:nowrap;text-align:center;} .lead th:nth-child(2),.lead td:nth-child(2){text-align:left;}
 .resform{margin-top:8px;} .resrow{display:flex;align-items:center;gap:8px;margin:5px 0;} .resrow span{flex:1;font-size:13px;} .resrow input{flex:0 0 60px;width:60px;text-align:center;margin-top:0;padding:7px;}
 .soon{color:var(--mut);font-size:13px;text-align:center;padding:16px;font-style:italic;}
@@ -349,13 +349,13 @@ function computeMatrix(){ let per={}; S.participants.forEach(n=>per[n]={});
  rows.sort((a,b)=>b.total-a.total || a.name.localeCompare(b.name));
  return rows;
 }
-function renderLead(){ let comps=S.comps, rows=computeMatrix(), hasEx=S.extra.length>0;
+function renderLead(){ let comps=S.comps, rows=computeMatrix();
  if(!rows.length){ document.getElementById('leadview').innerHTML='<div class="soon">Zatiaľ bez účastníkov.</div>'; return; }
- let h='<div class="tblwrap"><table class="lead"><tr><th>#</th><th>Účastník</th>'+comps.map((cp,i)=>`<th title="${esc(cp.name)}">${i+1}</th>`).join('')+(hasEx?'<th>⭐</th>':'')+'<th>Σ</th></tr>';
+ let h='<div class="tblwrap"><table class="lead"><tr><th>#</th><th>Účastník</th>'+comps.map((cp,i)=>`<th title="${esc(cp.name)}">${i+1}</th>`).join('')+'<th class="tot">Σ</th><th>⭐</th></tr>';
  rows.forEach((r,i)=>{ h+=`<tr class="${ME&&r.name==ME.name?'me':''}"><td>${i+1}</td><td>${esc(r.name)}</td>`+
-   r.cpv.map(p=>`<td>${p||'·'}</td>`).join('')+(hasEx?`<td>${r.extra||'·'}</td>`:'')+`<td>${r.total}</td></tr>`; });
+   r.cpv.map(p=>`<td>${p||'·'}</td>`).join('')+`<td class="tot">${r.total}</td><td>${r.extra||'·'}</td></tr>`; });
  h+='</table></div>';
- if(comps.length) h+='<div class="r" style="color:var(--mut);font-size:11px;margin-top:8px">'+comps.map((cp,i)=>`<b>${i+1}</b> = ${esc(cp.name)}`).join(' · ')+(hasEx?' · <b>⭐</b> = extra body':'')+'</div>';
+ if(comps.length) h+='<div class="r" style="color:var(--mut);font-size:11px;margin-top:8px">'+comps.map((cp,i)=>`<b>${i+1}</b> = ${esc(cp.name)}`).join(' · ')+' · <b>⭐</b> = extra body (posledný stĺpec)</div>';
  if(S.extra.length){ h+='<div class="card" style="margin-top:12px"><h3>⭐ Extra body</h3>'+S.extra.map(e=>`<div class="r"><b>${esc(e.name)}</b> +${e.points} <span style="color:var(--mut)">— ${esc(e.reason||'')}</span></div>`).join('')+'</div>'; }
  document.getElementById('leadview').innerHTML=h;
 }
