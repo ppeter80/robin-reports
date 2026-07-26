@@ -107,8 +107,9 @@ async function doJoin(){ let n=document.getElementById('g-name').value.trim(), p
  await sb.from('tdc_participants').upsert({name:n},{onConflict:'name'});
  ME={name:n}; localStorage.setItem('tdc_me',JSON.stringify(ME)); boot(); }
 function logout(){ localStorage.removeItem('tdc_me'); location.reload(); }
+function hardRefresh(){ location.href=location.pathname+'?v='+Date.now(); }
 function boot(){ document.getElementById('gate').style.display='none';
- document.getElementById('whoami').innerHTML='Prihlásený: <b>'+esc(ME.name)+'</b> · <a onclick="logout()">odhlásiť</a>';
+ document.getElementById('whoami').innerHTML='Prihlásený: <b>'+esc(ME.name)+'</b> · <a onclick="hardRefresh()">↻ obnoviť</a> · <a onclick="logout()">odhlásiť</a>';
  loadAll(); setInterval(loadAll, 4000); }
 function go(btn){ document.querySelectorAll('nav button').forEach(b=>b.classList.remove('on')); btn.classList.add('on');
  document.querySelectorAll('.view').forEach(v=>v.classList.remove('on')); document.getElementById('v-'+btn.dataset.v).classList.add('on'); renderAll(); if(btn.dataset.v=='chat') markSeen(); }
