@@ -97,7 +97,7 @@ const SB_KEY='sb_publishable_c5ke1M0NDYzff_s7miJAHg_tFNM-Cn3';
 const JOIN_PIN='2026', ADMIN_PIN='palo50';
 const sb = supabase.createClient(SB_URL, SB_KEY);
 let ME = JSON.parse(localStorage.getItem('tdc_me')||'null');
-let ADMIN=false, pendingPhoto=null, replyTo=null, openMsg=null;
+let ADMIN=false, pendingPhoto=null, replyTo=null, openMsg=null, stick=true;
 let S = {participants:[],comps:[],teams:[],results:[],extra:[],msgs:[],reactions:[]};
 const esc=s=>(s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
@@ -108,11 +108,15 @@ async function doJoin(){ let n=document.getElementById('g-name').value.trim(), p
  ME={name:n}; localStorage.setItem('tdc_me',JSON.stringify(ME)); boot(); }
 function logout(){ localStorage.removeItem('tdc_me'); location.reload(); }
 function hardRefresh(){ location.href=location.pathname+'?v='+Date.now(); }
+function nearBottom(){ return (window.innerHeight+window.scrollY) >= document.body.scrollHeight-90; }
+function chatToBottom(){ requestAnimationFrame(()=>window.scrollTo(0,document.body.scrollHeight)); }
+function imgLoaded(){ if(chatOpen()&&stick) chatToBottom(); }
+window.addEventListener('scroll',()=>{ if(chatOpen()) stick=nearBottom(); },{passive:true});
 function boot(){ document.getElementById('gate').style.display='none';
  document.getElementById('whoami').innerHTML='Prihlásený: <b>'+esc(ME.name)+'</b> · <a onclick="hardRefresh()">↻ obnoviť</a> · <a onclick="logout()">odhlásiť</a>';
  loadAll(); setInterval(loadAll, 4000); }
 function go(btn){ document.querySelectorAll('nav button').forEach(b=>b.classList.remove('on')); btn.classList.add('on');
- document.querySelectorAll('.view').forEach(v=>v.classList.remove('on')); document.getElementById('v-'+btn.dataset.v).classList.add('on'); renderAll(); if(btn.dataset.v=='chat') markSeen(); }
+ document.querySelectorAll('.view').forEach(v=>v.classList.remove('on')); document.getElementById('v-'+btn.dataset.v).classList.add('on'); renderAll(); if(btn.dataset.v=='chat'){ markSeen(); stick=true; chatToBottom(); } }
 
 async function loadAll(){ try{
  const [p,c,t,r,e,m,rx]=await Promise.all([
@@ -219,8 +223,8 @@ async function sendMsg(){ if(sending)return; let t=document.getElementById('msgt
    else { document.getElementById('photoprev').innerHTML=''; alert('Foto sa nenahralo: '+up.error.message); return; } }
  if(!t&&!photo_url)return;
  let payload={name:ME.name,body:t,photo_url}; if(replyTo)payload.reply_to=replyTo;
- await sb.from('tdc_messages').insert(payload);
- document.getElementById('msgtext').value=''; pendingPhoto=null; document.getElementById('photoprev').innerHTML=''; cancelReply(); loadAll(); }
+ stick=true; await sb.from('tdc_messages').insert(payload);
+ document.getElementById('msgtext').value=''; pendingPhoto=null; document.getElementById('photoprev').innerHTML=''; cancelReply(); await loadAll(); stick=true; chatToBottom(); }
 function fmtTime(iso){ if(!iso)return''; let d=new Date(iso); if(isNaN(d))return'';
  let t=d.toLocaleTimeString('sk-SK',{hour:'2-digit',minute:'2-digit'});
  let today=new Date().toDateString()==d.toDateString();
@@ -235,9 +239,9 @@ function renderChat(){ let h='';
   let q=''; if(x.reply_to){ let src=S.msgs.find(m=>m.id==x.reply_to); if(src) q=`<div class="qreply">↩︎ <b>${esc(src.name)}</b>: ${esc((src.body||'📷 fotka').slice(0,80))}</div>`; }
   let rmap=reactionsFor(x.id); let pills=Object.keys(rmap).map(em=>{ let ns=rmap[em]; let mine=ME&&ns.includes(ME.name); return `<span class="rxpill${mine?' mine':''}" title="${esc(ns.join(', '))}" onclick="event.stopPropagation();toggleReaction(${x.id},'${em}')">${em} ${ns.length}</span>`; }).join('');
   let act=''; if(openMsg==x.id){ act=`<div class="msgact"><span class="rb" onclick="event.stopPropagation();startReply(${x.id})">↩︎ Odpovedať</span>`+QUICK.map(em=>`<span class="ra" onclick="event.stopPropagation();toggleReaction(${x.id},'${em}')">${em}</span>`).join('')+`</div>`; }
-  h+=`<div class="msg" onclick="toggleMsgActions(${x.id})"><span class="who">${esc(x.name)}</span><span class="time">${fmtTime(x.created_at)}</span>${q}${x.body?'<br>'+esc(x.body):''}${x.photo_url?'<br><img loading="lazy" src="'+x.photo_url+'">':''}${pills?'<div class="rx">'+pills+'</div>':''}${act}</div>`;
+  h+=`<div class="msg" onclick="toggleMsgActions(${x.id})"><span class="who">${esc(x.name)}</span><span class="time">${fmtTime(x.created_at)}</span>${q}${x.body?'<br>'+esc(x.body):''}${x.photo_url?'<br><img loading="lazy" onload="imgLoaded()" src="'+x.photo_url+'">':''}${pills?'<div class="rx">'+pills+'</div>':''}${act}</div>`;
  });
- let el=document.getElementById('msgs'); let atBottom = el.scrollHeight-el.scrollTop-el.clientHeight < 60; el.innerHTML=h; if(atBottom) el.scrollTop=el.scrollHeight;
+ let el=document.getElementById('msgs'); el.innerHTML=h; if(chatOpen()&&stick) chatToBottom();
 }
 function toggleMsgActions(id){ openMsg=(openMsg==id?null:id); renderChat(); }
 function startReply(id){ replyTo=id; openMsg=null; let m=S.msgs.find(x=>x.id==id); let bar=document.getElementById('replybar');
