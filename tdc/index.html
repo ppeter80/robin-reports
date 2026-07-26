@@ -212,10 +212,12 @@ function renderTeams(){ let c=S.comps.filter(x=>x.type=='team');
  let h='<div class="hint">Ťukni na tím → Pridať alebo Odobrať člena.</div>';
  c.forEach(cp=>{ let ts=S.teams.filter(t=>t.comp_id==cp.id);
   let taken=new Set(ts.flatMap(t=>t.members||[]));
-  let locked=S.results.some(r=>r.comp_id==cp.id) && !ADMIN;
-  h+=`<div class="card"><h3>${esc(cp.name)}${locked?' <span class="chip">🔒</span>':''}</h3>`;
+  let hasResults=S.results.some(r=>r.comp_id==cp.id);
+  let locked=hasResults && !ADMIN;
+  h+=`<div class="card"><h3>${esc(cp.name)}${hasResults?' <span class="chip">🔒</span>':''}</h3>`;
   if(locked) h+='<div class="r" style="color:#E4B24C;font-size:12px">Výsledky sú zadané — zloženie tímov je uzamknuté.</div>';
-  if(!ts.length && !locked) h+='<div class="r" style="color:var(--mut)">Zatiaľ žiadne tímy — vytvor prvý nižšie.</div>';
+  else if(hasResults) h+='<div class="r" style="color:#E4B24C;font-size:12px">Výsledky sú zadané — nové tímy už nepridáš (členov ešte vieš upraviť ako admin).</div>';
+  if(!ts.length && !hasResults) h+='<div class="r" style="color:var(--mut)">Zatiaľ žiadne tímy — vytvor prvý nižšie.</div>';
   ts.forEach(t=>{ let mem=t.members||[];
    if(locked){ h+=`<div class="team"><b>${esc(t.name)}</b> · ${mem.length} čl.<div class="teammem">`+(mem.map(m=>`<span class="pill">${esc(m)}</span>`).join('')||'<span style="color:var(--mut);font-size:12px">— prázdny</span>')+`</div></div>`; return; }
    let open=openTeam==t.id;
@@ -229,7 +231,7 @@ function renderTeams(){ let c=S.comps.filter(x=>x.type=='team');
     else if(teamMode=='remove'){ h+=`<div class="chipbox">`+(mem.length?mem.map(m=>`<span class="pill rem" onclick="removeMember('${js1(t.id)}','${js1(m)}')">${esc(m)} ✕</span>`).join(''):'<span style="color:var(--mut);font-size:12px">Tím je prázdny.</span>')+`</div>`; }
    }
    h+=`</div>`; });
-  if(!locked) h+=`<input id="newteam_${cp.id}" placeholder="Názov nového tímu"><button class="btn sm" onclick="createTeam('${cp.id}')">➕ Vytvoriť tím</button>`;
+  if(!hasResults) h+=`<input id="newteam_${cp.id}" placeholder="Názov nového tímu"><button class="btn sm" onclick="createTeam('${cp.id}')">➕ Vytvoriť tím</button>`;
   h+=`</div>`; });
  document.getElementById('teamsview').innerHTML=h;
 }
