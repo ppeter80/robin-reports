@@ -49,7 +49,7 @@ input,select,textarea{width:100%;background:#1c0d14;border:1px solid rgba(228,17
 .resform{margin-top:8px;} .resrow{display:flex;align-items:center;gap:8px;margin:5px 0;} .resrow span{flex:1;font-size:13px;} .resrow input{flex:0 0 60px;width:60px;text-align:center;margin-top:0;padding:7px;}
 .soon{color:var(--mut);font-size:13px;text-align:center;padding:16px;font-style:italic;}
 .admrow{display:flex;gap:8px;align-items:flex-end;} .admrow>*{flex:1;} #msgtext{line-height:1.35;overflow-y:auto;}
-#onlinebar{font-size:11px;color:#9FE0B0;margin-bottom:6px;padding:3px 2px;min-height:16px;} .ondot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#3ddc84;box-shadow:0 0 6px #3ddc84;vertical-align:middle;margin-right:4px;}
+#onlinebar{position:sticky;top:88px;z-index:4;font-size:11px;color:#9FE0B0;margin:0 -14px 6px;padding:7px 14px;min-height:16px;background:rgba(22,10,16,.97);border-bottom:1px solid rgba(228,178,76,.12);} .ondot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#3ddc84;box-shadow:0 0 6px #3ddc84;vertical-align:middle;margin-right:4px;}
 .mdel{font-size:11px;color:#ef6b6b;border:1px solid #ef6b6b;border-radius:8px;padding:2px 8px;}
 .badge2{font-size:10px;background:var(--wine);color:#fff;padding:2px 8px;border-radius:10px;margin-left:6px;}
 nav{position:fixed;bottom:0;left:0;right:0;display:flex;background:#1c0d14;border-top:1px solid rgba(228,178,76,.2);z-index:6;}
@@ -126,7 +126,9 @@ window.addEventListener('scroll',()=>{ if(chatOpen()) stick=nearBottom(); },{pas
 function boot(){ document.getElementById('gate').style.display='none';
  document.getElementById('whoami').innerHTML='Prihlásený: <b>'+esc(ME.name)+'</b> · <a onclick="hardRefresh()">↻ obnoviť</a> · <a onclick="logout()">odhlásiť</a>';
  loadAll(); setInterval(loadAll, 4000); heartbeat(); setInterval(heartbeat, 15000);
+ positionOnline(); window.addEventListener('resize',positionOnline);
  document.addEventListener('visibilitychange',()=>{ if(!document.hidden){ heartbeat(); loadAll(); } }); }
+function positionOnline(){ let h=document.querySelector('header'), bar=document.getElementById('onlinebar'); if(h&&bar) bar.style.top=h.offsetHeight+'px'; }
 async function heartbeat(){ if(!ME)return; try{ await sb.from('tdc_participants').update({last_seen:new Date().toISOString()}).eq('name',ME.name); }catch(e){} }
 function renderOnline(){ let bar=document.getElementById('onlinebar'); if(!bar)return; let now=Date.now();
  let on=(S.plist||[]).filter(u=>u.last_seen && (now-new Date(u.last_seen).getTime())<45000).map(u=>u.name);
@@ -135,7 +137,7 @@ function renderOnline(){ let bar=document.getElementById('onlinebar'); if(!bar)r
  if(bar.innerHTML!==html) bar.innerHTML=html; }
 function growBox(el){ el.style.height='auto'; el.style.height=Math.min(el.scrollHeight,120)+'px'; }
 function go(btn){ document.querySelectorAll('nav button').forEach(b=>b.classList.remove('on')); btn.classList.add('on');
- document.querySelectorAll('.view').forEach(v=>v.classList.remove('on')); document.getElementById('v-'+btn.dataset.v).classList.add('on'); renderAll(); if(btn.dataset.v=='chat'){ markSeen(); stick=true; chatToBottom(); } }
+ document.querySelectorAll('.view').forEach(v=>v.classList.remove('on')); document.getElementById('v-'+btn.dataset.v).classList.add('on'); renderAll(); if(btn.dataset.v=='chat'){ markSeen(); stick=true; positionOnline(); chatToBottom(); } }
 
 async function loadAll(){ try{
  const [p,c,t,r,e,m,rx]=await Promise.all([
