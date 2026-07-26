@@ -45,6 +45,8 @@ input,select,textarea{width:100%;background:#1c0d14;border:1px solid rgba(228,17
 .lead{width:100%;border-collapse:collapse;margin-top:8px;font-size:14px;}
 .lead th{color:var(--gold);text-align:left;padding:8px;border-bottom:1px solid rgba(228,178,76,.3);}
 .lead td{padding:9px 8px;border-bottom:1px solid rgba(255,255,255,.06);} .lead tr td:last-child{text-align:right;font-weight:800;color:#F0D592;} .lead .me{background:rgba(228,178,76,.08);}
+.tblwrap{overflow-x:auto;-webkit-overflow-scrolling:touch;} .lead th,.lead td{white-space:nowrap;text-align:center;} .lead th:nth-child(2),.lead td:nth-child(2){text-align:left;}
+.resform{margin-top:8px;} .resrow{display:flex;align-items:center;gap:8px;margin:5px 0;} .resrow span{flex:1;font-size:13px;} .resrow input{flex:0 0 60px;width:60px;text-align:center;margin-top:0;padding:7px;}
 .soon{color:var(--mut);font-size:13px;text-align:center;padding:16px;font-style:italic;}
 .admrow{display:flex;gap:8px;align-items:flex-end;} .admrow>*{flex:1;} #msgtext{line-height:1.35;overflow-y:auto;}
 #onlinebar{font-size:11px;color:#9FE0B0;margin-bottom:6px;padding:3px 2px;min-height:16px;} .ondot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#3ddc84;box-shadow:0 0 6px #3ddc84;vertical-align:middle;margin-right:4px;}
@@ -105,7 +107,7 @@ const SB_KEY='sb_publishable_c5ke1M0NDYzff_s7miJAHg_tFNM-Cn3';
 const JOIN_PIN='2026', ADMIN_PIN='palo50';
 const sb = supabase.createClient(SB_URL, SB_KEY);
 let ME = JSON.parse(localStorage.getItem('tdc_me')||'null');
-let ADMIN=false, pendingPhoto=null, replyTo=null, openMsg=null, stick=true, openTeam=null, teamMode=null;
+let ADMIN=false, pendingPhoto=null, replyTo=null, openMsg=null, stick=true, openTeam=null, teamMode=null, openResults=null;
 let S = {participants:[],comps:[],teams:[],results:[],extra:[],msgs:[],reactions:[],plist:[]};
 const esc=s=>(s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 const js1=s=>(s||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
@@ -176,7 +178,8 @@ function renderComps(){
   h+=`<div class="card"><h3>${esc(cp.name)} <span class="chip">${cp.type=='ind'?'Individuálna':'Tímová'}</span>${cp.day?'<span class="chip">'+esc(cp.day)+'</span>':''}${ADMIN?`<span onclick="delComp('${cp.id}')" style="margin-left:auto;cursor:pointer;color:#c66">🗑</span>`:''}</h3>
    <div class="r"><span class="lab">Body:</span> ${(cp.points||[]).join(' / ')}</div>${compResults(cp)}`;
   if(cp.type=='team') h+=`<div class="r" style="color:var(--mut);font-size:11px">Tímy poskladáte v tabe 👥 Tímy.</div>`;
-  if(ADMIN){ h+=`<button class="btn sm g" onclick="enterResults('${cp.id}')">${done?'Upraviť':'Zadať'} výsledky</button>`; }
+  if(ADMIN){ h+=`<button class="btn sm g" onclick="toggleResults('${cp.id}')">${done?'Upraviť':'Zadať'} výsledky ${openResults==cp.id?'▲':'▼'}</button>`;
+   if(openResults==cp.id) h+=resultsForm(cp); }
   h+='</div>'; });
  document.getElementById('complist').innerHTML=h;
 }
@@ -186,15 +189,20 @@ function compResults(cp){ let rs=S.results.filter(r=>r.comp_id==cp.id).sort((a,b
   return `<div class="r"><b>${r.rank}.</b> ${esc(who||'?')} <span class="pill">+${pts} b</span></div>`; }).join('');
 }
 function entrants(cp){ return cp.type=='team'? S.teams.filter(t=>t.comp_id==cp.id).map(t=>({id:t.id,name:t.name})) : S.participants.map(p=>({id:p,name:p})); }
-async function enterResults(cid){ let cp=S.comps.find(c=>c.id==cid); let es=entrants(cp);
- if(!es.length){alert(cp.type=='team'?'Najprv vytvor tímy':'Žiadni účastníci');return;}
- let rows=[];
- for(let i=0;i<es.length;i++){ let cur=(S.results.find(r=>r.comp_id==cid&&r.entrant==es[i].id)||{}).rank||'';
-  let v=prompt(`Poradie pre: ${es[i].name}\n(1 = víťaz, prázdne = bez umiestnenia)`,cur);
-  if(v===null) continue; v=parseInt(v); if(!isNaN(v)&&v>0) rows.push({comp_id:cid,entrant:es[i].id,rank:v}); }
- await sb.from('tdc_results').delete().eq('comp_id',cid);
- if(rows.length) await sb.from('tdc_results').insert(rows); loadAll(); alert('Výsledky uložené ✅');
+function toggleResults(cid){ openResults=(openResults==cid?null:cid); renderComps(); }
+function resultsForm(cp){ let es=entrants(cp);
+ if(!es.length) return '<div class="r" style="color:var(--mut)">'+(cp.type=='team'?'Najprv poskladaj tímy v tabe 👥 Tímy.':'Žiadni účastníci.')+'</div>';
+ let h='<div class="resform"><div class="r" style="font-size:11px;color:var(--mut)">Zadaj poradie (1 = víťaz, 2, 3 …). Prázdne = bez umiestnenia. Body sa pripíšu podľa poradia.</div>';
+ es.forEach((e,i)=>{ let cur=(S.results.find(r=>r.comp_id==cp.id&&r.entrant==e.id)||{}).rank||'';
+  h+=`<div class="resrow"><span>${esc(e.name)}</span><input id="rk_${cp.id}_${i}" inputmode="numeric" value="${cur}" placeholder="—"></div>`; });
+ h+=`<button class="btn sm g" onclick="saveResults('${js1(cp.id)}')">💾 Uložiť a uzamknúť</button></div>`;
+ return h;
 }
+async function saveResults(cid){ let cp=S.comps.find(c=>c.id==cid); if(!cp)return; let es=entrants(cp); let rows=[];
+ es.forEach((e,i)=>{ let el=document.getElementById('rk_'+cid+'_'+i); if(!el)return; let v=parseInt(el.value); if(!isNaN(v)&&v>0) rows.push({comp_id:cid,entrant:e.id,rank:v}); });
+ await sb.from('tdc_results').delete().eq('comp_id',cid);
+ if(rows.length) await sb.from('tdc_results').insert(rows);
+ openResults=null; await loadAll(); alert('Výsledky uložené a uzamknuté ✅'); }
 async function addExtra(){ let name=document.getElementById('e_who').value, pts=parseInt(document.getElementById('e_pts').value)||0, why=document.getElementById('e_why').value;
  await sb.from('tdc_extra').insert({name,points:pts,reason:why}); loadAll(); alert('Extra body pridané ✅'); }
 
@@ -204,9 +212,13 @@ function renderTeams(){ let c=S.comps.filter(x=>x.type=='team');
  let h='<div class="hint">Ťukni na tím → Pridať alebo Odobrať člena.</div>';
  c.forEach(cp=>{ let ts=S.teams.filter(t=>t.comp_id==cp.id);
   let taken=new Set(ts.flatMap(t=>t.members||[]));
-  h+=`<div class="card"><h3>${esc(cp.name)}</h3>`;
-  if(!ts.length) h+='<div class="r" style="color:var(--mut)">Zatiaľ žiadne tímy — vytvor prvý nižšie.</div>';
-  ts.forEach(t=>{ let mem=t.members||[]; let open=openTeam==t.id;
+  let locked=S.results.some(r=>r.comp_id==cp.id) && !ADMIN;
+  h+=`<div class="card"><h3>${esc(cp.name)}${locked?' <span class="chip">🔒</span>':''}</h3>`;
+  if(locked) h+='<div class="r" style="color:#E4B24C;font-size:12px">Výsledky sú zadané — zloženie tímov je uzamknuté.</div>';
+  if(!ts.length && !locked) h+='<div class="r" style="color:var(--mut)">Zatiaľ žiadne tímy — vytvor prvý nižšie.</div>';
+  ts.forEach(t=>{ let mem=t.members||[];
+   if(locked){ h+=`<div class="team"><b>${esc(t.name)}</b> · ${mem.length} čl.<div class="teammem">`+(mem.map(m=>`<span class="pill">${esc(m)}</span>`).join('')||'<span style="color:var(--mut);font-size:12px">— prázdny</span>')+`</div></div>`; return; }
+   let open=openTeam==t.id;
    h+=`<div class="team"><div class="teamhd" onclick="toggleTeam('${js1(t.id)}')"><b>${esc(t.name)}</b> · ${mem.length} čl. <span style="float:right;color:var(--mut)">${open?'▲':'▼'}</span></div>`+
       `<div class="teammem">`+(mem.map(m=>`<span class="pill">${esc(m)}</span>`).join('')||'<span style="color:var(--mut);font-size:12px">— prázdny</span>')+`</div>`;
    if(open){
@@ -217,7 +229,8 @@ function renderTeams(){ let c=S.comps.filter(x=>x.type=='team');
     else if(teamMode=='remove'){ h+=`<div class="chipbox">`+(mem.length?mem.map(m=>`<span class="pill rem" onclick="removeMember('${js1(t.id)}','${js1(m)}')">${esc(m)} ✕</span>`).join(''):'<span style="color:var(--mut);font-size:12px">Tím je prázdny.</span>')+`</div>`; }
    }
    h+=`</div>`; });
-  h+=`<input id="newteam_${cp.id}" placeholder="Názov nového tímu"><button class="btn sm" onclick="createTeam('${cp.id}')">➕ Vytvoriť tím</button></div>`; });
+  if(!locked) h+=`<input id="newteam_${cp.id}" placeholder="Názov nového tímu"><button class="btn sm" onclick="createTeam('${cp.id}')">➕ Vytvoriť tím</button>`;
+  h+=`</div>`; });
  document.getElementById('teamsview').innerHTML=h;
 }
 async function createTeam(cid){ let el=document.getElementById('newteam_'+cid); let n=(el&&el.value||'').trim(); if(!n){alert('Zadaj názov tímu');return;}
@@ -327,10 +340,22 @@ function computeLead(){ let tot={}; S.participants.forEach(p=>tot[p]=0);
  S.extra.forEach(e=>{ if(tot[e.name]!=null) tot[e.name]+=e.points; });
  return Object.entries(tot).sort((a,b)=>b[1]-a[1]);
 }
-function renderLead(){ let L=computeLead(), h='<table class="lead"><tr><th>#</th><th>Meno</th><th>Body</th></tr>';
- if(!L.length) h+='<tr><td colspan=3 class="soon">Zatiaľ bez účastníkov.</td></tr>';
- L.forEach((x,i)=>{ h+=`<tr class="${ME&&x[0]==ME.name?'me':''}"><td>${i+1}</td><td>${esc(x[0])}</td><td>${x[1]}</td></tr>`; });
- h+='</table>';
+function computeMatrix(){ let per={}; S.participants.forEach(n=>per[n]={});
+ S.comps.forEach(cp=>{ S.results.filter(r=>r.comp_id==cp.id).forEach(r=>{ let pts=(cp.points||[])[r.rank-1]||0;
+   if(cp.type=='ind'){ if(per[r.entrant]) per[r.entrant][cp.id]=(per[r.entrant][cp.id]||0)+pts; }
+   else { let t=S.teams.find(x=>x.id==r.entrant); if(t)(t.members||[]).forEach(m=>{ if(per[m]) per[m][cp.id]=(per[m][cp.id]||0)+pts; }); } }); });
+ let ex={}; S.extra.forEach(e=>{ if(per[e.name]!=null) ex[e.name]=(ex[e.name]||0)+e.points; });
+ let rows=S.participants.map(n=>{ let cpv=S.comps.map(cp=>per[n][cp.id]||0); let extra=ex[n]||0; return {name:n,cpv,extra,total:cpv.reduce((a,b)=>a+b,0)+extra}; });
+ rows.sort((a,b)=>b.total-a.total || a.name.localeCompare(b.name));
+ return rows;
+}
+function renderLead(){ let comps=S.comps, rows=computeMatrix(), hasEx=S.extra.length>0;
+ if(!rows.length){ document.getElementById('leadview').innerHTML='<div class="soon">Zatiaľ bez účastníkov.</div>'; return; }
+ let h='<div class="tblwrap"><table class="lead"><tr><th>#</th><th>Účastník</th>'+comps.map((cp,i)=>`<th title="${esc(cp.name)}">${i+1}</th>`).join('')+(hasEx?'<th>⭐</th>':'')+'<th>Σ</th></tr>';
+ rows.forEach((r,i)=>{ h+=`<tr class="${ME&&r.name==ME.name?'me':''}"><td>${i+1}</td><td>${esc(r.name)}</td>`+
+   r.cpv.map(p=>`<td>${p||'·'}</td>`).join('')+(hasEx?`<td>${r.extra||'·'}</td>`:'')+`<td>${r.total}</td></tr>`; });
+ h+='</table></div>';
+ if(comps.length) h+='<div class="r" style="color:var(--mut);font-size:11px;margin-top:8px">'+comps.map((cp,i)=>`<b>${i+1}</b> = ${esc(cp.name)}`).join(' · ')+(hasEx?' · <b>⭐</b> = extra body':'')+'</div>';
  if(S.extra.length){ h+='<div class="card" style="margin-top:12px"><h3>⭐ Extra body</h3>'+S.extra.map(e=>`<div class="r"><b>${esc(e.name)}</b> +${e.points} <span style="color:var(--mut)">— ${esc(e.reason||'')}</span></div>`).join('')+'</div>'; }
  document.getElementById('leadview').innerHTML=h;
 }
