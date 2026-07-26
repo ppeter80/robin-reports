@@ -32,7 +32,7 @@ header .who{font-size:11px;color:var(--mut);margin-top:2px;} header .who a{color
 .btn.g{background:linear-gradient(90deg,var(--gold),#c8901f);color:#241206;} .btn.sm{padding:8px;font-size:13px;margin-top:6px;}
 input,select,textarea{width:100%;background:#1c0d14;border:1px solid rgba(228,178,76,.3);color:var(--txt);padding:11px;border-radius:10px;font-size:15px;margin-top:8px;font-family:inherit;}
 .pill{display:inline-block;background:rgba(228,178,76,.13);color:#F0D592;font-size:12px;padding:3px 9px;border-radius:10px;margin:5px 6px 0 0;}
-.msg{background:var(--card);border-radius:10px;padding:9px 12px;margin:7px 0;font-size:13px;} .msg .who{color:var(--gold);font-weight:700;font-size:12px;} .msg img{max-width:100%;border-radius:8px;margin-top:6px;}
+.msg{background:var(--card);border-radius:10px;padding:9px 12px;margin:7px 0;font-size:13px;} .msg .who{color:var(--gold);font-weight:700;font-size:12px;} .msg img{max-width:100%;max-height:400px;border-radius:8px;margin-top:6px;}
 .lead{width:100%;border-collapse:collapse;margin-top:8px;font-size:14px;}
 .lead th{color:var(--gold);text-align:left;padding:8px;border-bottom:1px solid rgba(228,178,76,.3);}
 .lead td{padding:9px 8px;border-bottom:1px solid rgba(255,255,255,.06);} .lead tr td:last-child{text-align:right;font-weight:800;color:#F0D592;} .lead .me{background:rgba(228,178,76,.08);}
@@ -193,10 +193,23 @@ async function removeMember(tid,name){ let t=S.teams.find(x=>x.id==tid); if(!t)r
 // ---- chat ----
 function pickPhoto(ev){ let f=ev.target.files[0]; if(!f)return; pendingPhoto=f;
  document.getElementById('photoprev').innerHTML='<div class="r">📎 fotka pripravená <img src="'+URL.createObjectURL(f)+'" style="max-height:80px;border-radius:6px;vertical-align:middle"></div>'; }
-async function sendMsg(){ let t=document.getElementById('msgtext').value.trim(); let photo_url=null;
- if(pendingPhoto){ let f=pendingPhoto; let path=Date.now()+'_'+Math.random().toString(36).slice(2)+'.jpg';
-   let up=await sb.storage.from('tdc-photos').upload(path,f,{contentType:f.type||'image/jpeg'});
-   if(!up.error){ photo_url=sb.storage.from('tdc-photos').getPublicUrl(path).data.publicUrl; } else { alert('Foto sa nenahralo: '+up.error.message); } }
+let sending=false;
+async function compress(file){ try{
+  let bmp=await createImageBitmap(file,{imageOrientation:'from-image'});
+  let max=1600, s=Math.min(1,max/Math.max(bmp.width,bmp.height));
+  let w=Math.round(bmp.width*s), h=Math.round(bmp.height*s);
+  let cv=document.createElement('canvas'); cv.width=w; cv.height=h;
+  cv.getContext('2d').drawImage(bmp,0,0,w,h); if(bmp.close)bmp.close();
+  return await new Promise(r=>cv.toBlob(b=>r(b||file),'image/jpeg',0.82));
+ }catch(e){ return file; } }
+async function sendMsg(){ if(sending)return; let t=document.getElementById('msgtext').value.trim(); let photo_url=null;
+ if(pendingPhoto){ sending=true; document.getElementById('photoprev').innerHTML='<div class="r">📤 Nahrávam fotku…</div>';
+   let blob=await compress(pendingPhoto);
+   let path=Date.now()+'_'+Math.random().toString(36).slice(2)+'.jpg';
+   let up=await sb.storage.from('tdc-photos').upload(path,blob,{contentType:'image/jpeg',cacheControl:'3600'});
+   sending=false;
+   if(!up.error){ photo_url=sb.storage.from('tdc-photos').getPublicUrl(path).data.publicUrl; }
+   else { document.getElementById('photoprev').innerHTML=''; alert('Foto sa nenahralo: '+up.error.message); return; } }
  if(!t&&!photo_url)return;
  await sb.from('tdc_messages').insert({name:ME.name,body:t,photo_url});
  document.getElementById('msgtext').value=''; pendingPhoto=null; document.getElementById('photoprev').innerHTML=''; loadAll(); }
@@ -208,7 +221,7 @@ function askNotif(){ if(window.Notification) Notification.requestPermission().th
 function renderChat(){ let h='';
  if(window.Notification && Notification.permission==='default') h+='<div class="notifbtn" onclick="askNotif()">🔔 Zapnúť upozornenia na nové správy</div>';
  if(!S.msgs.length) h+='<div class="soon">Zatiaľ žiadne správy. Napíš prvú! 💬</div>';
- S.msgs.forEach(x=>{ h+=`<div class="msg"><span class="who">${esc(x.name)}</span><span class="time">${fmtTime(x.created_at)}</span>${x.body?'<br>'+esc(x.body):''}${x.photo_url?'<br><img src="'+x.photo_url+'">':''}</div>`; });
+ S.msgs.forEach(x=>{ h+=`<div class="msg"><span class="who">${esc(x.name)}</span><span class="time">${fmtTime(x.created_at)}</span>${x.body?'<br>'+esc(x.body):''}${x.photo_url?'<br><img loading="lazy" src="'+x.photo_url+'">':''}</div>`; });
  let el=document.getElementById('msgs'); let atBottom = el.scrollHeight-el.scrollTop-el.clientHeight < 60; el.innerHTML=h; if(atBottom) el.scrollTop=el.scrollHeight;
 }
 let firstLoad=true; const notified=new Set();
