@@ -32,7 +32,11 @@ header .who{font-size:11px;color:var(--mut);margin-top:2px;} header .who a{color
 .btn.g{background:linear-gradient(90deg,var(--gold),#c8901f);color:#241206;} .btn.sm{padding:8px;font-size:13px;margin-top:6px;}
 input,select,textarea{width:100%;background:#1c0d14;border:1px solid rgba(228,178,76,.3);color:var(--txt);padding:11px;border-radius:10px;font-size:15px;margin-top:8px;font-family:inherit;}
 .pill{display:inline-block;background:rgba(228,178,76,.13);color:#F0D592;font-size:12px;padding:3px 9px;border-radius:10px;margin:5px 6px 0 0;}
-.msg{background:var(--card);border-radius:10px;padding:9px 12px;margin:7px 0;font-size:13px;} .msg .who{color:var(--gold);font-weight:700;font-size:12px;} .msg img{max-width:100%;max-height:400px;border-radius:8px;margin-top:6px;}
+.msg{background:var(--card);border-radius:10px;padding:9px 12px;margin:7px 0;font-size:13px;cursor:pointer;} .msg .who{color:var(--gold);font-weight:700;font-size:12px;} .msg img{max-width:100%;max-height:400px;border-radius:8px;margin-top:6px;}
+.qreply{border-left:3px solid var(--gold);background:rgba(255,255,255,.05);padding:3px 8px;margin:3px 0 5px;border-radius:5px;font-size:11px;color:var(--mut);} .qreply b{color:var(--gold);}
+.rx{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px;} .rxpill{background:rgba(255,255,255,.08);border:1px solid transparent;border-radius:12px;padding:1px 8px;font-size:12px;} .rxpill.mine{border-color:var(--gold);background:rgba(228,178,76,.18);}
+.msgact{display:flex;gap:6px;margin-top:7px;flex-wrap:wrap;align-items:center;} .msgact .ra{font-size:18px;cursor:pointer;line-height:1;} .msgact .rb{font-size:11px;color:var(--pink);border:1px solid var(--pink);border-radius:8px;padding:2px 8px;}
+#replybar{background:rgba(228,178,76,.12);border-left:3px solid var(--gold);border-radius:6px;padding:5px 9px;margin-top:8px;font-size:11px;color:var(--mut);display:flex;justify-content:space-between;align-items:center;} #replybar b{color:var(--gold);} #replybar span{cursor:pointer;font-size:15px;color:var(--pink);}
 .lead{width:100%;border-collapse:collapse;margin-top:8px;font-size:14px;}
 .lead th{color:var(--gold);text-align:left;padding:8px;border-bottom:1px solid rgba(228,178,76,.3);}
 .lead td{padding:9px 8px;border-bottom:1px solid rgba(255,255,255,.06);} .lead tr td:last-child{text-align:right;font-weight:800;color:#F0D592;} .lead .me{background:rgba(228,178,76,.08);}
@@ -73,6 +77,7 @@ nav button{flex:1;background:none;border:none;color:var(--mut);padding:8px 2px 7
 <div id="v-chat" class="view">
  <div id="msgs"></div>
  <input type="file" id="photo" accept="image/*" style="display:none" onchange="pickPhoto(event)">
+ <div id="replybar" style="display:none"></div>
  <div class="admrow"><button class="btn sm" style="flex:0 0 46px" onclick="document.getElementById('photo').click()">📷</button><input id="msgtext" placeholder="Napíš správu…" style="margin-top:6px" onkeydown="if(event.key==='Enter')sendMsg()"><button class="btn sm" style="flex:0 0 70px" onclick="sendMsg()">Poslať</button></div>
  <div id="photoprev"></div>
 </div>
@@ -92,8 +97,8 @@ const SB_KEY='sb_publishable_c5ke1M0NDYzff_s7miJAHg_tFNM-Cn3';
 const JOIN_PIN='2026', ADMIN_PIN='palo50';
 const sb = supabase.createClient(SB_URL, SB_KEY);
 let ME = JSON.parse(localStorage.getItem('tdc_me')||'null');
-let ADMIN=false, pendingPhoto=null;
-let S = {participants:[],comps:[],teams:[],results:[],extra:[],msgs:[]};
+let ADMIN=false, pendingPhoto=null, replyTo=null, openMsg=null;
+let S = {participants:[],comps:[],teams:[],results:[],extra:[],msgs:[],reactions:[]};
 const esc=s=>(s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
 
@@ -109,14 +114,15 @@ function go(btn){ document.querySelectorAll('nav button').forEach(b=>b.classList
  document.querySelectorAll('.view').forEach(v=>v.classList.remove('on')); document.getElementById('v-'+btn.dataset.v).classList.add('on'); renderAll(); if(btn.dataset.v=='chat') markSeen(); }
 
 async function loadAll(){ try{
- const [p,c,t,r,e,m]=await Promise.all([
+ const [p,c,t,r,e,m,rx]=await Promise.all([
   sb.from('tdc_participants').select('*').order('name'),
   sb.from('tdc_comps').select('*').order('created_at'),
   sb.from('tdc_teams').select('*'),
   sb.from('tdc_results').select('*'),
   sb.from('tdc_extra').select('*').order('created_at'),
-  sb.from('tdc_messages').select('*').order('created_at')]);
- S.participants=(p.data||[]).map(x=>x.name); S.comps=c.data||[]; S.teams=t.data||[]; S.results=r.data||[]; S.extra=e.data||[]; S.msgs=m.data||[];
+  sb.from('tdc_messages').select('*').order('created_at'),
+  sb.from('tdc_reactions').select('*')]);
+ S.participants=(p.data||[]).map(x=>x.name); S.comps=c.data||[]; S.teams=t.data||[]; S.results=r.data||[]; S.extra=e.data||[]; S.msgs=m.data||[]; S.reactions=rx.data||[];
  renderAll(); notify(); }catch(err){ console.error(err); } }
 function renderAll(){ let f=document.activeElement, typing=f&&/INPUT|SELECT|TEXTAREA/.test(f.tagName);
  if(!typing){ renderComps(); renderTeams(); } renderChat(); renderLead(); }
@@ -211,19 +217,35 @@ async function sendMsg(){ if(sending)return; let t=document.getElementById('msgt
    if(!up.error){ photo_url=sb.storage.from('tdc-photos').getPublicUrl(path).data.publicUrl; }
    else { document.getElementById('photoprev').innerHTML=''; alert('Foto sa nenahralo: '+up.error.message); return; } }
  if(!t&&!photo_url)return;
- await sb.from('tdc_messages').insert({name:ME.name,body:t,photo_url});
- document.getElementById('msgtext').value=''; pendingPhoto=null; document.getElementById('photoprev').innerHTML=''; loadAll(); }
+ let payload={name:ME.name,body:t,photo_url}; if(replyTo)payload.reply_to=replyTo;
+ await sb.from('tdc_messages').insert(payload);
+ document.getElementById('msgtext').value=''; pendingPhoto=null; document.getElementById('photoprev').innerHTML=''; cancelReply(); loadAll(); }
 function fmtTime(iso){ if(!iso)return''; let d=new Date(iso); if(isNaN(d))return'';
  let t=d.toLocaleTimeString('sk-SK',{hour:'2-digit',minute:'2-digit'});
  let today=new Date().toDateString()==d.toDateString();
  return today? t : d.toLocaleDateString('sk-SK',{day:'numeric',month:'numeric'})+'. '+t; }
 function askNotif(){ if(window.Notification) Notification.requestPermission().then(()=>renderChat()); }
+const QUICK=['👍','❤️','😂','🔥','🍺','🍷','🚴','🎉'];
+function reactionsFor(mid){ let map={}; S.reactions.filter(r=>r.message_id==mid).forEach(r=>{ (map[r.emoji]=map[r.emoji]||[]).push(r.name); }); return map; }
 function renderChat(){ let h='';
  if(window.Notification && Notification.permission==='default') h+='<div class="notifbtn" onclick="askNotif()">🔔 Zapnúť upozornenia na nové správy</div>';
  if(!S.msgs.length) h+='<div class="soon">Zatiaľ žiadne správy. Napíš prvú! 💬</div>';
- S.msgs.forEach(x=>{ h+=`<div class="msg"><span class="who">${esc(x.name)}</span><span class="time">${fmtTime(x.created_at)}</span>${x.body?'<br>'+esc(x.body):''}${x.photo_url?'<br><img loading="lazy" src="'+x.photo_url+'">':''}</div>`; });
+ S.msgs.forEach(x=>{
+  let q=''; if(x.reply_to){ let src=S.msgs.find(m=>m.id==x.reply_to); if(src) q=`<div class="qreply">↩︎ <b>${esc(src.name)}</b>: ${esc((src.body||'📷 fotka').slice(0,80))}</div>`; }
+  let rmap=reactionsFor(x.id); let pills=Object.keys(rmap).map(em=>{ let ns=rmap[em]; let mine=ME&&ns.includes(ME.name); return `<span class="rxpill${mine?' mine':''}" title="${esc(ns.join(', '))}" onclick="event.stopPropagation();toggleReaction(${x.id},'${em}')">${em} ${ns.length}</span>`; }).join('');
+  let act=''; if(openMsg==x.id){ act=`<div class="msgact"><span class="rb" onclick="event.stopPropagation();startReply(${x.id})">↩︎ Odpovedať</span>`+QUICK.map(em=>`<span class="ra" onclick="event.stopPropagation();toggleReaction(${x.id},'${em}')">${em}</span>`).join('')+`</div>`; }
+  h+=`<div class="msg" onclick="toggleMsgActions(${x.id})"><span class="who">${esc(x.name)}</span><span class="time">${fmtTime(x.created_at)}</span>${q}${x.body?'<br>'+esc(x.body):''}${x.photo_url?'<br><img loading="lazy" src="'+x.photo_url+'">':''}${pills?'<div class="rx">'+pills+'</div>':''}${act}</div>`;
+ });
  let el=document.getElementById('msgs'); let atBottom = el.scrollHeight-el.scrollTop-el.clientHeight < 60; el.innerHTML=h; if(atBottom) el.scrollTop=el.scrollHeight;
 }
+function toggleMsgActions(id){ openMsg=(openMsg==id?null:id); renderChat(); }
+function startReply(id){ replyTo=id; openMsg=null; let m=S.msgs.find(x=>x.id==id); let bar=document.getElementById('replybar');
+ bar.style.display='flex'; bar.innerHTML=`<div>Odpovedáš <b>${esc(m?m.name:'')}</b>: ${esc(((m&&(m.body||'📷 fotka'))||'').slice(0,60))}</div><span onclick="cancelReply()">✕</span>`;
+ document.getElementById('msgtext').focus(); renderChat(); }
+function cancelReply(){ replyTo=null; let bar=document.getElementById('replybar'); bar.style.display='none'; bar.innerHTML=''; }
+async function toggleReaction(mid,em){ if(!ME)return; let ex=S.reactions.find(r=>r.message_id==mid&&r.name==ME.name&&r.emoji==em);
+ if(ex){ await sb.from('tdc_reactions').delete().eq('id',ex.id); } else { await sb.from('tdc_reactions').insert({message_id:mid,name:ME.name,emoji:em}); }
+ loadAll(); }
 let firstLoad=true; const notified=new Set();
 function chatOpen(){ return document.querySelector('nav button[data-v=chat]').classList.contains('on'); }
 function markSeen(){ let last=S.msgs[S.msgs.length-1]; if(last&&last.created_at) localStorage.setItem('tdc_lastSeen',last.created_at);
