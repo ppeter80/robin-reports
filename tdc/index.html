@@ -40,7 +40,10 @@ input,select,textarea{width:100%;background:#1c0d14;border:1px solid rgba(228,17
 .admrow{display:flex;gap:8px;} .admrow>*{flex:1;}
 .badge2{font-size:10px;background:var(--wine);color:#fff;padding:2px 8px;border-radius:10px;margin-left:6px;}
 nav{position:fixed;bottom:0;left:0;right:0;display:flex;background:#1c0d14;border-top:1px solid rgba(228,178,76,.2);z-index:6;}
-nav button{flex:1;background:none;border:none;color:var(--mut);padding:8px 2px 7px;font-size:9.5px;cursor:pointer;} nav button .ic{font-size:18px;display:block;} nav button.on{color:var(--gold);}
+nav button{flex:1;background:none;border:none;color:var(--mut);padding:8px 2px 7px;font-size:9.5px;cursor:pointer;position:relative;} nav button .ic{font-size:18px;display:block;} nav button.on{color:var(--gold);}
+.ndot{position:absolute;top:3px;left:58%;background:#e0322f;color:#fff;font-size:10px;font-weight:800;min-width:16px;height:16px;line-height:16px;border-radius:9px;padding:0 3px;}
+.time{color:var(--mut);font-size:10px;font-weight:400;margin-left:7px;}
+.notifbtn{background:rgba(228,178,76,.14);border:1px solid rgba(228,178,76,.4);color:#F0D592;padding:9px;border-radius:10px;font-size:12px;text-align:center;cursor:pointer;margin-bottom:8px;}
 #gate{position:fixed;inset:0;background:var(--bg);z-index:20;display:flex;flex-direction:column;justify-content:center;padding:26px;}
 #gate h1{font-family:Georgia,serif;font-size:30px;text-align:center;color:#F6E9EE;}
 #gate .k{letter-spacing:4px;font-size:10px;color:var(--gold);text-transform:uppercase;text-align:center;margin-bottom:18px;}
@@ -103,7 +106,7 @@ function boot(){ document.getElementById('gate').style.display='none';
  document.getElementById('whoami').innerHTML='Prihlásený: <b>'+esc(ME.name)+'</b> · <a onclick="logout()">odhlásiť</a>';
  loadAll(); setInterval(loadAll, 4000); }
 function go(btn){ document.querySelectorAll('nav button').forEach(b=>b.classList.remove('on')); btn.classList.add('on');
- document.querySelectorAll('.view').forEach(v=>v.classList.remove('on')); document.getElementById('v-'+btn.dataset.v).classList.add('on'); renderAll(); }
+ document.querySelectorAll('.view').forEach(v=>v.classList.remove('on')); document.getElementById('v-'+btn.dataset.v).classList.add('on'); renderAll(); if(btn.dataset.v=='chat') markSeen(); }
 
 async function loadAll(){ try{
  const [p,c,t,r,e,m]=await Promise.all([
@@ -114,7 +117,7 @@ async function loadAll(){ try{
   sb.from('tdc_extra').select('*').order('created_at'),
   sb.from('tdc_messages').select('*').order('created_at')]);
  S.participants=(p.data||[]).map(x=>x.name); S.comps=c.data||[]; S.teams=t.data||[]; S.results=r.data||[]; S.extra=e.data||[]; S.msgs=m.data||[];
- renderAll(); }catch(err){ console.error(err); } }
+ renderAll(); notify(); }catch(err){ console.error(err); } }
 function renderAll(){ let f=document.activeElement, typing=f&&/INPUT|SELECT|TEXTAREA/.test(f.tagName);
  if(!typing){ renderComps(); renderTeams(); } renderChat(); renderLead(); }
 
@@ -197,9 +200,31 @@ async function sendMsg(){ let t=document.getElementById('msgtext').value.trim();
  if(!t&&!photo_url)return;
  await sb.from('tdc_messages').insert({name:ME.name,body:t,photo_url});
  document.getElementById('msgtext').value=''; pendingPhoto=null; document.getElementById('photoprev').innerHTML=''; loadAll(); }
-function renderChat(){ let h=''; if(!S.msgs.length) h='<div class="soon">Zatiaľ žiadne správy. Napíš prvú! 💬</div>';
- S.msgs.forEach(x=>{ h+=`<div class="msg"><span class="who">${esc(x.name)}</span>${x.body?'<br>'+esc(x.body):''}${x.photo_url?'<br><img src="'+x.photo_url+'">':''}</div>`; });
+function fmtTime(iso){ if(!iso)return''; let d=new Date(iso); if(isNaN(d))return'';
+ let t=d.toLocaleTimeString('sk-SK',{hour:'2-digit',minute:'2-digit'});
+ let today=new Date().toDateString()==d.toDateString();
+ return today? t : d.toLocaleDateString('sk-SK',{day:'numeric',month:'numeric'})+'. '+t; }
+function askNotif(){ if(window.Notification) Notification.requestPermission().then(()=>renderChat()); }
+function renderChat(){ let h='';
+ if(window.Notification && Notification.permission==='default') h+='<div class="notifbtn" onclick="askNotif()">🔔 Zapnúť upozornenia na nové správy</div>';
+ if(!S.msgs.length) h+='<div class="soon">Zatiaľ žiadne správy. Napíš prvú! 💬</div>';
+ S.msgs.forEach(x=>{ h+=`<div class="msg"><span class="who">${esc(x.name)}</span><span class="time">${fmtTime(x.created_at)}</span>${x.body?'<br>'+esc(x.body):''}${x.photo_url?'<br><img src="'+x.photo_url+'">':''}</div>`; });
  let el=document.getElementById('msgs'); let atBottom = el.scrollHeight-el.scrollTop-el.clientHeight < 60; el.innerHTML=h; if(atBottom) el.scrollTop=el.scrollHeight;
+}
+let firstLoad=true; const notified=new Set();
+function chatOpen(){ return document.querySelector('nav button[data-v=chat]').classList.contains('on'); }
+function markSeen(){ let last=S.msgs[S.msgs.length-1]; if(last&&last.created_at) localStorage.setItem('tdc_lastSeen',last.created_at);
+ let d=document.querySelector('nav button[data-v=chat] .ndot'); if(d)d.remove(); if('clearAppBadge' in navigator) navigator.clearAppBadge().catch(()=>{}); }
+function notify(){ if(!ME)return; let onChat=chatOpen(); let seen=localStorage.getItem('tdc_lastSeen')||'';
+ let unread=S.msgs.filter(m=>m.name!=ME.name && (m.created_at||'')>seen);
+ let btn=document.querySelector('nav button[data-v=chat]'); let dot=btn.querySelector('.ndot');
+ if(unread.length && !onChat){ if(!dot){dot=document.createElement('span');dot.className='ndot';btn.appendChild(dot);} dot.textContent=unread.length>9?'9+':unread.length; }
+ else if(dot){ dot.remove(); }
+ if('setAppBadge' in navigator){ if(unread.length&&!onChat) navigator.setAppBadge(unread.length).catch(()=>{}); else navigator.clearAppBadge().catch(()=>{}); }
+ if(!firstLoad && !onChat){ let fresh=unread.filter(m=>!notified.has(m.id)); if(fresh.length){ fresh.forEach(m=>notified.add(m.id));
+   let last=fresh[fresh.length-1]; if(navigator.vibrate)navigator.vibrate(180);
+   if(window.Notification && Notification.permission==='granted'){ try{ new Notification('Tour de Croatia', {body:`${last.name}: ${last.body||'📷 fotka'}`, icon:'icon-192.png', tag:'tdc-chat', renotify:true}); }catch(e){} } } }
+ firstLoad=false; if(onChat) markSeen();
 }
 // ---- leaderboard ----
 function computeLead(){ let tot={}; S.participants.forEach(p=>tot[p]=0);
