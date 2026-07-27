@@ -713,7 +713,7 @@ function renderGallery(){ let el=document.getElementById('galleryview'); if(!el)
    (selMode?`<button class="btn sm" onclick="selAll()">${sel.size===ph.length?'Odznačiť všetky':'Označiť všetky'}</button>`:'')+`</div>`;
   if(selMode) bar+=`<div id="selbar"></div><div class="admrow" style="margin-bottom:8px"><button class="btn sm g" onclick="dlSelected()"${sel.size?'':' disabled'}>⬇ Uložiť (${sel.size})</button><button class="btn sm" onclick="delSelected()"${sel.size?'':' disabled'}>🗑 Zmazať (${sel.size})</button></div>`;
  }
- let hint = selMode ? 'ťukaním označuj fotky, potom ulož alebo zmaž naraz' : 'ťukni pre zväčšenie a stiahnutie';
+ let hint = selMode ? 'ťukaním označuj fotky, potom ich ulož alebo zmaž naraz' : 'ťukni pre zväčšenie a stiahnutie';
  el.innerHTML=head+bar+'<div class="r" style="color:var(--mut);font-size:12px;margin-bottom:6px">'+ph.length+' '+(ph.length==1?'fotka':(ph.length<5?'fotky':'fotiek'))+' · '+hint+'</div>'+
   '<div class="gallery">'+ph.map((m,i)=> selMode
     ? `<div class="gsel${sel.has(m.key)?' on':''}" onclick="toggleSel('${js1(m.key)}')"><img class="gthumb" loading="lazy" src="${m.photo_url}"><span class="gtick">${sel.has(m.key)?'✓':''}</span></div>`
@@ -743,52 +743,41 @@ async function delPhoto(){ let ph=galPhotos[lbIdx]; if(!ph||!ME)return;
  await removePhoto(ph);
  closeLightbox(); await loadAll(); }
 // ---- hromadný výber fotiek ----
-// ZIP si skladáme sami (metóda „uložiť", bez kompresie) — JPEG sa aj tak nezmenší
-// a je to lepšie než púšťať 20 samostatných sťahovaní, čo mobil aj tak zablokuje
-let CRCT=null;
-function crc32(u8){ if(!CRCT){ CRCT=new Uint32Array(256);
-  for(let i=0;i<256;i++){ let c=i; for(let k=0;k<8;k++) c=(c&1)?(0xEDB88320^(c>>>1)):(c>>>1); CRCT[i]=c>>>0; } }
- let c=0xFFFFFFFF; for(let i=0;i<u8.length;i++) c=CRCT[(c^u8[i])&0xFF]^(c>>>8);
- return (c^0xFFFFFFFF)>>>0; }
-function makeZip(files){ let parts=[], central=[], off=0, enc=new TextEncoder();
- files.forEach(f=>{ let nm=enc.encode(f.name), crc=crc32(f.data), sz=f.data.length;
-  let lh=new DataView(new ArrayBuffer(30));
-  // bit 11 = názvy sú v UTF-8, inak čítačky spravia zo „Žofia" paškvil
-  lh.setUint32(0,0x04034b50,true); lh.setUint16(4,20,true); lh.setUint16(6,0x0800,true); lh.setUint32(14,crc,true);
-  lh.setUint32(18,sz,true); lh.setUint32(22,sz,true); lh.setUint16(26,nm.length,true);
-  parts.push(new Uint8Array(lh.buffer),nm,f.data);
-  let ch=new DataView(new ArrayBuffer(46));
-  ch.setUint32(0,0x02014b50,true); ch.setUint16(4,20,true); ch.setUint16(6,20,true); ch.setUint16(8,0x0800,true);
-  ch.setUint32(16,crc,true); ch.setUint32(20,sz,true); ch.setUint32(24,sz,true);
-  ch.setUint16(28,nm.length,true); ch.setUint32(42,off,true);
-  central.push(new Uint8Array(ch.buffer),nm);
-  off+=30+nm.length+sz; });
- let cd=central.reduce((a,b)=>a+b.length,0);
- let eo=new DataView(new ArrayBuffer(22));
- eo.setUint32(0,0x06054b50,true); eo.setUint16(8,files.length,true); eo.setUint16(10,files.length,true);
- eo.setUint32(12,cd,true); eo.setUint32(16,off,true);
- return new Blob([...parts,...central,new Uint8Array(eo.buffer)],{type:'application/zip'}); }
-
-let selMode=false, sel=new Set();
+let selMode=false, sel=new Set(), blobCache=new Map();
 function toggleSelMode(){ selMode=!selMode; sel.clear(); renderGallery(); }
-function toggleSel(k){ if(sel.has(k))sel.delete(k); else sel.add(k); renderGallery(); }
+function toggleSel(k){ if(sel.has(k))sel.delete(k); else { sel.add(k);
+  let p=galleryPhotos().find(x=>x.key===k); if(p) prefetch(p); }   // sťahuj už pri označení
+ renderGallery(); }
+// súbory musia byť pripravené VOPRED — navigator.share sa musí zavolať hneď
+// po ťuknutí, inak ho Safari odmietne, že už nie je „z gesta používateľa"
+async function prefetch(p){ if(blobCache.has(p.key)) return blobCache.get(p.key);
+ let pr=(async()=>{ let r=await fetch(p.photo_url); let b=await r.blob();
+   return new File([b], safeName(p.name||'foto')+'_'+String(p.key).replace(/\W/g,'')+'.jpg', {type:b.type||'image/jpeg'}); })();
+ blobCache.set(p.key,pr); return pr; }
 function selAll(){ let ph=galleryPhotos(); if(sel.size===ph.length) sel.clear(); else ph.forEach(p=>sel.add(p.key)); renderGallery(); }
 function selected(){ return galleryPhotos().filter(p=>sel.has(p.key)); }
 function canDel(p){ return ME && (p.name===ME.name || ADMIN); }
 function safeName(s){ return String(s).replace(/[^\p{L}\p{N}._-]+/gu,'_').slice(0,40); }
+function saveOne(file,name){ let u=URL.createObjectURL(file), a=document.createElement('a');
+ a.href=u; a.download=name||file.name; document.body.appendChild(a); a.click(); a.remove();
+ setTimeout(()=>URL.revokeObjectURL(u),4000); }
 async function dlSelected(){ let ps=selected(); if(!ps.length)return;
  let bar=document.getElementById('selbar');
- if(ps.length===1){ dlPhoto(ps[0].photo_url); return; }
- let files=[], i=0;
- for(const p of ps){ i++;
-  if(bar) bar.innerHTML='<div class="r" style="font-size:12px;color:#E4B24C">📦 Balím fotku '+i+'/'+ps.length+'…</div>';
-  try{ let r=await fetch(p.photo_url); let ab=await r.arrayBuffer();
-   files.push({name:String(i).padStart(2,'0')+'_'+safeName(p.name||'foto')+'.jpg', data:new Uint8Array(ab)});
-  }catch(e){} }
- if(!files.length){ alert('Fotky sa nepodarilo stiahnuť.'); renderGallery(); return; }
- let blob=makeZip(files), u=URL.createObjectURL(blob), a=document.createElement('a');
- a.href=u; a.download='TdC_fotky_'+files.length+'.zip'; document.body.appendChild(a); a.click(); a.remove();
- setTimeout(()=>URL.revokeObjectURL(u),4000);
+ if(bar) bar.innerHTML='<div class="r" style="font-size:12px;color:#E4B24C">⏳ Pripravujem '+ps.length+'…</div>';
+ let files=[];
+ for(const p of ps){ try{ files.push(await prefetch(p)); }catch(e){} }
+ if(bar) bar.innerHTML='';
+ if(!files.length){ alert('Fotky sa nepodarilo načítať.'); return; }
+ // na mobile: systémové okno → „Uložiť obrázky" uloží všetky naraz medzi fotky
+ if(navigator.canShare && navigator.canShare({files})){
+  try{ await navigator.share({files}); selMode=false; sel.clear(); renderGallery(); return; }
+  catch(e){ if(e && e.name==='AbortError'){ return; } }   // používateľ to zavrel — nič nerob
+ }
+ // bez systémového zdieľania (typicky desktop): ukladaj po jednej.
+ // Prvú hneď, nech ide ešte z gesta — na ďalšie sa prehliadač spýta, či ich povolí.
+ files.forEach((f,i)=>{ let nm='TdC_'+String(i+1).padStart(2,'0')+'_'+f.name;
+  if(i===0) saveOne(f,nm); else setTimeout(()=>saveOne(f,nm),i*350); });
+ if(files.length>1) alert('Ukladám '+files.length+' fotiek po jednej. Ak sa prehliadač spýta na povolenie viacerých súborov, potvrď to.');
  selMode=false; sel.clear(); renderGallery(); }
 async function delSelected(){ let ps=selected().filter(canDel), skipped=selected().length-ps.length;
  if(!ps.length){ alert('Z výberu nemôžeš zmazať ani jednu fotku — mazať vieš len svoje.'); return; }
