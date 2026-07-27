@@ -337,14 +337,13 @@ async function compPhoto(ev,cid){ let files=[...(ev.target.files||[])]; ev.targe
  }
  if(note) note.innerHTML='';
  if(done){ await loadAll(); alert(done===1?'Fotka je v galérii ✅':done+' fotky sú v galérii ✅'); } }
-function photoBox(gid,what){ let n=S.photos.filter(f=>f.comp_id==gid).length;
+function photoBox(gid){ let n=S.photos.filter(f=>f.comp_id==gid).length;
  if(!ME) return '';
  return `<div id="cf_note_${gid}"></div>
   <input type="file" accept="image/*" multiple id="cf_${gid}" style="display:none" onchange="compPhoto(event,'${js1(gid)}')">
-  <div class="admrow" style="margin-top:8px"><button class="btn sm" onclick="document.getElementById('cf_${gid}').click()">📷 Pridať fotku</button>${n?`<button class="btn sm" onclick="showGallery('${js1(gid)}')">🖼️ ${n} ${n==1?'fotka':(n<5?'fotky':'fotiek')}</button>`:''}</div>
-  <div class="r" style="font-size:11px;color:var(--mut)">Fotka pôjde do 🖼️ Galérie k ${what||'tejto súťaži'} — do chatu sa neposiela.</div>`; }
+  <div class="admrow" style="margin-top:8px"><button class="btn sm" onclick="document.getElementById('cf_${gid}').click()">📷 Pridať fotku</button>${n?`<button class="btn sm" onclick="showGallery('${js1(gid)}')">🖼️ ${n} ${n==1?'fotka':(n<5?'fotky':'fotiek')}</button>`:''}</div>`; }
 function renderProgram(){ STAGES.forEach(s=>{ let el=document.getElementById('pb_'+s.id);
- if(el) el.innerHTML=photoBox(s.id,'tejto etape'); }); }
+ if(el) el.innerHTML=photoBox(s.id); }); }
 
 // ---- číselné súťaže (promile) ----
 function numStandings(cid){ let vs=S.values.filter(v=>v.comp_id==cid).map(v=>({person:v.person,val:Number(v.val)}));
