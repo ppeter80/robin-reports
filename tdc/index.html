@@ -260,6 +260,7 @@ async function putBeers(cid,beers){
 async function addBeer(cid){ let el=document.getElementById('nb_'+cid); if(!el)return; let v=el.value.trim(); if(!v)return;
  let cp=S.comps.find(c=>c.id==cid); if(cp && tRevealed(cp)){ alert('Ochutnávka je už odhalená.'); return; }
  let items=tItems(cid), key=loadKey(cid)||[];
+ if(!items.length && key.length){ saveKey(cid,[]); key=[]; }  // súťaž bola vyprázdnená, starý kľúč zahoď
  if(key.length!==items.length){ alert('Kľúč v tomto zariadení nesedí so zoznamom pív — najprv ho naprav nižšie.'); return; }
  if(items.some(i=>i.name===v) && !confirm('„'+v+'" už v zozname je. Pridať znova?')) return;
  el.value=''; if(await putBeers(cid,[v])) await loadAll(); }
@@ -303,7 +304,7 @@ function tastingBlock(cp){
    }
   }
   if(ADMIN){
-   let key=loadKey(cp.id)||[], ok=key.length===n, anyTips=S.tpicks.some(p=>p.comp_id==cp.id);
+   let key=loadKey(cp.id)||[], ok=(key.length===n||!n), anyTips=S.tpicks.some(p=>p.comp_id==cp.id);
    h+='<hr style="border-color:rgba(228,178,76,.2);margin:12px 0"><div class="r" style="font-size:12px"><b>ADMIN</b></div>';
    if(n && !ok) h+=`<div class="hint">⚠️ Kľúč v tomto zariadení nesedí (${key.length} vs ${n} pív) — súťaž si zakladal inde alebo bol vymazaný. Vlož poradie fliaš, jedno pivo na riadok, riadok 1 = fľaša 1:</div>
      <textarea id="tk_${cp.id}" rows="4" placeholder="Poradie fliaš…" style="resize:vertical">${esc(names.join('\n'))}</textarea>
