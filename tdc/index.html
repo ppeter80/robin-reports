@@ -79,11 +79,11 @@ nav button{flex:1;background:none;border:none;color:var(--mut);padding:8px 2px 7
 <header><div class="k">Powered by wine</div><h1>TOUR DE CROATIA</h1><div class="who" id="whoami"></div></header>
 
 <div id="v-program" class="view on">
- <div class="card"><h3><span class="tag" style="background:#7A6A55;color:#fff">DEŇ 0</span> Streda · Príchod</h3><div class="r"><span class="lab">Cestou:</span> Slepá ochutnávka piva (5/3/1) … · <span class="lab">Večer:</span> príchod, voľná večera.</div></div>
- <div class="card"><h3><span class="tag" style="background:#8E44AD;color:#fff">DEŇ 1</span> Etapa 1 · Vínna cesta</h3><div class="chips"><span class="chip">37,8 km</span><span class="chip">↗ 411 m</span></div><div class="r"><span class="lab">Vinárstva:</span> Fiore · CUJ · Kabola · Kozlović · <span class="lab">Pláž:</span> Kanegra · <span class="lab">Súťaže:</span> …</div><img class="map" src="mapa_E1.jpg"></div>
- <div class="card"><h3><span class="tag" style="background:#2E86DE;color:#fff">DEŇ 2 · A</span> Drink cesta</h3><div class="chips"><span class="chip">31,8 km</span><span class="chip">Piran · SLO</span></div><div class="r"><span class="lab">Pláž:</span> Kanegra · <span class="lab">Súťaže:</span> Plážový volejbal (5/3/1) …</div><img class="map" src="mapa_E2.jpg"></div>
- <div class="card"><h3><span class="tag" style="background:#C0453B;color:#fff">DEŇ 2 · B</span> Motivačná — pre odvážnych 🙂</h3><div class="chips"><span class="chip">89,3 km</span><span class="chip">↗ 766 m</span></div><div class="r"><span class="lab">Trasa:</span> Valica → Buje → Motovun → Novigrad → Valica</div><img class="map" src="mapa_E2B.jpg"></div>
- <div class="card"><h3><span class="tag" style="background:#1B9E8B;color:#fff">DEŇ 3</span> Etapa 3 · Pláž</h3><div class="chips"><span class="chip">~40 km</span><span class="chip">↗ 191 m</span></div><div class="r"><span class="lab">Súťaže:</span> Basket · Pingpong · Futbal · Beach volejbal …</div><img class="map" src="mapa_E3.jpg"></div>
+ <div class="card"><h3><span class="tag" style="background:#7A6A55;color:#fff">DEŇ 0</span> Streda · Príchod</h3><div class="r"><span class="lab">Cestou:</span> Slepá ochutnávka piva (5/3/1) … · <span class="lab">Večer:</span> príchod, voľná večera.</div><div id="pb_stage_d0"></div></div>
+ <div class="card"><h3><span class="tag" style="background:#8E44AD;color:#fff">DEŇ 1</span> Etapa 1 · Vínna cesta</h3><div class="chips"><span class="chip">37,8 km</span><span class="chip">↗ 411 m</span></div><div class="r"><span class="lab">Vinárstva:</span> Fiore · CUJ · Kabola · Kozlović · <span class="lab">Pláž:</span> Kanegra · <span class="lab">Súťaže:</span> …</div><img class="map" src="mapa_E1.jpg"><div id="pb_stage_e1"></div></div>
+ <div class="card"><h3><span class="tag" style="background:#2E86DE;color:#fff">DEŇ 2 · A</span> Drink cesta</h3><div class="chips"><span class="chip">31,8 km</span><span class="chip">Piran · SLO</span></div><div class="r"><span class="lab">Pláž:</span> Kanegra · <span class="lab">Súťaže:</span> Plážový volejbal (5/3/1) …</div><img class="map" src="mapa_E2.jpg"><div id="pb_stage_e2a"></div></div>
+ <div class="card"><h3><span class="tag" style="background:#C0453B;color:#fff">DEŇ 2 · B</span> Motivačná — pre odvážnych 🙂</h3><div class="chips"><span class="chip">89,3 km</span><span class="chip">↗ 766 m</span></div><div class="r"><span class="lab">Trasa:</span> Valica → Buje → Motovun → Novigrad → Valica</div><img class="map" src="mapa_E2B.jpg"><div id="pb_stage_e2b"></div></div>
+ <div class="card"><h3><span class="tag" style="background:#1B9E8B;color:#fff">DEŇ 3</span> Etapa 3 · Pláž</h3><div class="chips"><span class="chip">~40 km</span><span class="chip">↗ 191 m</span></div><div class="r"><span class="lab">Súťaže:</span> Basket · Pingpong · Futbal · Beach volejbal …</div><img class="map" src="mapa_E3.jpg"><div id="pb_stage_e3"></div></div>
 </div>
 
 <div id="v-comps" class="view"><div id="admbox"></div><div id="complist"></div></div>
@@ -173,7 +173,7 @@ async function loadAll(){ try{
  notify(); renderOnline(); }catch(err){ console.error(err); } }
 let lastSig='';
 function renderAll(){ let f=document.activeElement, typing=f&&/INPUT|SELECT|TEXTAREA/.test(f.tagName);
- if(!typing){ renderComps(); renderTeams(); } renderChat(); renderLead(); renderGallery(); }
+ if(!typing){ renderComps(); renderTeams(); } renderChat(); renderLead(); renderGallery(); renderProgram(); }
 
 // ---- admin & comps ----
 function unlockAdmin(){ let p=prompt('Admin PIN:'); if(p===ADMIN_PIN){ADMIN=true; renderComps(); alert('Admin odomknutý ✅');} else if(p!=null) alert('Zlý PIN'); }
@@ -232,7 +232,7 @@ function renderComps(){
   else if(cp.type=='num') h+=numBlock(cp);
   else if(ADMIN){ h+=`<button class="btn sm g" onclick="toggleResults('${cp.id}')">${done?'Upraviť':'Zadať'} výsledky ${openResults==cp.id?'▲':'▼'}</button>`;
    if(openResults==cp.id) h+=resultsForm(cp); }
-  h+=compPhotoBox(cp);
+  h+=photoBox(cp.id);
   h+='</div>'; });
  document.getElementById('complist').innerHTML=h;
 }
@@ -265,7 +265,13 @@ async function saveResults(cid){ let cp=S.comps.find(c=>c.id==cid); if(!cp)retur
 async function addExtra(){ let name=document.getElementById('e_who').value, pts=parseInt(document.getElementById('e_pts').value)||0, why=document.getElementById('e_why').value;
  await sb.from('tdc_extra').insert({name,points:pts,reason:why}); loadAll(); alert('Extra body pridané ✅'); }
 
-// ---- fotky pri súťaži (idú LEN do galérie, nie do chatu) ----
+// ---- fotky pri súťaži a etape (idú LEN do galérie, nie do chatu) ----
+// etapy nie sú v DB, preto majú kľúč stage_* — tdc_photos.comp_id je len text
+const STAGES=[{id:'stage_d0',name:'Deň 0 · Príchod'},{id:'stage_e1',name:'Etapa 1 · Vínna cesta'},
+ {id:'stage_e2a',name:'Deň 2·A · Drink cesta'},{id:'stage_e2b',name:'Deň 2·B · Motivačná'},
+ {id:'stage_e3',name:'Etapa 3 · Pláž'}];
+function groupName(gid){ let s=STAGES.find(x=>x.id===gid); if(s)return s.name;
+ let c=S.comps.find(x=>x.id==gid); return c?c.name:'súťaž'; }
 async function uploadTo(blob){ let path=Date.now()+'_'+Math.random().toString(36).slice(2)+'.jpg';
  let up=await sb.storage.from('tdc-photos').upload(path,blob,{contentType:'image/jpeg',cacheControl:'3600'});
  if(up.error) throw up.error;
@@ -284,12 +290,14 @@ async function compPhoto(ev,cid){ let files=[...(ev.target.files||[])]; ev.targe
  }
  if(note) note.innerHTML='';
  if(done){ await loadAll(); alert(done===1?'Fotka je v galérii ✅':done+' fotky sú v galérii ✅'); } }
-function compPhotoBox(cp){ let n=S.photos.filter(f=>f.comp_id==cp.id).length;
+function photoBox(gid,what){ let n=S.photos.filter(f=>f.comp_id==gid).length;
  if(!ME) return '';
- return `<div id="cf_note_${cp.id}"></div>
-  <input type="file" accept="image/*" multiple id="cf_${cp.id}" style="display:none" onchange="compPhoto(event,'${js1(cp.id)}')">
-  <div class="admrow" style="margin-top:8px"><button class="btn sm" onclick="document.getElementById('cf_${cp.id}').click()">📷 Pridať fotku</button>${n?`<button class="btn sm" onclick="showGallery('${js1(cp.id)}')">🖼️ ${n} ${n==1?'fotka':(n<5?'fotky':'fotiek')}</button>`:''}</div>
-  <div class="r" style="font-size:11px;color:var(--mut)">Fotka pôjde do 🖼️ Galérie k tejto súťaži — do chatu sa neposiela.</div>`; }
+ return `<div id="cf_note_${gid}"></div>
+  <input type="file" accept="image/*" multiple id="cf_${gid}" style="display:none" onchange="compPhoto(event,'${js1(gid)}')">
+  <div class="admrow" style="margin-top:8px"><button class="btn sm" onclick="document.getElementById('cf_${gid}').click()">📷 Pridať fotku</button>${n?`<button class="btn sm" onclick="showGallery('${js1(gid)}')">🖼️ ${n} ${n==1?'fotka':(n<5?'fotky':'fotiek')}</button>`:''}</div>
+  <div class="r" style="font-size:11px;color:var(--mut)">Fotka pôjde do 🖼️ Galérie k ${what||'tejto súťaži'} — do chatu sa neposiela.</div>`; }
+function renderProgram(){ STAGES.forEach(s=>{ let el=document.getElementById('pb_'+s.id);
+ if(el) el.innerHTML=photoBox(s.id,'tejto etape'); }); }
 
 // ---- číselné súťaže (promile) ----
 function numStandings(cid){ let vs=S.values.filter(v=>v.comp_id==cid).map(v=>({person:v.person,val:Number(v.val)}));
@@ -648,19 +656,18 @@ function galleryPhotos(){ let all=allPhotos();
  if(galFilter==='chat') return all.filter(p=>p.src==='chat');
  if(galFilter) return all.filter(p=>p.comp_id==galFilter);
  return all; }
-function compName(id){ let c=S.comps.find(x=>x.id==id); return c?c.name:'súťaž'; }
 function setGalFilter(v){ galFilter=v||null; if(lbIdx!=null) closeLightbox(); renderGallery(); }
 function showGallery(cid){ galFilter=cid;
  let btn=document.querySelector('nav button[data-v=gallery]'); if(btn) go(btn); }
 function renderGallery(){ let el=document.getElementById('galleryview'); if(!el)return;
  let all=allPhotos(), ph=galleryPhotos();
  if(!all.length){ el.innerHTML='<div class="soon">Zatiaľ žiadne fotky. Pridaj ich v Chate 📷 alebo priamo pri súťaži.</div>'; return; }
- let comps=S.comps.filter(c=>S.photos.some(f=>f.comp_id==c.id));
+ let groups=STAGES.concat(S.comps.map(c=>({id:c.id,name:c.name}))).filter(g=>S.photos.some(f=>f.comp_id==g.id));
  let chips=`<span class="pill pick${galFilter?'':' on'}" onclick="setGalFilter('')">Všetky (${all.length})</span>`;
  let nchat=all.filter(p=>p.src==='chat').length;
  if(nchat) chips+=`<span class="pill pick${galFilter==='chat'?' on':''}" onclick="setGalFilter('chat')">💬 Z chatu (${nchat})</span>`;
- comps.forEach(c=>{ let n=S.photos.filter(f=>f.comp_id==c.id).length;
-  chips+=`<span class="pill pick${galFilter==c.id?' on':''}" onclick="setGalFilter('${js1(c.id)}')">${esc(c.name)} (${n})</span>`; });
+ groups.forEach(g=>{ let n=S.photos.filter(f=>f.comp_id==g.id).length;
+  chips+=`<span class="pill pick${galFilter==g.id?' on':''}" onclick="setGalFilter('${js1(g.id)}')">${esc(g.name)} (${n})</span>`; });
  let head=`<div class="chipbox" style="margin-bottom:8px">${chips}</div>`;
  if(!ph.length){ el.innerHTML=head+'<div class="soon">V tomto výbere zatiaľ nič nie je.</div>'; return; }
  el.innerHTML=head+'<div class="r" style="color:var(--mut);font-size:12px;margin-bottom:6px">'+ph.length+' '+(ph.length==1?'fotka':(ph.length<5?'fotky':'fotiek'))+' · ťukni pre zväčšenie a stiahnutie</div>'+
@@ -673,7 +680,7 @@ function renderLightbox(){ let lb=document.getElementById('lightbox'); if(!lb)re
  if(lbIdx==null||!galPhotos[lbIdx]){ lb.style.display='none'; lb.innerHTML=''; return; }
  let ph=galPhotos[lbIdx];
  lb.style.display='flex';
- lb.innerHTML=`<div class="lbtop"><span>${lbIdx+1}/${galPhotos.length}${ph.name?' · '+esc(ph.name):''}${ph.comp_id?' · 🏅 '+esc(compName(ph.comp_id)):(ph.src==='chat'?' · 💬 chat':'')}</span><span class="lbx" onclick="closeLightbox()">✕</span></div>`+
+ lb.innerHTML=`<div class="lbtop"><span>${lbIdx+1}/${galPhotos.length}${ph.name?' · '+esc(ph.name):''}${ph.comp_id?' · 🏅 '+esc(groupName(ph.comp_id)):(ph.src==='chat'?' · 💬 chat':'')}</span><span class="lbx" onclick="closeLightbox()">✕</span></div>`+
    `<img src="${ph.photo_url}">`+
    `<div class="lbbar"><span class="lbnav" onclick="lbGo(-1)">${lbIdx>0?'‹':''}</span>`+
    `<button class="btn sm g" style="width:auto;flex:0 0 auto" onclick="dlPhoto('${js1(ph.photo_url)}')">⬇ Stiahnuť</button>`+
