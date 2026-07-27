@@ -118,9 +118,11 @@ const sb = supabase.createClient(SB_URL, SB_KEY);
 const VAPID_PUBLIC='BO3HLckvkWtHJMq71x2OLioQCtS2nSHFx0mXGGLAEoMBHEp7FRAIec06z9ug4QkUDmrZAU59cbTf_p8cnDEhbRI';
 let ME = JSON.parse(localStorage.getItem('tdc_me')||'null');
 let ADMIN=false, pendingPhoto=null, replyTo=null, openMsg=null, stick=true, openTeam=null, teamMode=null, openResults=null;
-let S = {participants:[],comps:[],teams:[],results:[],extra:[],msgs:[],reactions:[],plist:[]};
+let openTast=null, tdrafts={}, newCompType='ind', newComp={name:'',pts:'',beers:''};
+let S = {participants:[],comps:[],teams:[],results:[],extra:[],msgs:[],reactions:[],plist:[],titems:[],tpicks:[]};
 const esc=s=>(s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 const js1=s=>(s||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+const escA=s=>esc(s).replace(/"/g,'&quot;');
 function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
 
 async function doJoin(){ let n=document.getElementById('g-name').value.trim(), p=document.getElementById('g-pin').value.trim();
@@ -151,16 +153,18 @@ function go(btn){ document.querySelectorAll('nav button').forEach(b=>b.classList
  document.querySelectorAll('.view').forEach(v=>v.classList.remove('on')); document.getElementById('v-'+btn.dataset.v).classList.add('on'); renderAll(); if(btn.dataset.v=='chat'){ markSeen(); stick=true; positionOnline(); chatToBottom(); } }
 
 async function loadAll(){ try{
- const [p,c,t,r,e,m,rx]=await Promise.all([
+ const [p,c,t,r,e,m,rx,ti,tp]=await Promise.all([
   sb.from('tdc_participants').select('*').order('name'),
   sb.from('tdc_comps').select('*').order('created_at'),
   sb.from('tdc_teams').select('*'),
   sb.from('tdc_results').select('*'),
   sb.from('tdc_extra').select('*').order('created_at'),
   sb.from('tdc_messages').select('*').order('created_at'),
-  sb.from('tdc_reactions').select('*')]);
- S.plist=p.data||[]; S.participants=S.plist.map(x=>x.name); S.comps=c.data||[]; S.teams=t.data||[]; S.results=r.data||[]; S.extra=e.data||[]; S.msgs=m.data||[]; S.reactions=rx.data||[];
- let sig=JSON.stringify([S.participants,S.comps,S.teams,S.results,S.extra,S.msgs,S.reactions]);
+  sb.from('tdc_reactions').select('*'),
+  sb.from('tdc_tasting_items').select('*'),
+  sb.from('tdc_tasting_picks').select('*')]);
+ S.plist=p.data||[]; S.participants=S.plist.map(x=>x.name); S.comps=c.data||[]; S.teams=t.data||[]; S.results=r.data||[]; S.extra=e.data||[]; S.msgs=m.data||[]; S.reactions=rx.data||[]; S.titems=ti.data||[]; S.tpicks=tp.data||[];
+ let sig=JSON.stringify([S.participants,S.comps,S.teams,S.results,S.extra,S.msgs,S.reactions,S.titems,S.tpicks]);
  if(sig!==lastSig){ lastSig=sig; renderAll(); }
  notify(); renderOnline(); }catch(err){ console.error(err); } }
 let lastSig='';
@@ -169,19 +173,42 @@ function renderAll(){ let f=document.activeElement, typing=f&&/INPUT|SELECT|TEXT
 
 // ---- admin & comps ----
 function unlockAdmin(){ let p=prompt('Admin PIN:'); if(p===ADMIN_PIN){ADMIN=true; renderComps(); alert('Admin odomknutý ✅');} else if(p!=null) alert('Zlý PIN'); }
+function grabComp(){ let a=document.getElementById('c_name'), b=document.getElementById('c_pts'), c=document.getElementById('c_beers');
+ if(a) newComp.name=a.value; if(b) newComp.pts=b.value; if(c) newComp.beers=c.value; }
+function clearComp(){ newComp={name:'',pts:'',beers:''};
+ ['c_name','c_pts','c_beers'].forEach(id=>{ let el=document.getElementById(id); if(el) el.value=''; }); }
+function setCompType(v){ grabComp(); newCompType=v; renderComps(); }
 async function addComp(){ let name=document.getElementById('c_name').value.trim(); if(!name){alert('Názov súťaže');return;}
  let type=document.getElementById('c_type').value, pts=document.getElementById('c_pts').value.split(/[ ,]+/).map(Number).filter(x=>!isNaN(x));
  if(!pts.length) pts=[5,3,1];
- await sb.from('tdc_comps').insert({id:uid(),name,type,points:pts});
- sb.functions.invoke('bright-processor',{body:{sender:ME.name,body:'pridal súťaž „'+name+'" 🎯'}}).catch(()=>{});
- loadAll(); }
+ let cid=uid(), beers=null;
+ if(type=='tasting'){
+  beers=document.getElementById('c_beers').value.split('\n').map(s=>s.trim()).filter(Boolean);
+  if(beers.length<2){alert('Vlož aspoň 2 pivá — jedno na riadok.');return;}
+  let dup=[...new Set(beers.filter((x,i)=>beers.indexOf(x)!=i))];
+  if(dup.length && !confirm('Zoznam obsahuje rovnaký názov viackrát ('+dup.join(', ')+'). Vyhodnotenie bude nejednoznačné. Pokračovať?')) return;
+  if(!confirm('Fľaše označíš takto:\n\n'+beers.map((b,i)=>(i+1)+' = '+b).join('\n')+'\n\nKľúč sa uloží LEN do tohto telefónu až do odhalenia. Pokračovať?')) return;
+ }
+ await sb.from('tdc_comps').insert({id:cid,name,type,points:pts});
+ if(type=='tasting'){
+  saveKey(cid,beers);
+  let shuf=beers.slice(); for(let i=shuf.length-1;i>0;i--){ let j=Math.floor(Math.random()*(i+1)); [shuf[i],shuf[j]]=[shuf[j],shuf[i]]; }
+  await sb.from('tdc_tasting_items').insert(shuf.map((b,i)=>({id:uid()+'-'+i,comp_id:cid,name:b,num:null})));
+ }
+ sb.functions.invoke('bright-processor',{body:{sender:ME.name,body:'pridal súťaž „'+name+'" '+(type=='tasting'?'🍺':'🎯')}}).catch(()=>{});
+ clearComp(); loadAll(); }
 async function delComp(id){ if(!confirm('Zmazať súťaž?'))return;
- await sb.from('tdc_comps').delete().eq('id',id); await sb.from('tdc_teams').delete().eq('comp_id',id); await sb.from('tdc_results').delete().eq('comp_id',id); loadAll(); }
+ await sb.from('tdc_comps').delete().eq('id',id); await sb.from('tdc_teams').delete().eq('comp_id',id); await sb.from('tdc_results').delete().eq('comp_id',id);
+ await sb.from('tdc_tasting_items').delete().eq('comp_id',id); await sb.from('tdc_tasting_picks').delete().eq('comp_id',id);
+ localStorage.removeItem('tdc_key_'+id); loadAll(); }
 function renderComps(){
+ if(ADMIN) grabComp();
  document.getElementById('admbox').innerHTML = ADMIN ? `<div class="card"><h3>➕ Nová súťaž <span class="badge2">ADMIN</span></h3>
-   <input id="c_name" placeholder="Názov (napr. Šípky)">
-   <select id="c_type"><option value="ind">Individuálna</option><option value="team">Tímová</option></select>
-   <input id="c_pts" placeholder="Body za poradie (napr. 5,3,1)">
+   <input id="c_name" placeholder="Názov (napr. Šípky)" value="${escA(newComp.name)}">
+   <select id="c_type" onchange="setCompType(this.value)"><option value="ind"${newCompType=='ind'?' selected':''}>Individuálna</option><option value="team"${newCompType=='team'?' selected':''}>Tímová</option><option value="tasting"${newCompType=='tasting'?' selected':''}>🍺 Ochutnávka piv</option></select>
+   ${newCompType=='tasting'?`<textarea id="c_beers" rows="5" placeholder="Zoznam pív — jedno na riadok, v poradí ako budeš označovať fľaše" style="resize:vertical">${esc(newComp.beers)}</textarea>
+   <div class="hint">Appka ich očísluje 1…N a ukáže ti označovací zoznam. Kľúč (ktoré pivo je v ktorej fľaši) ostáva LEN v tomto telefóne až do „Odhaliť a vyhodnotiť" — v databáze nie je, takže sa nedá vyčítať.</div>`:''}
+   <input id="c_pts" placeholder="Body za poradie (napr. 5,3,1)" value="${escA(newComp.pts)}">
    <button class="btn g" onclick="addComp()">Pridať súťaž</button>
    <hr style="border-color:rgba(228,178,76,.2);margin:12px 0"><h3>⭐ Extra body</h3>
    <select id="e_who">`+S.participants.map(p=>`<option>${esc(p)}</option>`).join('')+`</select>
@@ -190,10 +217,12 @@ function renderComps(){
   : `<div class="card"><div class="r">🔒 Si organizátor? <a class="lab" style="cursor:pointer" onclick="unlockAdmin()">Odomkni admin</a> a pridávaj súťaže, tímy a výsledky.</div></div>`;
  let h=''; if(!S.comps.length) h='<div class="soon">Zatiaľ žiadne súťaže. '+(ADMIN?'Pridaj prvú hore.':'')+'</div>';
  S.comps.forEach((cp,ci)=>{ let done=S.results.some(r=>r.comp_id==cp.id);
-  h+=`<div class="card"><h3><span class="tag" style="background:#5A4A6A;color:#fff">${ci+1}</span> ${esc(cp.name)} <span class="chip">${cp.type=='ind'?'Individuálna':'Tímová'}</span>${cp.day?'<span class="chip">'+esc(cp.day)+'</span>':''}${ADMIN?`<span onclick="delComp('${cp.id}')" style="margin-left:auto;cursor:pointer;color:#c66">🗑</span>`:''}</h3>
+  let tname=cp.type=='ind'?'Individuálna':(cp.type=='team'?'Tímová':'🍺 Ochutnávka');
+  h+=`<div class="card"><h3><span class="tag" style="background:#5A4A6A;color:#fff">${ci+1}</span> ${esc(cp.name)} <span class="chip">${tname}</span>${cp.day?'<span class="chip">'+esc(cp.day)+'</span>':''}${ADMIN?`<span onclick="delComp('${cp.id}')" style="margin-left:auto;cursor:pointer;color:#c66">🗑</span>`:''}</h3>
    <div class="r"><span class="lab">Body:</span> ${(cp.points||[]).join(' / ')}</div>${compResults(cp)}`;
   if(cp.type=='team') h+=`<div class="r" style="color:var(--mut);font-size:11px">Tímy poskladáte v tabe 👥 Tímy.</div>`;
-  if(ADMIN){ h+=`<button class="btn sm g" onclick="toggleResults('${cp.id}')">${done?'Upraviť':'Zadať'} výsledky ${openResults==cp.id?'▲':'▼'}</button>`;
+  if(cp.type=='tasting') h+=tastingBlock(cp);
+  else if(ADMIN){ h+=`<button class="btn sm g" onclick="toggleResults('${cp.id}')">${done?'Upraviť':'Zadať'} výsledky ${openResults==cp.id?'▲':'▼'}</button>`;
    if(openResults==cp.id) h+=resultsForm(cp); }
   h+='</div>'; });
  document.getElementById('complist').innerHTML=h;
@@ -221,6 +250,90 @@ async function saveResults(cid){ let cp=S.comps.find(c=>c.id==cid); if(!cp)retur
  openResults=null; await loadAll(); alert('Výsledky uložené a uzamknuté ✅'); }
 async function addExtra(){ let name=document.getElementById('e_who').value, pts=parseInt(document.getElementById('e_pts').value)||0, why=document.getElementById('e_why').value;
  await sb.from('tdc_extra').insert({name,points:pts,reason:why}); loadAll(); alert('Extra body pridané ✅'); }
+
+// ---- ochutnávka piv ----
+function saveKey(cid,arr){ localStorage.setItem('tdc_key_'+cid,JSON.stringify(arr)); }
+function loadKey(cid){ try{ return JSON.parse(localStorage.getItem('tdc_key_'+cid)||'null'); }catch(e){ return null; } }
+function tItems(cid){ return S.titems.filter(i=>i.comp_id==cid); }
+function tRevealed(cp){ let it=tItems(cp.id); return it.length>0 && it.every(i=>i.num!=null); }
+function tNames(cid){ return tItems(cid).map(i=>i.name).sort((a,b)=>a.localeCompare(b,'sk')); }
+function tTruth(cid){ let m={}; tItems(cid).forEach(i=>{ if(i.num!=null) m[i.num]=i.name; }); return m; }
+function tPickOf(cid,person,num){ let p=S.tpicks.find(x=>x.comp_id==cid&&x.person==person&&x.num==num); return p?(p.pick||''):''; }
+function tDraft(cid,num){ let d=tdrafts[cid]; if(d && d[num]!=null) return d[num]; return ME?tPickOf(cid,ME.name,num):''; }
+function setDraft(cid,num,v){ tdrafts[cid]=tdrafts[cid]||{}; tdrafts[cid][num]=v; }
+function tScores(cid){ let truth=tTruth(cid), per={};
+ S.tpicks.filter(p=>p.comp_id==cid).forEach(p=>{ per[p.person]=per[p.person]||0; if(p.pick && truth[p.num]===p.pick) per[p.person]++; });
+ return Object.entries(per).map(([person,hits])=>({person,hits})).sort((a,b)=>b.hits-a.hits||a.person.localeCompare(b.person,'sk')); }
+function toggleTast(cid){ openTast=(openTast==cid?null:cid); renderComps(); }
+
+function tastingBlock(cp){
+ let items=tItems(cp.id), n=items.length, names=tNames(cp.id), rev=tRevealed(cp), open=openTast==cp.id;
+ if(!n) return '<div class="r" style="color:var(--mut);font-size:12px">⚠️ Zoznam pív sa nenačítal (spustená migrácia v Supabase?).</div>';
+ let tipped=new Set(S.tpicks.filter(p=>p.comp_id==cp.id).map(p=>p.person)).size;
+ let h='';
+ if(!rev){
+  h+=`<div class="r" style="font-size:12px;color:var(--mut)">${n} fliaš · tipovalo ${tipped} ${tipped==1?'človek':(tipped<5?'ľudia':'ľudí')} · výsledky zatiaľ skryté</div>`;
+  if(ME){
+   let mine=S.tpicks.filter(p=>p.comp_id==cp.id&&p.person==ME.name).length;
+   h+=`<button class="btn sm g" onclick="toggleTast('${js1(cp.id)}')">🍺 ${mine?'Upraviť moje tipy ('+mine+')':'Tipovať'} ${open?'▲':'▼'}</button>`;
+   if(open){
+    h+='<div class="resform"><div class="r" style="font-size:11px;color:var(--mut)">Pri každej fľaši vyber pivo. Nevyplnené = neochutnal/netipujem. To isté pivo môžeš dať aj viackrát.</div>';
+    for(let k=1;k<=n;k++){ let cur=tDraft(cp.id,k);
+     h+=`<div class="resrow"><span>Fľaša <b>${k}</b></span><select id="tp_${cp.id}_${k}" style="flex:2;width:auto;margin-top:0;padding:7px" onchange="setDraft('${js1(cp.id)}',${k},this.value)"><option value="">—</option>`+
+        names.map(nm=>`<option value="${esc(nm)}"${nm===cur?' selected':''}>${esc(nm)}</option>`).join('')+`</select></div>`; }
+    h+=`<button class="btn sm g" onclick="saveTasting('${js1(cp.id)}')">💾 Uložiť moje tipy</button></div>`;
+   }
+  }
+  if(ADMIN){
+   let key=loadKey(cp.id);
+   h+='<hr style="border-color:rgba(228,178,76,.2);margin:12px 0"><div class="r" style="font-size:12px"><b>ADMIN</b></div>';
+   if(key) h+=`<div class="hint">🔖 Označenie fliaš (vidíš len ty na tomto telefóne):<br>${key.map((b,i)=>(i+1)+' = '+esc(b)).join('<br>')}<br><br>Odfoť/zapíš si to — kľúč nie je v databáze.</div>
+     <button class="btn sm g" onclick="revealTasting('${js1(cp.id)}')">🔓 Odhaliť a vyhodnotiť</button>`;
+   else h+=`<div class="hint">⚠️ Kľúč nie je v tomto zariadení (súťaž si zakladal inde alebo bol vymazaný). Vlož poradie fliaš — jedno pivo na riadok, riadok 1 = fľaša 1.</div>
+     <textarea id="tk_${cp.id}" rows="4" placeholder="Poradie fliaš…" style="resize:vertical"></textarea>
+     <button class="btn sm" onclick="restoreKey('${js1(cp.id)}')">Načítať kľúč</button>`;
+  }
+  return h;
+ }
+ // odhalené
+ let truth=tTruth(cp.id), sc=tScores(cp.id);
+ h+='<div class="hint">🍺 Odhalené — takto to bolo:</div>';
+ for(let k=1;k<=n;k++){ let hit=S.tpicks.filter(p=>p.comp_id==cp.id&&p.num==k&&p.pick===truth[k]).map(p=>p.person);
+  h+=`<div class="r"><b>${k}.</b> ${esc(truth[k]||'?')} <span class="pill">${hit.length?'✔ '+hit.map(esc).join(', '):'nikto netrafil'}</span></div>`; }
+ if(ME){ h+='<div class="r" style="margin-top:8px;font-size:12px;color:var(--mut)">Moje tipy:</div>';
+  for(let k=1;k<=n;k++){ let mp=tPickOf(cp.id,ME.name,k); if(!mp) continue; let ok=mp===truth[k];
+   h+=`<div class="r" style="font-size:12px">${k}. ${esc(mp)} ${ok?'<span style="color:#7CB77C">✔</span>':'<span style="color:#c66">✗ ('+esc(truth[k]||'?')+')</span>'}</div>`; } }
+ if(sc.length){ h+='<div class="r" style="margin-top:8px;font-size:12px;color:var(--mut)">Trafené fľaše:</div>'+
+   sc.map(s=>`<div class="r"><b>${esc(s.person)}</b> <span class="pill">${s.hits}/${n} ✔</span></div>`).join(''); }
+ if(ADMIN) h+=`<button class="btn sm" style="margin-top:10px" onclick="revealTasting('${js1(cp.id)}')">↻ Prepočítať body</button>`;
+ return h;
+}
+async function saveTasting(cid){ if(!ME)return; let cp=S.comps.find(c=>c.id==cid); if(!cp)return;
+ if(tRevealed(cp)){ alert('Ochutnávka je už odhalená — tipy sa nedajú meniť.'); return; }
+ let n=tItems(cid).length, rows=[];
+ for(let k=1;k<=n;k++){ let v=tDraft(cid,k); if(v) rows.push({id:uid()+'-'+k,comp_id:cid,person:ME.name,num:k,pick:v}); }
+ await sb.from('tdc_tasting_picks').delete().eq('comp_id',cid).eq('person',ME.name);
+ if(rows.length){ let {error}=await sb.from('tdc_tasting_picks').insert(rows); if(error){ alert('Uloženie zlyhalo: '+error.message); return; } }
+ delete tdrafts[cid]; openTast=null; await loadAll(); alert('Tipy uložené ✅ ('+rows.length+' fliaš)'); }
+function restoreKey(cid){ let el=document.getElementById('tk_'+cid); if(!el)return;
+ let arr=el.value.split('\n').map(s=>s.trim()).filter(Boolean);
+ let items=tItems(cid); if(arr.length!==items.length){ alert('Zadal si '+arr.length+' pív, ale súťaž má '+items.length+' fliaš.'); return; }
+ saveKey(cid,arr); renderComps(); }
+async function revealTasting(cid){ let cp=S.comps.find(c=>c.id==cid); if(!cp)return;
+ let key=loadKey(cid), items=tItems(cid);
+ if(!key){ alert('Kľúč nie je v tomto zariadení.'); return; }
+ let pool=items.slice(), upd=[];
+ key.forEach((nm,i)=>{ let idx=pool.findIndex(x=>x.name===nm); if(idx>=0){ upd.push({id:pool[idx].id,num:i+1}); pool.splice(idx,1); } });
+ if(upd.length!==items.length){ alert('Kľúč nesedí so zoznamom pív v súťaži — skontroluj názvy.'); return; }
+ if(!tRevealed(cp) && !confirm('Odhaliť „'+cp.name+'" a vyhodnotiť? Tipy sa uzamknú pre všetkých.')) return;
+ for(const u of upd) await sb.from('tdc_tasting_items').update({num:u.num}).eq('id',u.id);
+ await loadAll();
+ let sc=tScores(cid), rows=[], rank=0, prev=null, seen=0;
+ sc.forEach(s=>{ seen++; if(s.hits!==prev){ rank=seen; prev=s.hits; } rows.push({comp_id:cid,entrant:s.person,rank}); });
+ await sb.from('tdc_results').delete().eq('comp_id',cid);
+ if(rows.length) await sb.from('tdc_results').insert(rows);
+ sb.functions.invoke('bright-processor',{body:{sender:ME.name,body:'odhalil ochutnávku „'+cp.name+'" — výsledky sú vonku 🍺'}}).catch(()=>{});
+ openTast=null; await loadAll(); alert('Odhalené a vyhodnotené ✅'); }
 
 // ---- teams view ----
 function renderTeams(){ let c=S.comps.filter(x=>x.type=='team');
@@ -375,7 +488,7 @@ function computeLead(){ let tot={}; S.participants.forEach(p=>tot[p]=0);
 }
 function computeMatrix(){ let per={}; S.participants.forEach(n=>per[n]={});
  S.comps.forEach(cp=>{ S.results.filter(r=>r.comp_id==cp.id).forEach(r=>{ let pts=(cp.points||[])[r.rank-1]||0;
-   if(cp.type=='ind'){ if(per[r.entrant]) per[r.entrant][cp.id]=(per[r.entrant][cp.id]||0)+pts; }
+   if(cp.type!='team'){ if(per[r.entrant]) per[r.entrant][cp.id]=(per[r.entrant][cp.id]||0)+pts; }
    else { let t=S.teams.find(x=>x.id==r.entrant); if(t)(t.members||[]).forEach(m=>{ if(per[m]) per[m][cp.id]=(per[m][cp.id]||0)+pts; }); } }); });
  let ex={}; S.extra.forEach(e=>{ if(per[e.name]!=null) ex[e.name]=(ex[e.name]||0)+e.points; });
  let rows=S.participants.map(n=>{ let cpv=S.comps.map(cp=>per[n][cp.id]||0); let extra=ex[n]||0; return {name:n,cpv,extra,total:cpv.reduce((a,b)=>a+b,0)+extra}; });
