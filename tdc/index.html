@@ -119,7 +119,7 @@ const VAPID_PUBLIC='BO3HLckvkWtHJMq71x2OLioQCtS2nSHFx0mXGGLAEoMBHEp7FRAIec06z9ug
 let ME = JSON.parse(localStorage.getItem('tdc_me')||'null');
 let ADMIN=false, pendingPhoto=null, replyTo=null, openMsg=null, stick=true, openTeam=null, teamMode=null, openResults=null;
 let openTast=null, tdrafts={}, newCompType='ind', newComp={name:'',pts:'',beers:''};
-let S = {participants:[],comps:[],teams:[],results:[],extra:[],msgs:[],reactions:[],plist:[],titems:[],tpicks:[]};
+let S = {participants:[],comps:[],teams:[],results:[],extra:[],msgs:[],reactions:[],plist:[],titems:[],tpicks:[],values:[]};
 const esc=s=>(s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 const js1=s=>(s||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
 const escA=s=>esc(s).replace(/"/g,'&quot;');
@@ -155,7 +155,7 @@ function go(btn){ document.querySelectorAll('nav button').forEach(b=>b.classList
  document.querySelectorAll('.view').forEach(v=>v.classList.remove('on')); document.getElementById('v-'+btn.dataset.v).classList.add('on'); renderAll(); if(btn.dataset.v=='chat'){ markSeen(); stick=true; positionOnline(); chatToBottom(); } }
 
 async function loadAll(){ try{
- const [p,c,t,r,e,m,rx,ti,tp]=await Promise.all([
+ const [p,c,t,r,e,m,rx,ti,tp,vl]=await Promise.all([
   sb.from('tdc_participants').select('*').order('name'),
   sb.from('tdc_comps').select('*').order('created_at'),
   sb.from('tdc_teams').select('*'),
@@ -164,9 +164,10 @@ async function loadAll(){ try{
   sb.from('tdc_messages').select('*').order('created_at'),
   sb.from('tdc_reactions').select('*'),
   sb.from('tdc_tasting_items').select('*'),
-  sb.from('tdc_tasting_picks').select('*')]);
- S.plist=p.data||[]; S.participants=S.plist.map(x=>x.name); S.comps=c.data||[]; S.teams=t.data||[]; S.results=r.data||[]; S.extra=e.data||[]; S.msgs=m.data||[]; S.reactions=rx.data||[]; S.titems=ti.data||[]; S.tpicks=tp.data||[];
- let sig=JSON.stringify([S.participants,S.comps,S.teams,S.results,S.extra,S.msgs,S.reactions,S.titems,S.tpicks]);
+  sb.from('tdc_tasting_picks').select('*'),
+  sb.from('tdc_values').select('*')]);
+ S.plist=p.data||[]; S.participants=S.plist.map(x=>x.name); S.comps=c.data||[]; S.teams=t.data||[]; S.results=r.data||[]; S.extra=e.data||[]; S.msgs=m.data||[]; S.reactions=rx.data||[]; S.titems=ti.data||[]; S.tpicks=tp.data||[]; S.values=vl.data||[];
+ let sig=JSON.stringify([S.participants,S.comps,S.teams,S.results,S.extra,S.msgs,S.reactions,S.titems,S.tpicks,S.values]);
  if(sig!==lastSig){ lastSig=sig; renderAll(); }
  notify(); renderOnline(); }catch(err){ console.error(err); } }
 let lastSig='';
@@ -202,7 +203,8 @@ function renderComps(){
  if(ADMIN) grabComp();
  document.getElementById('admbox').innerHTML = ADMIN ? `<div class="card"><h3>➕ Nová súťaž <span class="badge2">ADMIN</span></h3>
    <input id="c_name" placeholder="Názov (napr. Šípky)" value="${escA(newComp.name)}">
-   <select id="c_type" onchange="setCompType(this.value)"><option value="ind"${newCompType=='ind'?' selected':''}>Individuálna</option><option value="team"${newCompType=='team'?' selected':''}>Tímová</option><option value="tasting"${newCompType=='tasting'?' selected':''}>🍺 Ochutnávka piv</option></select>
+   <select id="c_type" onchange="setCompType(this.value)"><option value="ind"${newCompType=='ind'?' selected':''}>Individuálna</option><option value="team"${newCompType=='team'?' selected':''}>Tímová</option><option value="tasting"${newCompType=='tasting'?' selected':''}>🍺 Ochutnávka piv</option><option value="num"${newCompType=='num'?' selected':''}>🔢 Číslo od hráča (napr. promile)</option></select>
+   ${newCompType=='num'?`<div class="hint">Každý si sám zapíše svoje číslo, appka priebežne zoradí — <b>vyhráva najvyššie</b>. Netreba nič uzatvárať, body podľa poradia idú živo do rebríčka.</div>`:''}
    ${newCompType=='tasting'?`<textarea id="c_beers" rows="4" placeholder="Zoznam pív — jedno na riadok, v poradí ako budeš označovať fľaše. Môžeš nechať prázdne a pridávať po jednom neskôr." style="resize:vertical">${esc(newComp.beers)}</textarea>
    <div class="hint">Appka ich očísluje 1…N a ukáže ti označovací zoznam. Kľúč (ktoré pivo je v ktorej fľaši) ostáva LEN v tomto telefóne až do „Odhaliť a vyhodnotiť" — v databáze nie je, takže sa nedá vyčítať. Pokojne nechaj prázdne a pridávaj pivá po jednom priamo v súťaži.</div>`:''}
    <input id="c_pts" placeholder="Body za poradie (napr. 5,3,1)" value="${escA(newComp.pts)}">
@@ -214,17 +216,23 @@ function renderComps(){
   : `<div class="card"><div class="r">🔒 Si organizátor? <a class="lab" style="cursor:pointer" onclick="unlockAdmin()">Odomkni admin</a> a pridávaj súťaže, tímy a výsledky.</div></div>`;
  let h=''; if(!S.comps.length) h='<div class="soon">Zatiaľ žiadne súťaže. '+(ADMIN?'Pridaj prvú hore.':'')+'</div>';
  S.comps.forEach((cp,ci)=>{ let done=S.results.some(r=>r.comp_id==cp.id);
-  let tname=cp.type=='ind'?'Individuálna':(cp.type=='team'?'Tímová':'🍺 Ochutnávka');
+  let tname={ind:'Individuálna',team:'Tímová',tasting:'🍺 Ochutnávka',num:'🔢 Číslo od hráča'}[cp.type]||cp.type;
   h+=`<div class="card"><h3><span class="tag" style="background:#5A4A6A;color:#fff">${ci+1}</span> ${esc(cp.name)} <span class="chip">${tname}</span>${cp.day?'<span class="chip">'+esc(cp.day)+'</span>':''}${ADMIN?`<span onclick="delComp('${cp.id}')" style="margin-left:auto;cursor:pointer;color:#c66">🗑</span>`:''}</h3>
    <div class="r"><span class="lab">Body:</span> ${(cp.points||[]).join(' / ')}</div>${compResults(cp)}`;
   if(cp.type=='team') h+=`<div class="r" style="color:var(--mut);font-size:11px">Tímy poskladáte v tabe 👥 Tímy.</div>`;
   if(cp.type=='tasting') h+=tastingBlock(cp);
+  else if(cp.type=='num') h+=numBlock(cp);
   else if(ADMIN){ h+=`<button class="btn sm g" onclick="toggleResults('${cp.id}')">${done?'Upraviť':'Zadať'} výsledky ${openResults==cp.id?'▲':'▼'}</button>`;
    if(openResults==cp.id) h+=resultsForm(cp); }
   h+='</div>'; });
  document.getElementById('complist').innerHTML=h;
 }
-function compResults(cp){ let rs=S.results.filter(r=>r.comp_id==cp.id).sort((a,b)=>a.rank-b.rank);
+function compResults(cp){
+ if(cp.type=='num'){ let st=numStandings(cp.id);
+  if(!st.length) return '<div class="r" style="color:var(--mut)">Zatiaľ nikto nezadal číslo.</div>';
+  return st.map(s=>{ let pts=(cp.points||[])[s.rank-1]||0;
+   return `<div class="r ${ME&&s.person==ME.name?'me':''}"><b>${s.rank}.</b> ${esc(s.person)} <span class="pill">${esc(fmtVal(s.val))}</span>${pts?`<span class="pill">+${pts} b</span>`:''}</div>`; }).join(''); }
+ let rs=S.results.filter(r=>r.comp_id==cp.id).sort((a,b)=>a.rank-b.rank);
  if(!rs.length) return '<div class="r" style="color:var(--mut)">Zatiaľ bez výsledkov.</div>';
  return rs.map(r=>{ let who=cp.type=='team'?(S.teams.find(t=>t.id==r.entrant)||{}).name:r.entrant; let pts=(cp.points||[])[r.rank-1]||0;
   return `<div class="r"><b>${r.rank}.</b> ${esc(who||'?')} <span class="pill">+${pts} b</span></div>`; }).join('');
@@ -247,6 +255,54 @@ async function saveResults(cid){ let cp=S.comps.find(c=>c.id==cid); if(!cp)retur
  openResults=null; await loadAll(); alert('Výsledky uložené a uzamknuté ✅'); }
 async function addExtra(){ let name=document.getElementById('e_who').value, pts=parseInt(document.getElementById('e_pts').value)||0, why=document.getElementById('e_why').value;
  await sb.from('tdc_extra').insert({name,points:pts,reason:why}); loadAll(); alert('Extra body pridané ✅'); }
+
+// ---- číselné súťaže (promile) ----
+function numStandings(cid){ let vs=S.values.filter(v=>v.comp_id==cid).map(v=>({person:v.person,val:Number(v.val)}));
+ vs.sort((a,b)=>b.val-a.val||a.person.localeCompare(b.person,'sk'));
+ let rank=0, prev=null, seen=0;
+ vs.forEach(v=>{ seen++; if(v.val!==prev){ rank=seen; prev=v.val; } v.rank=rank; });
+ return vs; }
+function myVal(cid){ let v=ME&&S.values.find(x=>x.comp_id==cid&&x.person==ME.name); return v?String(v.val):''; }
+const fmtVal=v=>String(v).replace('.',',');
+function isClosed(cp){ return !!cp.deadline && Date.now()>=new Date(cp.deadline).getTime(); }
+function fmtDeadline(d){ return new Date(d).toLocaleString('sk-SK',{weekday:'short',day:'numeric',month:'numeric',hour:'2-digit',minute:'2-digit'}); }
+// hodnota pre <input type=datetime-local> musí byť v miestnom čase, nie UTC
+function toLocalInput(d){ let x=new Date(d); return new Date(x.getTime()-x.getTimezoneOffset()*60000).toISOString().slice(0,16); }
+async function saveDeadline(cid){ let el=document.getElementById('dl_'+cid); if(!el)return;
+ let v=el.value?new Date(el.value).toISOString():null;
+ let {error}=await sb.from('tdc_comps').update({deadline:v}).eq('id',cid);
+ if(error){ alert('Uloženie uzávierky zlyhalo: '+error.message); return; }
+ await loadAll(); alert(v?('Uzávierka nastavená na '+fmtDeadline(v)+' ✅'):'Uzávierka zrušená ✅'); }
+async function saveVal(cid){ if(!ME)return; let el=document.getElementById('nv_'+cid); if(!el)return;
+ let raw=el.value.trim().replace(',','.');
+ if(!raw){ alert('Zadaj číslo.'); return; }
+ let v=parseFloat(raw);
+ if(isNaN(v)||v<0||v>20){ alert('Zadaj platné číslo (0–20).'); return; }
+ let {error}=await sb.from('tdc_values').upsert({id:uid(),comp_id:cid,person:ME.name,val:v},{onConflict:'comp_id,person'});
+ if(error){ alert(rlsMsg(error)); await loadAll(); return; }
+ await loadAll(); }
+// zápis po uzávierke odmietne RLS politika v databáze — prelož to do ľudskej reči
+const rlsMsg=e=>/row-level security|violates/i.test(e.message||'') ? 'Uzávierka už prešla — zapisovať sa nedá.' : ('Uloženie zlyhalo: '+e.message);
+async function delVal(cid){ if(!ME)return; if(!confirm('Zmazať svoje číslo?'))return;
+ let {error}=await sb.from('tdc_values').delete().eq('comp_id',cid).eq('person',ME.name);
+ if(error) alert(rlsMsg(error));
+ await loadAll(); }
+function numBlock(cp){
+ let mine=myVal(cp.id), n=S.values.filter(v=>v.comp_id==cp.id).length, closed=isClosed(cp);
+ let h=`<div class="r" style="font-size:12px;color:var(--mut)">Každý si zapíše svoje číslo · vyhráva najvyššie · zadalo ${n} ${n==1?'človek':(n<5?'ľudia':'ľudí')}</div>`;
+ if(cp.deadline) h+=`<div class="r" style="font-size:12px;color:${closed?'#c66':'#E4B24C'}">${closed?'🔒 Uzavreté':'⏳ Zadávanie do'} ${esc(fmtDeadline(cp.deadline))}</div>`;
+ if(ME && !closed){
+  h+=`<div class="admrow"><input id="nv_${cp.id}" inputmode="decimal" placeholder="Tvoje číslo (napr. 1,25)" value="${escA(fmtVal(mine))}" onkeydown="if(event.key==='Enter'){event.preventDefault();saveVal('${js1(cp.id)}');}"><button class="btn sm g" style="flex:0 0 96px" onclick="saveVal('${js1(cp.id)}')">${mine?'Uložiť':'Zapísať'}</button></div>`;
+  if(mine) h+=`<div class="r" style="font-size:11px;color:var(--mut)">Svoje číslo môžeš meniť do uzávierky · <a class="lab" style="cursor:pointer" onclick="delVal('${js1(cp.id)}')">zmazať</a></div>`;
+ }
+ if(ME && closed && !mine) h+=`<div class="r" style="font-size:12px;color:var(--mut)">Uzávierka prešla — svoje číslo si už nezapíšeš.</div>`;
+ if(ADMIN){
+  h+=`<hr style="border-color:rgba(228,178,76,.2);margin:12px 0"><div class="r" style="font-size:12px"><b>ADMIN</b> — uzávierka zadávania</div>
+   <div class="admrow"><input id="dl_${cp.id}" type="datetime-local" value="${cp.deadline?toLocalInput(cp.deadline):''}"><button class="btn sm g" style="flex:0 0 96px" onclick="saveDeadline('${js1(cp.id)}')">Uložiť</button></div>
+   <div class="r" style="font-size:11px;color:var(--mut)">Prázdne = bez uzávierky. Po termíne zápis odmietne aj samotná databáza — vrátane teba, takže na opravu treba termín najprv posunúť.</div>`;
+ }
+ return h;
+}
 
 // ---- ochutnávka piv ----
 // všetky pivá dostanú rovnaké created_at, nech ani čas vzniku neprezradí poradie fliaš
@@ -510,7 +566,10 @@ function computeLead(){ let tot={}; S.participants.forEach(p=>tot[p]=0);
  return Object.entries(tot).sort((a,b)=>b[1]-a[1]);
 }
 function computeMatrix(){ let per={}; S.participants.forEach(n=>per[n]={});
- S.comps.forEach(cp=>{ S.results.filter(r=>r.comp_id==cp.id).forEach(r=>{ let pts=(cp.points||[])[r.rank-1]||0;
+ S.comps.forEach(cp=>{
+  if(cp.type=='num'){ numStandings(cp.id).forEach(s=>{ let pts=(cp.points||[])[s.rank-1]||0;
+    if(per[s.person]) per[s.person][cp.id]=(per[s.person][cp.id]||0)+pts; }); return; }
+  S.results.filter(r=>r.comp_id==cp.id).forEach(r=>{ let pts=(cp.points||[])[r.rank-1]||0;
    if(cp.type!='team'){ if(per[r.entrant]) per[r.entrant][cp.id]=(per[r.entrant][cp.id]||0)+pts; }
    else { let t=S.teams.find(x=>x.id==r.entrant); if(t)(t.members||[]).forEach(m=>{ if(per[m]) per[m][cp.id]=(per[m][cp.id]||0)+pts; }); } }); });
  let ex={}; S.extra.forEach(e=>{ if(per[e.name]!=null) ex[e.name]=(ex[e.name]||0)+e.points; });
