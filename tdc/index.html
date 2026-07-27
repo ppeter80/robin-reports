@@ -124,6 +124,8 @@ const esc=s=>(s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]
 const js1=s=>(s||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
 const escA=s=>esc(s).replace(/"/g,'&quot;');
 function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
+// bez časovej pečiatky — id pív nesmie prezradiť poradie, v akom ich admin pridával
+function rid(){ return Math.random().toString(36).slice(2,10)+Math.random().toString(36).slice(2,10); }
 
 async function doJoin(){ let n=document.getElementById('g-name').value.trim(), p=document.getElementById('g-pin').value.trim();
  if(!n){alert('Zadaj meno');return;} if(p!==JOIN_PIN){alert('Nesprávny PIN');return;}
@@ -184,17 +186,12 @@ async function addComp(){ let name=document.getElementById('c_name').value.trim(
  let cid=uid(), beers=null;
  if(type=='tasting'){
   beers=document.getElementById('c_beers').value.split('\n').map(s=>s.trim()).filter(Boolean);
-  if(beers.length<2){alert('Vlož aspoň 2 pivá — jedno na riadok.');return;}
   let dup=[...new Set(beers.filter((x,i)=>beers.indexOf(x)!=i))];
   if(dup.length && !confirm('Zoznam obsahuje rovnaký názov viackrát ('+dup.join(', ')+'). Vyhodnotenie bude nejednoznačné. Pokračovať?')) return;
-  if(!confirm('Fľaše označíš takto:\n\n'+beers.map((b,i)=>(i+1)+' = '+b).join('\n')+'\n\nKľúč sa uloží LEN do tohto telefónu až do odhalenia. Pokračovať?')) return;
+  if(beers.length && !confirm('Fľaše označíš takto:\n\n'+beers.map((b,i)=>(i+1)+' = '+b).join('\n')+'\n\nKľúč sa uloží LEN do tohto telefónu až do odhalenia. Pokračovať?')) return;
  }
  await sb.from('tdc_comps').insert({id:cid,name,type,points:pts});
- if(type=='tasting'){
-  saveKey(cid,beers);
-  let shuf=beers.slice(); for(let i=shuf.length-1;i>0;i--){ let j=Math.floor(Math.random()*(i+1)); [shuf[i],shuf[j]]=[shuf[j],shuf[i]]; }
-  await sb.from('tdc_tasting_items').insert(shuf.map((b,i)=>({id:uid()+'-'+i,comp_id:cid,name:b,num:null})));
- }
+ if(type=='tasting' && beers.length) await putBeers(cid,beers);
  sb.functions.invoke('bright-processor',{body:{sender:ME.name,body:'pridal súťaž „'+name+'" '+(type=='tasting'?'🍺':'🎯')}}).catch(()=>{});
  clearComp(); loadAll(); }
 async function delComp(id){ if(!confirm('Zmazať súťaž?'))return;
@@ -206,8 +203,8 @@ function renderComps(){
  document.getElementById('admbox').innerHTML = ADMIN ? `<div class="card"><h3>➕ Nová súťaž <span class="badge2">ADMIN</span></h3>
    <input id="c_name" placeholder="Názov (napr. Šípky)" value="${escA(newComp.name)}">
    <select id="c_type" onchange="setCompType(this.value)"><option value="ind"${newCompType=='ind'?' selected':''}>Individuálna</option><option value="team"${newCompType=='team'?' selected':''}>Tímová</option><option value="tasting"${newCompType=='tasting'?' selected':''}>🍺 Ochutnávka piv</option></select>
-   ${newCompType=='tasting'?`<textarea id="c_beers" rows="5" placeholder="Zoznam pív — jedno na riadok, v poradí ako budeš označovať fľaše" style="resize:vertical">${esc(newComp.beers)}</textarea>
-   <div class="hint">Appka ich očísluje 1…N a ukáže ti označovací zoznam. Kľúč (ktoré pivo je v ktorej fľaši) ostáva LEN v tomto telefóne až do „Odhaliť a vyhodnotiť" — v databáze nie je, takže sa nedá vyčítať.</div>`:''}
+   ${newCompType=='tasting'?`<textarea id="c_beers" rows="4" placeholder="Zoznam pív — jedno na riadok, v poradí ako budeš označovať fľaše. Môžeš nechať prázdne a pridávať po jednom neskôr." style="resize:vertical">${esc(newComp.beers)}</textarea>
+   <div class="hint">Appka ich očísluje 1…N a ukáže ti označovací zoznam. Kľúč (ktoré pivo je v ktorej fľaši) ostáva LEN v tomto telefóne až do „Odhaliť a vyhodnotiť" — v databáze nie je, takže sa nedá vyčítať. Pokojne nechaj prázdne a pridávaj pivá po jednom priamo v súťaži.</div>`:''}
    <input id="c_pts" placeholder="Body za poradie (napr. 5,3,1)" value="${escA(newComp.pts)}">
    <button class="btn g" onclick="addComp()">Pridať súťaž</button>
    <hr style="border-color:rgba(228,178,76,.2);margin:12px 0"><h3>⭐ Extra body</h3>
@@ -252,6 +249,27 @@ async function addExtra(){ let name=document.getElementById('e_who').value, pts=
  await sb.from('tdc_extra').insert({name,points:pts,reason:why}); loadAll(); alert('Extra body pridané ✅'); }
 
 // ---- ochutnávka piv ----
+// všetky pivá dostanú rovnaké created_at, nech ani čas vzniku neprezradí poradie fliaš
+const TSTAMP='2000-01-01T00:00:00+00:00';
+async function putBeers(cid,beers){
+ let key=(loadKey(cid)||[]).concat(beers); saveKey(cid,key);
+ let shuf=beers.slice(); for(let i=shuf.length-1;i>0;i--){ let j=Math.floor(Math.random()*(i+1)); [shuf[i],shuf[j]]=[shuf[j],shuf[i]]; }
+ let {error}=await sb.from('tdc_tasting_items').insert(shuf.map(b=>({id:rid(),comp_id:cid,name:b,num:null,created_at:TSTAMP})));
+ if(error) alert('Uloženie pív zlyhalo: '+error.message);
+ return !error; }
+async function addBeer(cid){ let el=document.getElementById('nb_'+cid); if(!el)return; let v=el.value.trim(); if(!v)return;
+ let cp=S.comps.find(c=>c.id==cid); if(cp && tRevealed(cp)){ alert('Ochutnávka je už odhalená.'); return; }
+ let items=tItems(cid), key=loadKey(cid)||[];
+ if(key.length!==items.length){ alert('Kľúč v tomto zariadení nesedí so zoznamom pív — najprv ho naprav nižšie.'); return; }
+ if(items.some(i=>i.name===v) && !confirm('„'+v+'" už v zozname je. Pridať znova?')) return;
+ el.value=''; if(await putBeers(cid,[v])) await loadAll(); }
+async function delBeer(cid,idx){ let key=loadKey(cid)||[], items=tItems(cid), nm=key[idx];
+ if(nm==null)return;
+ if(S.tpicks.some(p=>p.comp_id==cid)){ alert('Už niekto tipoval — mazaním piva by sa rozhodili čísla fliaš.'); return; }
+ if(!confirm('Zmazať „'+nm+'" (fľaša '+(idx+1)+')? Ďalšie fľaše sa prečíslujú.')) return;
+ let it=items.find(x=>x.name===nm); if(!it){ alert('Pivo sa v databáze nenašlo.'); return; }
+ await sb.from('tdc_tasting_items').delete().eq('id',it.id);
+ key.splice(idx,1); saveKey(cid,key); await loadAll(); }
 function saveKey(cid,arr){ localStorage.setItem('tdc_key_'+cid,JSON.stringify(arr)); }
 function loadKey(cid){ try{ return JSON.parse(localStorage.getItem('tdc_key_'+cid)||'null'); }catch(e){ return null; } }
 function tItems(cid){ return S.titems.filter(i=>i.comp_id==cid); }
@@ -268,12 +286,12 @@ function toggleTast(cid){ openTast=(openTast==cid?null:cid); renderComps(); }
 
 function tastingBlock(cp){
  let items=tItems(cp.id), n=items.length, names=tNames(cp.id), rev=tRevealed(cp), open=openTast==cp.id;
- if(!n) return '<div class="r" style="color:var(--mut);font-size:12px">⚠️ Zoznam pív sa nenačítal (spustená migrácia v Supabase?).</div>';
  let tipped=new Set(S.tpicks.filter(p=>p.comp_id==cp.id).map(p=>p.person)).size;
  let h='';
  if(!rev){
-  h+=`<div class="r" style="font-size:12px;color:var(--mut)">${n} fliaš · tipovalo ${tipped} ${tipped==1?'človek':(tipped<5?'ľudia':'ľudí')} · výsledky zatiaľ skryté</div>`;
-  if(ME){
+  h+= n ? `<div class="r" style="font-size:12px;color:var(--mut)">${n} fliaš · tipovalo ${tipped} ${tipped==1?'človek':(tipped<5?'ľudia':'ľudí')} · výsledky zatiaľ skryté</div>`
+        : `<div class="r" style="font-size:12px;color:var(--mut)">Organizátor ešte nepridal pivá.</div>`;
+  if(ME && n){
    let mine=S.tpicks.filter(p=>p.comp_id==cp.id&&p.person==ME.name).length;
    h+=`<button class="btn sm g" onclick="toggleTast('${js1(cp.id)}')">🍺 ${mine?'Upraviť moje tipy ('+mine+')':'Tipovať'} ${open?'▲':'▼'}</button>`;
    if(open){
@@ -285,13 +303,16 @@ function tastingBlock(cp){
    }
   }
   if(ADMIN){
-   let key=loadKey(cp.id);
+   let key=loadKey(cp.id)||[], ok=key.length===n, anyTips=S.tpicks.some(p=>p.comp_id==cp.id);
    h+='<hr style="border-color:rgba(228,178,76,.2);margin:12px 0"><div class="r" style="font-size:12px"><b>ADMIN</b></div>';
-   if(key) h+=`<div class="hint">🔖 Označenie fliaš (vidíš len ty na tomto telefóne):<br>${key.map((b,i)=>(i+1)+' = '+esc(b)).join('<br>')}<br><br>Odfoť/zapíš si to — kľúč nie je v databáze.</div>
-     <button class="btn sm g" onclick="revealTasting('${js1(cp.id)}')">🔓 Odhaliť a vyhodnotiť</button>`;
-   else h+=`<div class="hint">⚠️ Kľúč nie je v tomto zariadení (súťaž si zakladal inde alebo bol vymazaný). Vlož poradie fliaš — jedno pivo na riadok, riadok 1 = fľaša 1.</div>
-     <textarea id="tk_${cp.id}" rows="4" placeholder="Poradie fliaš…" style="resize:vertical"></textarea>
+   if(n && !ok) h+=`<div class="hint">⚠️ Kľúč v tomto zariadení nesedí (${key.length} vs ${n} pív) — súťaž si zakladal inde alebo bol vymazaný. Vlož poradie fliaš, jedno pivo na riadok, riadok 1 = fľaša 1:</div>
+     <textarea id="tk_${cp.id}" rows="4" placeholder="Poradie fliaš…" style="resize:vertical">${esc(names.join('\n'))}</textarea>
      <button class="btn sm" onclick="restoreKey('${js1(cp.id)}')">Načítať kľúč</button>`;
+   if(ok && n) h+=`<div class="hint">🔖 Označenie fliaš (vidíš len ty na tomto telefóne):<br>${key.map((b,i)=>(i+1)+' = '+esc(b)).join('<br>')}<br><br>Odfoť/zapíš si to — kľúč nie je v databáze.</div>`;
+   if(ok) h+=`<div class="admrow"><input id="nb_${cp.id}" placeholder="Ďalšie pivo = fľaša ${n+1}" onkeydown="if(event.key==='Enter'){event.preventDefault();addBeer('${js1(cp.id)}');}"><button class="btn sm g" style="flex:0 0 96px" onclick="addBeer('${js1(cp.id)}')">➕ Pridať</button></div>`;
+   if(ok && n && !anyTips) h+=`<div class="r" style="font-size:11px;color:var(--mut);margin-top:6px">Zmazať pivo (ide len kým nikto netipoval):</div>
+     <div class="chipbox">${key.map((b,i)=>`<span class="pill rem" onclick="delBeer('${js1(cp.id)}',${i})">${i+1} ${esc(b)} ✕</span>`).join('')}</div>`;
+   if(ok && n>=2) h+=`<button class="btn sm g" style="margin-top:10px" onclick="revealTasting('${js1(cp.id)}')">🔓 Odhaliť a vyhodnotiť</button>`;
   }
   return h;
  }
@@ -322,6 +343,7 @@ function restoreKey(cid){ let el=document.getElementById('tk_'+cid); if(!el)retu
 async function revealTasting(cid){ let cp=S.comps.find(c=>c.id==cid); if(!cp)return;
  let key=loadKey(cid), items=tItems(cid);
  if(!key){ alert('Kľúč nie je v tomto zariadení.'); return; }
+ if(items.length<2){ alert('Pridaj aspoň 2 pivá.'); return; }
  let pool=items.slice(), upd=[];
  key.forEach((nm,i)=>{ let idx=pool.findIndex(x=>x.name===nm); if(idx>=0){ upd.push({id:pool[idx].id,num:i+1}); pool.splice(idx,1); } });
  if(upd.length!==items.length){ alert('Kľúč nesedí so zoznamom pív v súťaži — skontroluj názvy.'); return; }
