@@ -550,7 +550,7 @@ function startReply(id){ replyTo=id; openMsg=null; let m=S.msgs.find(x=>x.id==id
 function cancelReply(){ replyTo=null; let bar=document.getElementById('replybar'); bar.style.display='none'; bar.innerHTML=''; }
 async function delMsg(id){ if(!confirm('Zmazať túto správu?'))return; let m=S.msgs.find(x=>x.id==id);
  if(m&&m.photo_url){ let path=m.photo_url.split('/tdc-photos/')[1]; if(path){ try{ await sb.storage.from('tdc-photos').remove([path]); }catch(e){} } }
- await sb.from('tdc_reactions').delete().eq('message_id',id); await sb.from('tdc_messages').delete().eq('id',id); openMsg=null; loadAll(); }
+ await sb.from('tdc_reactions').delete().eq('message_id',id); await sb.from('tdc_messages').delete().eq('id',id); openMsg=null; await loadAll(); }
 function sendLocation(){ if(!ME)return; if(!navigator.geolocation){ alert('Tento prehliadač nepodporuje zdieľanie polohy.'); return; }
  if(!confirm('Zdieľať tvoju aktuálnu polohu v chate?')) return;
  navigator.geolocation.getCurrentPosition(async pos=>{
@@ -624,13 +624,14 @@ function renderLightbox(){ let lb=document.getElementById('lightbox'); if(!lb)re
    `<img src="${ph.photo_url}">`+
    `<div class="lbbar"><span class="lbnav" onclick="lbGo(-1)">${lbIdx>0?'‹':''}</span>`+
    `<button class="btn sm g" style="width:auto;flex:0 0 auto" onclick="dlPhoto('${js1(ph.photo_url)}')">⬇ Stiahnuť</button>`+
-   (ME&&ph.name===ME.name?`<button class="btn sm" style="width:auto;flex:0 0 auto" onclick="delPhoto()">🗑 Zmazať</button>`:'')+
+   (ME&&(ph.name===ME.name||ADMIN)?`<button class="btn sm" style="width:auto;flex:0 0 auto" onclick="delPhoto()">🗑 Zmazať${ph.name!==ME.name?' (admin)':''}</button>`:'')+
    `<span class="lbnav" onclick="lbGo(1)">${lbIdx<galPhotos.length-1?'›':''}</span></div>`;
 }
 // fotka je príloha správy: ak správa mala aj text, zmaž len fotku a text nechaj
-async function delPhoto(){ let ph=galPhotos[lbIdx]; if(!ph||!ME||ph.name!==ME.name)return;
+async function delPhoto(){ let ph=galPhotos[lbIdx]; if(!ph||!ME)return;
+ let own=ph.name===ME.name; if(!own&&!ADMIN)return;
  let hasText=!!(ph.body&&ph.body.trim());
- if(!confirm(hasText?'Zmazať fotku? Text správy v chate ostane.':'Zmazať fotku? Zmizne aj z chatu.'))return;
+ if(!confirm((own?'Zmazať fotku?':'ADMIN: zmazať fotku od '+ph.name+'?')+' '+(hasText?'Text správy v chate ostane.':'Zmizne aj z chatu.')))return;
  let path=ph.photo_url.split('/tdc-photos/')[1];
  if(path){ try{ await sb.storage.from('tdc-photos').remove([path]); }catch(e){} }
  if(hasText) await sb.from('tdc_messages').update({photo_url:null}).eq('id',ph.id);
