@@ -17,10 +17,14 @@ body{font-family:'Segoe UI',system-ui,Arial,sans-serif;background:
  radial-gradient(700px 380px at 84% -10%,rgba(150,32,58,.35),transparent 60%),
  radial-gradient(560px 360px at -10% 106%,rgba(120,22,44,.32),transparent 58%),var(--bg);
  color:var(--txt);min-height:100vh;padding-bottom:78px;}
-header{padding:14px 16px 10px;text-align:center;position:sticky;top:0;z-index:5;background:linear-gradient(180deg,rgba(22,10,16,.97) 72%,transparent);}
+header{padding:8px 12px 10px;text-align:center;position:sticky;top:0;z-index:5;background:linear-gradient(180deg,rgba(22,10,16,.97) 72%,transparent);}
 header .k{letter-spacing:3px;font-size:9px;color:var(--gold);text-transform:uppercase;}
 header h1{font-family:Georgia,serif;font-size:22px;color:#F6E9EE;text-shadow:0 2px 14px rgba(176,40,70,.5);}
-header .who{font-size:11px;color:var(--mut);margin-top:2px;} header .who a{color:var(--pink);cursor:pointer;text-decoration:underline;}
+header h1 .ttl{cursor:pointer;} header h1 .rfr{color:#3ddc84;font-size:19px;margin-left:9px;cursor:pointer;vertical-align:middle;display:inline-block;}
+header .acct{position:relative;text-align:right;min-height:26px;z-index:6;}
+.acctbtn{display:inline-block;background:rgba(228,178,76,.14);border:1px solid rgba(228,178,76,.45);color:#F0D592;border-radius:14px;padding:5px 11px;font-size:12px;font-weight:700;cursor:pointer;max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.acctmenu{position:absolute;top:34px;right:0;background:var(--card);border:1px solid rgba(228,178,76,.35);border-radius:10px;padding:4px;min-width:130px;box-shadow:0 8px 24px rgba(0,0,0,.5);}
+.acctmenu div{padding:9px 12px;font-size:13px;cursor:pointer;border-radius:7px;white-space:nowrap;} .acctmenu div:hover{background:rgba(228,178,76,.12);}
 .view{padding:6px 14px;display:none;} .view.on{display:block;}
 .card{background:var(--card);border:1px solid rgba(228,178,76,.18);border-radius:14px;padding:14px;margin:11px 0;box-shadow:0 6px 18px rgba(0,0,0,.35);}
 .card h3{font-family:Georgia,serif;font-size:17px;display:flex;align-items:center;gap:9px;flex-wrap:wrap;}
@@ -82,10 +86,12 @@ nav button{flex:1;background:none;border:none;color:var(--mut);padding:8px 2px 7
  <input id="g-name" placeholder="Tvoje meno (pod ktorým ťa uvidia)">
  <input id="g-pin" placeholder="Spoločný PIN" inputmode="numeric">
  <button class="btn g" onclick="doJoin()">Vstúpiť</button>
- <div class="hint">PIN dostaneš od organizátora. Organizátor má navyše admin prístup v tabe Súťaže.</div>
+ <div id="gatecancel" style="display:none;text-align:center;margin-top:10px"><a class="lab" style="cursor:pointer;text-decoration:underline" onclick="closeGate()">Späť</a></div>
+ <div class="hint">PIN dostaneš od organizátora.</div>
 </div>
 
-<header><div class="k">Powered by wine</div><h1>TOUR DE CROATIA</h1><div class="who" id="whoami"></div></header>
+<header><div class="acct" id="whoami"></div><div class="k">Powered by wine</div>
+ <h1><span class="ttl" onclick="adminTap()">TOUR DE CROATIA</span><span class="rfr" onclick="hardRefresh()" title="Obnoviť">↻</span></h1></header>
 
 <div id="v-program" class="view on">
  <div class="card"><h3><span class="tag" style="background:#7A6A55;color:#fff">DEŇ 0</span> Streda · Príchod</h3><div class="r"><span class="lab">Cestou:</span> Slepá ochutnávka piva (5/3/1) … · <span class="lab">Večer:</span> príchod, voľná večera.</div><div id="pb_stage_d0"></div></div>
@@ -141,14 +147,33 @@ async function doJoin(){ let n=document.getElementById('g-name').value.trim(), p
  if(!n){alert('Zadaj meno');return;} if(p!==JOIN_PIN){alert('Nesprávny PIN');return;}
  await sb.from('tdc_participants').upsert({name:n},{onConflict:'name'});
  ME={name:n}; localStorage.setItem('tdc_me',JSON.stringify(ME)); boot(); }
-function logout(){ localStorage.removeItem('tdc_me'); location.reload(); }
+function logout(){ localStorage.removeItem('tdc_me'); ME=null; ADMIN=false; acctOpen=false;
+ renderAcct(); renderAll(); }
+function openGate(){ document.getElementById('gate').style.display='flex';
+ document.getElementById('gatecancel').style.display=ME?'block':(S.comps.length||S.msgs.length?'block':'none'); }
+function closeGate(){ document.getElementById('gate').style.display='none'; }
+// prihlásenie je nutné na čokoľvek, čo sa zapisuje — pozeranie ide aj bez neho
+function needLogin(){ if(ME) return false; openGate(); return true; }
+let acctOpen=false;
+function toggleAcct(){ acctOpen=!acctOpen; renderAcct(); }
+function renderAcct(){ let el=document.getElementById('whoami'); if(!el)return;
+ if(!ME){ el.innerHTML=`<div class="acctbtn" onclick="openGate()">Sign in</div>`; return; }
+ // stopPropagation je nutné: renderAcct prepíše tlačidlo, takže poslucháč
+ // „klik mimo" by dostal už odpojený prvok a menu by sa hneď zavrelo
+ el.innerHTML=`<div class="acctbtn" onclick="event.stopPropagation();toggleAcct()">${esc(ME.name)} ▾</div>`+
+  (acctOpen?`<div class="acctmenu"><div onclick="logout()">Odhlásiť sa</div></div>`:''); }
+document.addEventListener('click',e=>{ if(acctOpen && !e.target.closest('.acct')){ acctOpen=false; renderAcct(); } });
+// admin je skrytý — odomkne sa ťuknutím na názov appky
+function adminTap(){ if(ADMIN){ if(confirm('Vypnúť admin režim?')){ ADMIN=false; renderAll(); } return; }
+ let p=prompt('Admin heslo:'); if(p==null)return;
+ if(p===ADMIN_PIN){ if(needLogin())return; ADMIN=true; renderAll(); alert('Admin odomknutý ✅'); }
+ else alert('Nesprávne heslo'); }
 function hardRefresh(){ location.href=location.pathname+'?v='+Date.now(); }
 function nearBottom(){ return (window.innerHeight+window.scrollY) >= document.body.scrollHeight-90; }
 function chatToBottom(){ requestAnimationFrame(()=>window.scrollTo(0,document.body.scrollHeight)); }
 function imgLoaded(){ if(chatOpen()&&stick) chatToBottom(); }
 window.addEventListener('scroll',()=>{ if(chatOpen()) stick=nearBottom(); },{passive:true});
-function boot(){ document.getElementById('gate').style.display='none';
- document.getElementById('whoami').innerHTML='Prihlásený: <b>'+esc(ME.name)+'</b> · <a onclick="hardRefresh()">↻ obnoviť</a> · <a onclick="logout()">odhlásiť</a>';
+function boot(){ closeGate(); renderAcct();
  loadAll(); setInterval(loadAll, 4000); heartbeat(); setInterval(heartbeat, 15000);
  positionOnline(); window.addEventListener('resize',positionOnline); initSwipe();
  if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(()=>{}); if(window.Notification && Notification.permission==='granted') enablePush(true); }
@@ -196,10 +221,9 @@ async function loadAll(){ try{
  notify(); renderOnline(); }catch(err){ console.error(err); } }
 let lastSig='';
 function renderAll(){ let f=document.activeElement, typing=f&&/INPUT|SELECT|TEXTAREA/.test(f.tagName);
- if(!typing){ renderComps(); renderTeams(); renderGallery(); } renderChat(); renderLead(); renderProgram(); }
+ if(!typing){ renderComps(); renderTeams(); renderGallery(); } renderChat(); renderLead(); renderProgram(); renderAcct(); }
 
 // ---- admin & comps ----
-function unlockAdmin(){ let p=prompt('Admin PIN:'); if(p===ADMIN_PIN){ADMIN=true; renderComps(); alert('Admin odomknutý ✅');} else if(p!=null) alert('Zlý PIN'); }
 function grabComp(){ let a=document.getElementById('c_name'), b=document.getElementById('c_pts'), c=document.getElementById('c_beers');
  if(a) newComp.name=a.value; if(b) newComp.pts=b.value; if(c) newComp.beers=c.value; }
 function clearComp(){ newComp={name:'',pts:'',beers:''};
@@ -244,7 +268,7 @@ function renderComps(){
    <select id="e_who">`+S.participants.map(p=>`<option>${esc(p)}</option>`).join('')+`</select>
    <div class="admrow"><input id="e_pts" placeholder="Body" inputmode="numeric"><input id="e_why" placeholder="Za čo (napr. najviac pív)"></div>
    <button class="btn sm" onclick="addExtra()">Udeliť extra body</button></div>`
-  : `<div class="card"><div class="r">🔒 Si organizátor? <a class="lab" style="cursor:pointer" onclick="unlockAdmin()">Odomkni admin</a> a pridávaj súťaže, tímy a výsledky.</div></div>`;
+  : '';
  let h=''; if(!S.comps.length) h='<div class="soon">Zatiaľ žiadne súťaže. '+(ADMIN?'Pridaj prvú hore.':'')+'</div>';
  S.comps.forEach((cp,ci)=>{ let done=S.results.some(r=>r.comp_id==cp.id);
   let tname={ind:'Individuálna',team:'Tímová',tasting:'🍺 Ochutnávka',num:'🔢 Číslo od hráča'}[cp.type]||cp.type;
@@ -300,7 +324,7 @@ async function uploadTo(blob){ let path=Date.now()+'_'+Math.random().toString(36
  if(up.error) throw up.error;
  return sb.storage.from('tdc-photos').getPublicUrl(path).data.publicUrl; }
 async function compPhoto(ev,cid){ let files=[...(ev.target.files||[])]; ev.target.value='';
- if(!files.length||!ME)return;
+ if(!files.length||needLogin())return;
  let note=document.getElementById('cf_note_'+cid);
  let done=0;
  for(const f of files){
@@ -554,7 +578,7 @@ async function compress(file){ try{
   cv.getContext('2d').drawImage(bmp,0,0,w,h); if(bmp.close)bmp.close();
   return await new Promise(r=>cv.toBlob(b=>r(b||file),'image/jpeg',0.82));
  }catch(e){ return file; } }
-async function sendMsg(){ if(sending)return; let t=document.getElementById('msgtext').value.trim(); let photo_url=null;
+async function sendMsg(){ if(needLogin()||sending)return; let t=document.getElementById('msgtext').value.trim(); let photo_url=null;
  if(pendingPhoto){ sending=true; document.getElementById('photoprev').innerHTML='<div class="r">📤 Nahrávam fotku…</div>';
    let blob=await compress(pendingPhoto);
    let path=Date.now()+'_'+Math.random().toString(36).slice(2)+'.jpg';
@@ -625,7 +649,7 @@ function cancelReply(){ replyTo=null; let bar=document.getElementById('replybar'
 async function delMsg(id){ if(!confirm('Zmazať túto správu?'))return; let m=S.msgs.find(x=>x.id==id);
  if(m&&m.photo_url){ let path=m.photo_url.split('/tdc-photos/')[1]; if(path){ try{ await sb.storage.from('tdc-photos').remove([path]); }catch(e){} } }
  await sb.from('tdc_reactions').delete().eq('message_id',id); await sb.from('tdc_messages').delete().eq('id',id); openMsg=null; await loadAll(); }
-function sendLocation(){ if(!ME)return; if(!navigator.geolocation){ alert('Tento prehliadač nepodporuje zdieľanie polohy.'); return; }
+function sendLocation(){ if(needLogin())return; if(!navigator.geolocation){ alert('Tento prehliadač nepodporuje zdieľanie polohy.'); return; }
  if(!confirm('Zdieľať tvoju aktuálnu polohu v chate?')) return;
  navigator.geolocation.getCurrentPosition(async pos=>{
    let la=pos.coords.latitude.toFixed(6), lo=pos.coords.longitude.toFixed(6);
@@ -817,5 +841,5 @@ function initSwipe(){ let lb=document.getElementById('lightbox'); if(!lb)return;
  lb.addEventListener('touchcancel',()=>{ swipe=false; let im=lbImg(); if(im){im.style.transform='';im.style.opacity='';} },{passive:true}); }
 async function dlPhoto(url){ try{ let r=await fetch(url); let bl=await r.blob(); let u=URL.createObjectURL(bl); let a=document.createElement('a'); a.href=u; a.download='TdC_'+Date.now()+'.jpg'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(u),1500); }catch(e){ window.open(url,'_blank'); } }
 
-if(ME) boot();
+boot();
 </script></body></html>
