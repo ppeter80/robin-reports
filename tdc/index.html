@@ -34,6 +34,9 @@ input,select,textarea{width:100%;background:#1c0d14;border:1px solid rgba(228,17
 .pill{display:inline-block;background:rgba(228,178,76,.13);color:#F0D592;font-size:12px;padding:3px 9px;border-radius:10px;margin:5px 6px 0 0;}
 .team{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:8px 10px;margin:8px 0;} .teamhd{cursor:pointer;font-size:14px;} .teammem{margin-top:5px;}
 .chipbox{margin-top:8px;display:flex;flex-wrap:wrap;gap:6px;} .pill.pick{cursor:pointer;background:rgba(228,178,76,.18);border:1px solid rgba(228,178,76,.45);} .pill.rem{background:rgba(224,50,47,.16);border:1px solid rgba(224,50,47,.5);color:#f2b8b8;} .pill.pick.on{background:#E4B24C;border-color:#E4B24C;color:#2A1119;font-weight:700;}
+.mn{color:#8FD3FF;font-weight:700;} .mn.me{background:#E4B24C;color:#2A1119;border-radius:5px;padding:0 4px;}
+.msg.atme{border-color:#E4B24C!important;box-shadow:0 0 0 2px rgba(228,178,76,.35);}
+.ndot.at{background:#E4B24C;color:#2A1119;}
 .msg{background:var(--card);border-radius:12px;padding:9px 12px;margin:7px 0;font-size:13px;max-width:84%;width:fit-content;} .msg .who{font-weight:700;font-size:12px;} .msg img{max-width:100%;max-height:400px;border-radius:8px;margin-top:6px;}
 .msgrow{display:flex;align-items:center;gap:5px;margin:7px 0;} .msgrow.mine{justify-content:flex-end;} .msgrow.other{justify-content:flex-start;} .msgrow .msg{margin:0;} .msgtrig{flex:0 0 auto;color:var(--mut);font-size:21px;cursor:pointer;padding:0 3px;line-height:1;user-select:none;}
 .msg.mine{margin-left:auto;background:linear-gradient(180deg,rgba(176,40,70,.30),rgba(176,40,70,.16));border:1px solid rgba(228,178,76,.22);} .msg.mine .time{margin-left:0;} .msg.other{margin-right:auto;}
@@ -93,6 +96,7 @@ nav button{flex:1;background:none;border:none;color:var(--mut);padding:8px 2px 7
  <div id="msgs"></div>
  <input type="file" id="photo" accept="image/*" style="display:none" onchange="pickPhoto(event)">
  <div id="replybar" style="display:none"></div>
+ <div class="chipbox" id="mnbox"></div>
  <div class="admrow"><button class="btn sm" style="flex:0 0 44px" onclick="document.getElementById('photo').click()">📷</button><button class="btn sm" style="flex:0 0 44px" onclick="sendLocation()" title="Zdieľať polohu">📍</button><textarea id="msgtext" rows="1" placeholder="Napíš správu…" style="margin-top:6px;resize:none;max-height:120px" oninput="growBox(this)" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMsg();}"></textarea><button class="btn sm" style="flex:0 0 66px" onclick="sendMsg()">Poslať</button></div>
  <div id="photoprev"></div>
 </div>
@@ -150,7 +154,20 @@ function renderOnline(){ let bar=document.getElementById('onlinebar'); if(!bar)r
  if(ME && !on.includes(ME.name)) on.push(ME.name); on=[...new Set(on)].sort((a,b)=>a.localeCompare(b));
  let html = on.length ? `<span class="ondot"></span>Online (${on.length}): ${on.map(esc).join(', ')}` : '';
  if(bar.innerHTML!==html) bar.innerHTML=html; }
-function growBox(el){ el.style.height='auto'; el.style.height=Math.min(el.scrollHeight,120)+'px'; }
+function growBox(el){ el.style.height='auto'; el.style.height=Math.min(el.scrollHeight,120)+'px'; suggestMentions(el); }
+// našepkávač: po napísaní @ ponúkne mená, aby zmienka presne sedela
+function suggestMentions(el){ let box=document.getElementById('mnbox'); if(!box)return;
+ let v=el.value, pos=el.selectionStart||v.length, at=v.lastIndexOf('@',pos-1);
+ let ok = at>=0 && (at===0||/\s/.test(v[at-1])) && !/\s/.test(v.slice(at+1,pos));
+ if(!ok){ box.innerHTML=''; return; }
+ let q=v.slice(at+1,pos).toLowerCase();
+ let hits=S.participants.filter(n=>n.toLowerCase().startsWith(q)&&(!ME||n!==ME.name)).slice(0,6);
+ box.innerHTML = hits.length ? hits.map(n=>`<span class="pill pick" onclick="pickMention(${at},${pos},'${js1(n)}')">@${esc(n)}</span>`).join('') : '';
+}
+function pickMention(at,pos,name){ let el=document.getElementById('msgtext'); if(!el)return;
+ el.value=el.value.slice(0,at)+'@'+name+' '+el.value.slice(pos);
+ document.getElementById('mnbox').innerHTML='';
+ el.focus(); let c=at+name.length+2; el.setSelectionRange(c,c); growBox(el); }
 function go(btn){ document.querySelectorAll('nav button').forEach(b=>b.classList.remove('on')); btn.classList.add('on');
  document.querySelectorAll('.view').forEach(v=>v.classList.remove('on')); document.getElementById('v-'+btn.dataset.v).classList.add('on'); renderAll(); if(btn.dataset.v=='chat'){ markSeen(); stick=true; positionOnline(); chatToBottom(); } }
 
@@ -561,6 +578,17 @@ async function enablePush(silent){ if(!('serviceWorker' in navigator)||!('PushMa
 function askNotif(){ enablePush(false); }
 const QUICK=['👍','❤️','😂','🔥','🍺','🍷','🚴','🎉'];
 function nameColor(n){ let h=0; for(let i=0;i<(n||'').length;i++) h=(h*31+n.charCodeAt(i))>>>0; return `hsl(${h%360},72%,68%)`; }
+// @zmienky: mená hľadáme od najdlhšieho, nech „Jano Novák" vyhrá nad „Jano"
+function mentionNames(){ return S.participants.slice().sort((a,b)=>b.length-a.length); }
+function mentionsMe(text){ return !!(ME && text && new RegExp('@'+rxEsc(ME.name)+'(?![\\p{L}\\p{N}_])','iu').test(text)); }
+const rxEsc=s=>String(s).replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+// beží až NAD escapovaným textom, takže sa nedá prepašovať HTML
+// JEDEN prechod so striedaním od najdlhšieho mena — po menách zvlášť by sa
+// vo vnútri „@Jano Novák" znova chytil „@Jano" a spany by sa zanorili
+function markMentions(escaped){ let ns=mentionNames(); if(!ns.length) return escaped;
+ let re=new RegExp('@(?:'+ns.map(n=>rxEsc(esc(n))).join('|')+')(?![\\p{L}\\p{N}_])','giu');
+ let mineEsc=ME?esc(ME.name).toLowerCase():null;
+ return escaped.replace(re,m=>`<span class="mn${mineEsc&&m.slice(1).toLowerCase()===mineEsc?' me':''}">${m}</span>`); }
 function msgPreview(m){ if(!m)return''; if(m.body&&m.body.indexOf('##LOC##')===0) return '📍 poloha'; if(m.body) return m.body; if(m.photo_url) return '📷 fotka'; return ''; }
 function reactionsFor(mid){ let map={}; S.reactions.filter(r=>r.message_id==mid).forEach(r=>{ (map[r.emoji]=map[r.emoji]||[]).push(r.name); }); return map; }
 function renderChat(){ let h='';
@@ -573,8 +601,9 @@ function renderChat(){ let h='';
   let bodyHtml='';
   if(x.body&&x.body.indexOf('##LOC##')===0){ let c=x.body.slice(7).split(','),la=encodeURIComponent(c[0]||''),lo=encodeURIComponent(c[1]||'');
    bodyHtml=`<div class="loccard"><div class="locttl">📍 Zdieľaná poloha</div><div class="loccoord">${esc(c[0]||'')}, ${esc(c[1]||'')}</div><a class="locbtn" href="https://www.google.com/maps/dir/?api=1&destination=${la},${lo}" target="_blank" rel="noopener" onclick="event.stopPropagation()">🧭 Navigovať (Google Maps)</a><a class="locbtn2" href="https://www.google.com/maps?q=${la},${lo}" target="_blank" rel="noopener" onclick="event.stopPropagation()">🗺️ Otvoriť pin</a></div>`;
-  } else if(x.body){ bodyHtml='<br>'+esc(x.body); }
-  let bubble=`<div class="msg ${mine?'mine':'other'}"><span class="who" style="color:${nameColor(x.name)}">${esc(x.name)}</span><span class="time">${fmtTime(x.created_at)}</span>${q}${bodyHtml}${x.photo_url?'<br><img loading="lazy" onload="imgLoaded()" src="'+x.photo_url+'">':''}${pills?'<div class="rx">'+pills+'</div>':''}</div>`;
+  } else if(x.body){ bodyHtml='<br>'+markMentions(esc(x.body)); }
+  let atMe=!mine && mentionsMe(x.body);
+  let bubble=`<div class="msg ${mine?'mine':'other'}${atMe?' atme':''}"><span class="who" style="color:${nameColor(x.name)}">${esc(x.name)}</span><span class="time">${fmtTime(x.created_at)}</span>${q}${bodyHtml}${x.photo_url?'<br><img loading="lazy" onload="imgLoaded()" src="'+x.photo_url+'">':''}${pills?'<div class="rx">'+pills+'</div>':''}</div>`;
   let trig=`<span class="msgtrig" onclick="toggleMsgActions(${x.id})">⋯</span>`;
   h+=`<div class="msgrow ${mine?'mine':'other'}">`+(mine?trig+bubble:bubble+trig)+`</div>`;
   if(openMsg==x.id){ let delBtn=mine?`<span class="mdel" onclick="delMsg(${x.id})">🗑 Zmazať</span>`:'';
@@ -606,12 +635,16 @@ function markSeen(){ let last=S.msgs[S.msgs.length-1]; if(last&&last.created_at)
 function notify(){ if(!ME)return; let onChat=chatOpen(); let seen=localStorage.getItem('tdc_lastSeen')||'';
  let unread=S.msgs.filter(m=>m.name!=ME.name && (m.created_at||'')>seen);
  let btn=document.querySelector('nav button[data-v=chat]'); let dot=btn.querySelector('.ndot');
- if(unread.length && !onChat){ if(!dot){dot=document.createElement('span');dot.className='ndot';btn.appendChild(dot);} dot.textContent=unread.length>9?'9+':unread.length; }
+ let atMe=unread.some(m=>mentionsMe(m.body));
+ if(unread.length && !onChat){ if(!dot){dot=document.createElement('span');dot.className='ndot';btn.appendChild(dot);}
+  dot.classList.toggle('at',atMe); dot.textContent=atMe?'@':(unread.length>9?'9+':unread.length); }
  else if(dot){ dot.remove(); }
  if('setAppBadge' in navigator){ if(unread.length&&!onChat) navigator.setAppBadge(unread.length).catch(()=>{}); else navigator.clearAppBadge().catch(()=>{}); }
  if(!firstLoad && !onChat){ let fresh=unread.filter(m=>!notified.has(m.id)); if(fresh.length){ fresh.forEach(m=>notified.add(m.id));
    let last=fresh[fresh.length-1]; if(navigator.vibrate)navigator.vibrate(180);
-   if(window.Notification && Notification.permission==='granted'){ try{ new Notification('Tour de Croatia', {body:`${last.name}: ${msgPreview(last).slice(0,80)}`, icon:'icon-192.png', tag:'tdc-chat', renotify:true}); }catch(e){} } } }
+   let mention=fresh.find(m=>mentionsMe(m.body))||null; let show=mention||last;
+   if(mention && navigator.vibrate) navigator.vibrate([120,80,120]);
+   if(window.Notification && Notification.permission==='granted'){ try{ new Notification(mention?'Tour de Croatia — spomenuli ťa':'Tour de Croatia', {body:`${show.name}: ${msgPreview(show).slice(0,80)}`, icon:'icon-192.png', tag:'tdc-chat', renotify:true}); }catch(e){} } } }
  firstLoad=false; if(onChat) markSeen();
 }
 // ---- leaderboard ----
