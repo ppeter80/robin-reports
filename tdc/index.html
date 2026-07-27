@@ -38,8 +38,7 @@ input,select,textarea{width:100%;background:#1c0d14;border:1px solid rgba(228,17
 .msg.atme{border-color:#E4B24C!important;box-shadow:0 0 0 2px rgba(228,178,76,.35);}
 .ndot.at{background:#E4B24C;color:#2A1119;}
 .lbhint{font-size:11px;color:rgba(255,255,255,.55);text-align:center;padding:6px 0 0;}
-.galfilters{display:flex;flex-wrap:nowrap;gap:6px;overflow-x:auto;overflow-y:hidden;margin:0 -14px 8px;padding:2px 14px 6px;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
-.galfilters::-webkit-scrollbar{display:none;} .galfilters .pill{flex:0 0 auto;white-space:nowrap;}
+#galsel{margin-bottom:10px;}
 .gsel{position:relative;cursor:pointer;} .gsel .gtick{position:absolute;top:5px;right:5px;width:22px;height:22px;border-radius:50%;border:2px solid #fff;background:rgba(0,0,0,.45);color:#2A1119;font-weight:800;font-size:14px;line-height:20px;text-align:center;}
 .gsel.on .gtick{background:#E4B24C;border-color:#E4B24C;} .gsel.on .gthumb{outline:3px solid #E4B24C;outline-offset:-3px;opacity:.75;}
 button[disabled]{opacity:.45;}
@@ -197,7 +196,7 @@ async function loadAll(){ try{
  notify(); renderOnline(); }catch(err){ console.error(err); } }
 let lastSig='';
 function renderAll(){ let f=document.activeElement, typing=f&&/INPUT|SELECT|TEXTAREA/.test(f.tagName);
- if(!typing){ renderComps(); renderTeams(); } renderChat(); renderLead(); renderGallery(); renderProgram(); }
+ if(!typing){ renderComps(); renderTeams(); renderGallery(); } renderChat(); renderLead(); renderProgram(); }
 
 // ---- admin & comps ----
 function unlockAdmin(){ let p=prompt('Admin PIN:'); if(p===ADMIN_PIN){ADMIN=true; renderComps(); alert('Admin odomknutý ✅');} else if(p!=null) alert('Zlý PIN'); }
@@ -696,21 +695,20 @@ function galleryPhotos(){ let all=allPhotos();
  if(galFilter==='chat') return all.filter(p=>p.src==='chat');
  if(galFilter) return all.filter(p=>p.comp_id==galFilter);
  return all; }
-function setGalFilter(v){ galFilter=v||null; if(lbIdx!=null) closeLightbox(); renderGallery();
- let on=document.querySelector('#galfilters .pill.on');
- if(on&&on.scrollIntoView) on.scrollIntoView({block:'nearest',inline:'center',behavior:'smooth'}); }
+function setGalFilter(v){ galFilter=v||null; if(lbIdx!=null) closeLightbox(); sel.clear(); renderGallery(); }
 function showGallery(cid){ galFilter=cid;
  let btn=document.querySelector('nav button[data-v=gallery]'); if(btn) go(btn); }
 function renderGallery(){ let el=document.getElementById('galleryview'); if(!el)return;
  let all=allPhotos(), ph=galleryPhotos();
  if(!all.length){ el.innerHTML='<div class="soon">Zatiaľ žiadne fotky. Pridaj ich v Chate 📷 alebo priamo pri súťaži.</div>'; return; }
  let groups=STAGES.concat(S.comps.map(c=>({id:c.id,name:c.name}))).filter(g=>S.photos.some(f=>f.comp_id==g.id));
- let chips=`<span class="pill pick${galFilter?'':' on'}" onclick="setGalFilter('')">Všetky (${all.length})</span>`;
  let nchat=all.filter(p=>p.src==='chat').length;
- if(nchat) chips+=`<span class="pill pick${galFilter==='chat'?' on':''}" onclick="setGalFilter('chat')">💬 Z chatu (${nchat})</span>`;
- groups.forEach(g=>{ let n=S.photos.filter(f=>f.comp_id==g.id).length;
-  chips+=`<span class="pill pick${galFilter==g.id?' on':''}" onclick="setGalFilter('${js1(g.id)}')">${esc(g.name)} (${n})</span>`; });
- let head=`<div class="galfilters" id="galfilters" onscroll="galScroll=this.scrollLeft">${chips}</div>`;
+ let head=`<select id="galsel" onchange="setGalFilter(this.value)">`+
+  `<option value=""${!galFilter?' selected':''}>🖼️ Všetky fotky (${all.length})</option>`+
+  (nchat?`<option value="chat"${galFilter==='chat'?' selected':''}>💬 Z chatu (${nchat})</option>`:'')+
+  groups.map(g=>{ let n=S.photos.filter(f=>f.comp_id==g.id).length;
+   return `<option value="${escA(g.id)}"${galFilter==g.id?' selected':''}>${esc(g.name)} (${n})</option>`; }).join('')+
+  `</select>`;
  if(!ph.length){ el.innerHTML=head+'<div class="soon">V tomto výbere zatiaľ nič nie je.</div>'; return; }
  let bar='';
  if(ME){ bar=`<div class="admrow" style="margin-bottom:8px"><button class="btn sm${selMode?'':' g'}" onclick="toggleSelMode()">${selMode?'✕ Zrušiť výber':'☑️ Vybrať viac'}</button>`+
@@ -722,8 +720,6 @@ function renderGallery(){ let el=document.getElementById('galleryview'); if(!el)
   '<div class="gallery">'+ph.map((m,i)=> selMode
     ? `<div class="gsel${sel.has(m.key)?' on':''}" onclick="toggleSel('${js1(m.key)}')"><img class="gthumb" loading="lazy" src="${m.photo_url}"><span class="gtick">${sel.has(m.key)?'✓':''}</span></div>`
     : `<img class="gthumb" loading="lazy" src="${m.photo_url}" onclick="openLightbox(${i})">`).join('')+'</div>';
- // prekreslenie pri každom polle by inak lištu filtrov odrolovalo späť na začiatok
- let fb=document.getElementById('galfilters'); if(fb&&galScroll) fb.scrollLeft=galScroll;
 }
 function openLightbox(i){ galPhotos=galleryPhotos(); lbIdx=i; renderLightbox(); }
 function closeLightbox(){ lbIdx=null; renderLightbox(); }
@@ -749,7 +745,7 @@ async function delPhoto(){ let ph=galPhotos[lbIdx]; if(!ph||!ME)return;
  await removePhoto(ph);
  closeLightbox(); await loadAll(); }
 // ---- hromadný výber fotiek ----
-let selMode=false, sel=new Set(), blobCache=new Map(), galScroll=0;
+let selMode=false, sel=new Set(), blobCache=new Map();
 function toggleSelMode(){ selMode=!selMode; sel.clear(); renderGallery(); }
 function toggleSel(k){ if(sel.has(k))sel.delete(k); else { sel.add(k);
   let p=galleryPhotos().find(x=>x.key===k); if(p) prefetch(p); }   // sťahuj už pri označení
