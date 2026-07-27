@@ -196,6 +196,10 @@ async function addComp(){ let name=document.getElementById('c_name').value.trim(
  sb.functions.invoke('bright-processor',{body:{sender:ME.name,body:'pridal súťaž „'+name+'" '+(type=='tasting'?'🍺':'🎯')}}).catch(()=>{});
  clearComp(); loadAll(); }
 async function delComp(id){ if(!confirm('Zmazať súťaž?'))return;
+ // čísla sa dajú zmazať len v otvorenom okne a len kým súťaž existuje (stráži RLS),
+ // takže najprv zruš okno a vyprázdni ich, až potom zmaž samotnú súťaž
+ await sb.from('tdc_comps').update({opens_at:null,deadline:null}).eq('id',id);
+ await sb.from('tdc_values').delete().eq('comp_id',id);
  await sb.from('tdc_comps').delete().eq('id',id); await sb.from('tdc_teams').delete().eq('comp_id',id); await sb.from('tdc_results').delete().eq('comp_id',id);
  await sb.from('tdc_tasting_items').delete().eq('comp_id',id); await sb.from('tdc_tasting_picks').delete().eq('comp_id',id);
  localStorage.removeItem('tdc_key_'+id); loadAll(); }
@@ -264,15 +268,22 @@ function numStandings(cid){ let vs=S.values.filter(v=>v.comp_id==cid).map(v=>({p
  return vs; }
 function myVal(cid){ let v=ME&&S.values.find(x=>x.comp_id==cid&&x.person==ME.name); return v?String(v.val):''; }
 const fmtVal=v=>String(v).replace('.',',');
-function isClosed(cp){ return !!cp.deadline && Date.now()>=new Date(cp.deadline).getTime(); }
+// 'before' = okno sa ešte neotvorilo, 'open' = dá sa zapisovať, 'closed' = po uzávierke
+function winState(cp){ let now=Date.now();
+ if(cp.opens_at && now<new Date(cp.opens_at).getTime()) return 'before';
+ if(cp.deadline && now>=new Date(cp.deadline).getTime()) return 'closed';
+ return 'open'; }
 function fmtDeadline(d){ return new Date(d).toLocaleString('sk-SK',{weekday:'short',day:'numeric',month:'numeric',hour:'2-digit',minute:'2-digit'}); }
 // hodnota pre <input type=datetime-local> musí byť v miestnom čase, nie UTC
 function toLocalInput(d){ let x=new Date(d); return new Date(x.getTime()-x.getTimezoneOffset()*60000).toISOString().slice(0,16); }
-async function saveDeadline(cid){ let el=document.getElementById('dl_'+cid); if(!el)return;
- let v=el.value?new Date(el.value).toISOString():null;
- let {error}=await sb.from('tdc_comps').update({deadline:v}).eq('id',cid);
- if(error){ alert('Uloženie uzávierky zlyhalo: '+error.message); return; }
- await loadAll(); alert(v?('Uzávierka nastavená na '+fmtDeadline(v)+' ✅'):'Uzávierka zrušená ✅'); }
+async function saveWindow(cid){ let o=document.getElementById('op_'+cid), d=document.getElementById('dl_'+cid); if(!o||!d)return;
+ let from=o.value?new Date(o.value).toISOString():null, to=d.value?new Date(d.value).toISOString():null;
+ if(from&&to&&new Date(from)>=new Date(to)){ alert('„Od" musí byť skôr než „Do".'); return; }
+ let {error}=await sb.from('tdc_comps').update({opens_at:from,deadline:to}).eq('id',cid);
+ if(error){ alert('Uloženie okna zlyhalo: '+error.message); return; }
+ await loadAll();
+ alert(!from&&!to ? 'Okno zrušené — zapisovať sa dá kedykoľvek ✅'
+   : 'Zapisovanie: '+(from?fmtDeadline(from):'hneď')+' → '+(to?fmtDeadline(to):'bez konca')+' ✅'); }
 async function saveVal(cid){ if(!ME)return; let el=document.getElementById('nv_'+cid); if(!el)return;
  let raw=el.value.trim().replace(',','.');
  if(!raw){ alert('Zadaj číslo.'); return; }
@@ -288,18 +299,25 @@ async function delVal(cid){ if(!ME)return; if(!confirm('Zmazať svoje číslo?')
  if(error) alert(rlsMsg(error));
  await loadAll(); }
 function numBlock(cp){
- let mine=myVal(cp.id), n=S.values.filter(v=>v.comp_id==cp.id).length, closed=isClosed(cp);
+ let mine=myVal(cp.id), n=S.values.filter(v=>v.comp_id==cp.id).length, st=winState(cp), closed=st!='open';
  let h=`<div class="r" style="font-size:12px;color:var(--mut)">Každý si zapíše svoje číslo · vyhráva najvyššie · zadalo ${n} ${n==1?'človek':(n<5?'ľudia':'ľudí')}</div>`;
- if(cp.deadline) h+=`<div class="r" style="font-size:12px;color:${closed?'#c66':'#E4B24C'}">${closed?'🔒 Uzavreté':'⏳ Zadávanie do'} ${esc(fmtDeadline(cp.deadline))}</div>`;
+ if(cp.opens_at||cp.deadline){
+  let txt = st=='before' ? '⌛ Zapisovanie sa otvorí '+fmtDeadline(cp.opens_at)+(cp.deadline?' a potrvá do '+fmtDeadline(cp.deadline):'')
+          : st=='closed' ? '🔒 Uzavreté '+fmtDeadline(cp.deadline)
+          : (cp.deadline?'⏳ Zapisovanie do '+fmtDeadline(cp.deadline):'✅ Zapisovanie otvorené');
+  h+=`<div class="r" style="font-size:12px;color:${st=='closed'?'#c66':(st=='before'?'var(--mut)':'#E4B24C')}">${esc(txt)}</div>`;
+ }
  if(ME && !closed){
   h+=`<div class="admrow"><input id="nv_${cp.id}" inputmode="decimal" placeholder="Tvoje číslo (napr. 1,25)" value="${escA(fmtVal(mine))}" onkeydown="if(event.key==='Enter'){event.preventDefault();saveVal('${js1(cp.id)}');}"><button class="btn sm g" style="flex:0 0 96px" onclick="saveVal('${js1(cp.id)}')">${mine?'Uložiť':'Zapísať'}</button></div>`;
   if(mine) h+=`<div class="r" style="font-size:11px;color:var(--mut)">Svoje číslo môžeš meniť do uzávierky · <a class="lab" style="cursor:pointer" onclick="delVal('${js1(cp.id)}')">zmazať</a></div>`;
  }
- if(ME && closed && !mine) h+=`<div class="r" style="font-size:12px;color:var(--mut)">Uzávierka prešla — svoje číslo si už nezapíšeš.</div>`;
+ if(ME && closed && !mine) h+=`<div class="r" style="font-size:12px;color:var(--mut)">${st=='before'?'Zapisovanie sa ešte neotvorilo.':'Uzávierka prešla — svoje číslo si už nezapíšeš.'}</div>`;
  if(ADMIN){
-  h+=`<hr style="border-color:rgba(228,178,76,.2);margin:12px 0"><div class="r" style="font-size:12px"><b>ADMIN</b> — uzávierka zadávania</div>
-   <div class="admrow"><input id="dl_${cp.id}" type="datetime-local" value="${cp.deadline?toLocalInput(cp.deadline):''}"><button class="btn sm g" style="flex:0 0 96px" onclick="saveDeadline('${js1(cp.id)}')">Uložiť</button></div>
-   <div class="r" style="font-size:11px;color:var(--mut)">Prázdne = bez uzávierky. Po termíne zápis odmietne aj samotná databáza — vrátane teba, takže na opravu treba termín najprv posunúť.</div>`;
+  h+=`<hr style="border-color:rgba(228,178,76,.2);margin:12px 0"><div class="r" style="font-size:12px"><b>ADMIN</b> — okno na zapisovanie</div>
+   <div class="r" style="font-size:11px;color:var(--mut)">Od:</div><input id="op_${cp.id}" type="datetime-local" value="${cp.opens_at?toLocalInput(cp.opens_at):''}">
+   <div class="r" style="font-size:11px;color:var(--mut)">Do:</div>
+   <div class="admrow"><input id="dl_${cp.id}" type="datetime-local" value="${cp.deadline?toLocalInput(cp.deadline):''}"><button class="btn sm g" style="flex:0 0 96px" onclick="saveWindow('${js1(cp.id)}')">Uložiť</button></div>
+   <div class="r" style="font-size:11px;color:var(--mut)">Prázdne „Od" = otvorené hneď, prázdne „Do" = bez konca. Mimo okna zápis odmietne aj samotná databáza — vrátane teba, takže na opravu treba okno najprv posunúť.</div>`;
  }
  return h;
 }
