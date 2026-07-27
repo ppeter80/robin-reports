@@ -624,8 +624,18 @@ function renderLightbox(){ let lb=document.getElementById('lightbox'); if(!lb)re
    `<img src="${ph.photo_url}">`+
    `<div class="lbbar"><span class="lbnav" onclick="lbGo(-1)">${lbIdx>0?'‹':''}</span>`+
    `<button class="btn sm g" style="width:auto;flex:0 0 auto" onclick="dlPhoto('${js1(ph.photo_url)}')">⬇ Stiahnuť</button>`+
+   (ME&&ph.name===ME.name?`<button class="btn sm" style="width:auto;flex:0 0 auto" onclick="delPhoto()">🗑 Zmazať</button>`:'')+
    `<span class="lbnav" onclick="lbGo(1)">${lbIdx<galPhotos.length-1?'›':''}</span></div>`;
 }
+// fotka je príloha správy: ak správa mala aj text, zmaž len fotku a text nechaj
+async function delPhoto(){ let ph=galPhotos[lbIdx]; if(!ph||!ME||ph.name!==ME.name)return;
+ let hasText=!!(ph.body&&ph.body.trim());
+ if(!confirm(hasText?'Zmazať fotku? Text správy v chate ostane.':'Zmazať fotku? Zmizne aj z chatu.'))return;
+ let path=ph.photo_url.split('/tdc-photos/')[1];
+ if(path){ try{ await sb.storage.from('tdc-photos').remove([path]); }catch(e){} }
+ if(hasText) await sb.from('tdc_messages').update({photo_url:null}).eq('id',ph.id);
+ else { await sb.from('tdc_reactions').delete().eq('message_id',ph.id); await sb.from('tdc_messages').delete().eq('id',ph.id); }
+ closeLightbox(); await loadAll(); }
 async function dlPhoto(url){ try{ let r=await fetch(url); let bl=await r.blob(); let u=URL.createObjectURL(bl); let a=document.createElement('a'); a.href=u; a.download='TdC_'+Date.now()+'.jpg'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(u),1500); }catch(e){ window.open(url,'_blank'); } }
 
 if(ME) boot();
