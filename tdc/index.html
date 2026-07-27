@@ -38,6 +38,9 @@ input,select,textarea{width:100%;background:#1c0d14;border:1px solid rgba(228,17
 .msg.atme{border-color:#E4B24C!important;box-shadow:0 0 0 2px rgba(228,178,76,.35);}
 .ndot.at{background:#E4B24C;color:#2A1119;}
 .lbhint{font-size:11px;color:rgba(255,255,255,.55);text-align:center;padding:6px 0 0;}
+.gsel{position:relative;cursor:pointer;} .gsel .gtick{position:absolute;top:5px;right:5px;width:22px;height:22px;border-radius:50%;border:2px solid #fff;background:rgba(0,0,0,.45);color:#2A1119;font-weight:800;font-size:14px;line-height:20px;text-align:center;}
+.gsel.on .gtick{background:#E4B24C;border-color:#E4B24C;} .gsel.on .gthumb{outline:3px solid #E4B24C;outline-offset:-3px;opacity:.75;}
+button[disabled]{opacity:.45;}
 #lightbox > img{touch-action:pan-y;}
 .msg{background:var(--card);border-radius:12px;padding:9px 12px;margin:7px 0;font-size:13px;max-width:84%;width:fit-content;} .msg .who{font-weight:700;font-size:12px;} .msg img{max-width:100%;max-height:400px;border-radius:8px;margin-top:6px;}
 .msgrow{display:flex;align-items:center;gap:5px;margin:7px 0;} .msgrow.mine{justify-content:flex-end;} .msgrow.other{justify-content:flex-start;} .msgrow .msg{margin:0;} .msgtrig{flex:0 0 auto;color:var(--mut);font-size:21px;cursor:pointer;padding:0 3px;line-height:1;user-select:none;}
@@ -705,8 +708,16 @@ function renderGallery(){ let el=document.getElementById('galleryview'); if(!el)
   chips+=`<span class="pill pick${galFilter==g.id?' on':''}" onclick="setGalFilter('${js1(g.id)}')">${esc(g.name)} (${n})</span>`; });
  let head=`<div class="chipbox" style="margin-bottom:8px">${chips}</div>`;
  if(!ph.length){ el.innerHTML=head+'<div class="soon">V tomto výbere zatiaľ nič nie je.</div>'; return; }
- el.innerHTML=head+'<div class="r" style="color:var(--mut);font-size:12px;margin-bottom:6px">'+ph.length+' '+(ph.length==1?'fotka':(ph.length<5?'fotky':'fotiek'))+' · ťukni pre zväčšenie a stiahnutie</div>'+
-  '<div class="gallery">'+ph.map((m,i)=>`<img class="gthumb" loading="lazy" src="${m.photo_url}" onclick="openLightbox(${i})">`).join('')+'</div>';
+ let bar='';
+ if(ME){ bar=`<div class="admrow" style="margin-bottom:8px"><button class="btn sm${selMode?'':' g'}" onclick="toggleSelMode()">${selMode?'✕ Zrušiť výber':'☑️ Vybrať viac'}</button>`+
+   (selMode?`<button class="btn sm" onclick="selAll()">${sel.size===ph.length?'Odznačiť všetky':'Označiť všetky'}</button>`:'')+`</div>`;
+  if(selMode) bar+=`<div id="selbar"></div><div class="admrow" style="margin-bottom:8px"><button class="btn sm g" onclick="dlSelected()"${sel.size?'':' disabled'}>⬇ Uložiť (${sel.size})</button><button class="btn sm" onclick="delSelected()"${sel.size?'':' disabled'}>🗑 Zmazať (${sel.size})</button></div>`;
+ }
+ let hint = selMode ? 'ťukaním označuj fotky, potom ulož alebo zmaž naraz' : 'ťukni pre zväčšenie a stiahnutie';
+ el.innerHTML=head+bar+'<div class="r" style="color:var(--mut);font-size:12px;margin-bottom:6px">'+ph.length+' '+(ph.length==1?'fotka':(ph.length<5?'fotky':'fotiek'))+' · '+hint+'</div>'+
+  '<div class="gallery">'+ph.map((m,i)=> selMode
+    ? `<div class="gsel${sel.has(m.key)?' on':''}" onclick="toggleSel('${js1(m.key)}')"><img class="gthumb" loading="lazy" src="${m.photo_url}"><span class="gtick">${sel.has(m.key)?'✓':''}</span></div>`
+    : `<img class="gthumb" loading="lazy" src="${m.photo_url}" onclick="openLightbox(${i})">`).join('')+'</div>';
 }
 function openLightbox(i){ galPhotos=galleryPhotos(); lbIdx=i; renderLightbox(); }
 function closeLightbox(){ lbIdx=null; renderLightbox(); }
@@ -729,12 +740,71 @@ async function delPhoto(){ let ph=galPhotos[lbIdx]; if(!ph||!ME)return;
  let hasText=ph.src==='chat' && !!(ph.body&&ph.body.trim());
  let what = ph.src==='comp' ? 'Zmizne z galérie.' : (hasText?'Text správy v chate ostane.':'Zmizne aj z chatu.');
  if(!confirm((own?'Zmazať fotku?':'ADMIN: zmazať fotku od '+ph.name+'?')+' '+what))return;
- let path=ph.photo_url.split('/tdc-photos/')[1];
+ await removePhoto(ph);
+ closeLightbox(); await loadAll(); }
+// ---- hromadný výber fotiek ----
+// ZIP si skladáme sami (metóda „uložiť", bez kompresie) — JPEG sa aj tak nezmenší
+// a je to lepšie než púšťať 20 samostatných sťahovaní, čo mobil aj tak zablokuje
+let CRCT=null;
+function crc32(u8){ if(!CRCT){ CRCT=new Uint32Array(256);
+  for(let i=0;i<256;i++){ let c=i; for(let k=0;k<8;k++) c=(c&1)?(0xEDB88320^(c>>>1)):(c>>>1); CRCT[i]=c>>>0; } }
+ let c=0xFFFFFFFF; for(let i=0;i<u8.length;i++) c=CRCT[(c^u8[i])&0xFF]^(c>>>8);
+ return (c^0xFFFFFFFF)>>>0; }
+function makeZip(files){ let parts=[], central=[], off=0, enc=new TextEncoder();
+ files.forEach(f=>{ let nm=enc.encode(f.name), crc=crc32(f.data), sz=f.data.length;
+  let lh=new DataView(new ArrayBuffer(30));
+  // bit 11 = názvy sú v UTF-8, inak čítačky spravia zo „Žofia" paškvil
+  lh.setUint32(0,0x04034b50,true); lh.setUint16(4,20,true); lh.setUint16(6,0x0800,true); lh.setUint32(14,crc,true);
+  lh.setUint32(18,sz,true); lh.setUint32(22,sz,true); lh.setUint16(26,nm.length,true);
+  parts.push(new Uint8Array(lh.buffer),nm,f.data);
+  let ch=new DataView(new ArrayBuffer(46));
+  ch.setUint32(0,0x02014b50,true); ch.setUint16(4,20,true); ch.setUint16(6,20,true); ch.setUint16(8,0x0800,true);
+  ch.setUint32(16,crc,true); ch.setUint32(20,sz,true); ch.setUint32(24,sz,true);
+  ch.setUint16(28,nm.length,true); ch.setUint32(42,off,true);
+  central.push(new Uint8Array(ch.buffer),nm);
+  off+=30+nm.length+sz; });
+ let cd=central.reduce((a,b)=>a+b.length,0);
+ let eo=new DataView(new ArrayBuffer(22));
+ eo.setUint32(0,0x06054b50,true); eo.setUint16(8,files.length,true); eo.setUint16(10,files.length,true);
+ eo.setUint32(12,cd,true); eo.setUint32(16,off,true);
+ return new Blob([...parts,...central,new Uint8Array(eo.buffer)],{type:'application/zip'}); }
+
+let selMode=false, sel=new Set();
+function toggleSelMode(){ selMode=!selMode; sel.clear(); renderGallery(); }
+function toggleSel(k){ if(sel.has(k))sel.delete(k); else sel.add(k); renderGallery(); }
+function selAll(){ let ph=galleryPhotos(); if(sel.size===ph.length) sel.clear(); else ph.forEach(p=>sel.add(p.key)); renderGallery(); }
+function selected(){ return galleryPhotos().filter(p=>sel.has(p.key)); }
+function canDel(p){ return ME && (p.name===ME.name || ADMIN); }
+function safeName(s){ return String(s).replace(/[^\p{L}\p{N}._-]+/gu,'_').slice(0,40); }
+async function dlSelected(){ let ps=selected(); if(!ps.length)return;
+ let bar=document.getElementById('selbar');
+ if(ps.length===1){ dlPhoto(ps[0].photo_url); return; }
+ let files=[], i=0;
+ for(const p of ps){ i++;
+  if(bar) bar.innerHTML='<div class="r" style="font-size:12px;color:#E4B24C">📦 Balím fotku '+i+'/'+ps.length+'…</div>';
+  try{ let r=await fetch(p.photo_url); let ab=await r.arrayBuffer();
+   files.push({name:String(i).padStart(2,'0')+'_'+safeName(p.name||'foto')+'.jpg', data:new Uint8Array(ab)});
+  }catch(e){} }
+ if(!files.length){ alert('Fotky sa nepodarilo stiahnuť.'); renderGallery(); return; }
+ let blob=makeZip(files), u=URL.createObjectURL(blob), a=document.createElement('a');
+ a.href=u; a.download='TdC_fotky_'+files.length+'.zip'; document.body.appendChild(a); a.click(); a.remove();
+ setTimeout(()=>URL.revokeObjectURL(u),4000);
+ selMode=false; sel.clear(); renderGallery(); }
+async function delSelected(){ let ps=selected().filter(canDel), skipped=selected().length-ps.length;
+ if(!ps.length){ alert('Z výberu nemôžeš zmazať ani jednu fotku — mazať vieš len svoje.'); return; }
+ if(!confirm('Zmazať '+ps.length+' '+(ps.length==1?'fotku':(ps.length<5?'fotky':'fotiek'))+'?'+(skipped?' ('+skipped+' cudzích sa preskočí)':'')))return;
+ let bar=document.getElementById('selbar'), i=0;
+ for(const p of ps){ i++; if(bar) bar.innerHTML='<div class="r" style="font-size:12px;color:#E4B24C">🗑 Mažem '+i+'/'+ps.length+'…</div>';
+  await removePhoto(p); }
+ selMode=false; sel.clear(); await loadAll();
+ if(skipped) alert(ps.length+' zmazaných · '+skipped+' cudzích preskočených'); }
+async function removePhoto(ph){
+ let path=(ph.photo_url||'').split('/tdc-photos/')[1];
  if(path){ try{ await sb.storage.from('tdc-photos').remove([path]); }catch(e){} }
  if(ph.src==='comp') await sb.from('tdc_photos').delete().eq('id',ph.id);
- else if(hasText) await sb.from('tdc_messages').update({photo_url:null}).eq('id',ph.id);
- else { await sb.from('tdc_reactions').delete().eq('message_id',ph.id); await sb.from('tdc_messages').delete().eq('id',ph.id); }
- closeLightbox(); await loadAll(); }
+ else if(ph.body&&ph.body.trim()) await sb.from('tdc_messages').update({photo_url:null}).eq('id',ph.id);
+ else { await sb.from('tdc_reactions').delete().eq('message_id',ph.id); await sb.from('tdc_messages').delete().eq('id',ph.id); } }
+
 // listovanie fotiek ťahom prsta
 let swX=0, swY=0, swipe=false;
 function lbImg(){ return document.querySelector('#lightbox > img'); }
