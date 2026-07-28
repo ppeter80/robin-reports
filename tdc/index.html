@@ -78,7 +78,13 @@ button[disabled]{opacity:.45;}
 
 .qreply{border-left:3px solid var(--gold);background:rgba(255,255,255,.05);padding:3px 8px;margin:3px 0 5px;border-radius:5px;font-size:11px;color:var(--mut);} .qreply b{color:var(--gold);}
 .rx{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px;} .rxpill{background:rgba(255,255,255,.08);border:1px solid transparent;border-radius:12px;padding:1px 8px;font-size:12px;} .rxpill.mine{border-color:var(--gold);background:rgba(228,178,76,.18);}
-.msgact{display:flex;gap:6px;margin:-1px 0 9px;flex-wrap:wrap;align-items:center;} .msgact.mine{justify-content:flex-end;} .msgact.other{justify-content:flex-start;} .msgact .ra{font-size:19px;cursor:pointer;line-height:1;} .msgact .rb{font-size:11px;color:var(--pink);border:1px solid var(--pink);border-radius:8px;padding:2px 8px;}
+.msgact{display:flex;flex-direction:column;gap:8px;width:fit-content;max-width:88%;margin:2px 0 10px;background:#16101A;border:1px solid rgba(228,178,76,.28);border-radius:14px;padding:9px 10px;box-shadow:0 8px 22px rgba(0,0,0,.45);}
+.msgact.mine{margin-left:auto;} .msgact.other{margin-right:auto;}
+.msgact .emorow{display:grid;grid-template-columns:repeat(8,1fr);gap:2px;}
+.msgact .ra{font-size:21px;line-height:1;cursor:pointer;text-align:center;padding:5px 0;border-radius:9px;}
+.msgact .ra:active{background:rgba(255,255,255,.12);}
+.msgact .btnrow{display:flex;gap:8px;border-top:1px solid rgba(255,255,255,.09);padding-top:8px;}
+.msgact .rb{flex:1;text-align:center;font-size:12px;color:var(--pink);border:1px solid var(--pink);border-radius:9px;padding:6px 8px;cursor:pointer;}
 #replybar{background:rgba(228,178,76,.12);border-left:3px solid var(--gold);border-radius:6px;padding:5px 9px;margin-top:8px;font-size:11px;color:var(--mut);display:flex;justify-content:space-between;align-items:center;} #replybar b{color:var(--gold);} #replybar span{cursor:pointer;font-size:15px;color:var(--pink);}
 .loccard{background:rgba(46,134,222,.14);border:1px solid rgba(46,134,222,.42);border-radius:10px;padding:8px 10px;margin-top:6px;} .locttl{font-size:12px;color:#8FC0F5;font-weight:700;} .loccoord{font-size:11px;color:var(--mut);margin:2px 0 7px;}
 .locbtn,.locbtn2{display:block;text-align:center;text-decoration:none;border-radius:8px;padding:8px;font-size:12px;font-weight:700;margin-top:5px;} .locbtn{background:linear-gradient(90deg,#2E86DE,#1e5fa8);color:#fff;} .locbtn2{background:rgba(255,255,255,.08);color:#F0D592;border:1px solid rgba(228,178,76,.3);}
@@ -94,7 +100,7 @@ button[disabled]{opacity:.45;}
 .lbbar{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-top:14px;width:100%;max-width:420px;} .lbnav{font-size:34px;color:#fff;cursor:pointer;padding:0 10px;user-select:none;min-width:34px;text-align:center;}
 .admrow{display:flex;gap:8px;align-items:flex-end;} .admrow>*{flex:1;} #msgtext{line-height:1.35;overflow-y:auto;}
 #onlinebar{position:sticky;top:88px;z-index:4;font-size:11px;color:#9FE0B0;margin:0 -14px 6px;padding:7px 14px;min-height:16px;background:rgba(22,10,16,.97);border-bottom:1px solid rgba(228,178,76,.12);} .ondot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#3ddc84;box-shadow:0 0 6px #3ddc84;vertical-align:middle;margin-right:4px;}
-.mdel{font-size:11px;color:#ef6b6b;border:1px solid #ef6b6b;border-radius:8px;padding:2px 8px;}
+.mdel{flex:1;text-align:center;font-size:12px;color:#ef6b6b;border:1px solid #ef6b6b;border-radius:9px;padding:6px 8px;cursor:pointer;}
 .badge2{font-size:10px;background:var(--wine);color:#fff;padding:2px 8px;border-radius:10px;margin-left:6px;}
 nav{position:fixed;bottom:0;left:0;right:0;display:flex;background:#1c0d14;border-top:1px solid rgba(228,178,76,.2);z-index:6;}
 body.typing nav{display:none;} body.typing{padding-bottom:14px;}
@@ -768,7 +774,8 @@ function renderChat(){ let h='';
   let trig=`<span class="msgtrig" onclick="toggleMsgActions(${x.id})">⋯</span>`;
   h+=`<div class="msgrow ${mine?'mine':'other'}">`+(mine?trig+bubble:bubble+trig)+`</div>`;
   if(openMsg==x.id){ let delBtn=mine?`<span class="mdel" onclick="delMsg(${x.id})">🗑 Zmazať</span>`:'';
-   h+=`<div class="msgact ${mine?'mine':'other'}"><span class="rb" onclick="startReply(${x.id})">↩︎ Odpovedať</span>`+delBtn+QUICK.map(em=>`<span class="ra" onclick="toggleReaction(${x.id},'${em}')">${em}</span>`).join('')+`</div>`; }
+   h+=`<div class="msgact ${mine?'mine':'other'}"><div class="emorow">`+QUICK.map(em=>`<span class="ra" onclick="toggleReaction(${x.id},'${em}')">${em}</span>`).join('')+
+    `</div><div class="btnrow"><span class="rb" onclick="startReply(${x.id})">↩︎ Odpovedať</span>${delBtn}</div></div>`; }
  });
  let el=document.getElementById('msgs'); el.innerHTML=h; if(chatOpen()&&stick) chatToBottom();
 }
