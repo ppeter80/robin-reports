@@ -292,11 +292,11 @@ function renderComps(){
 }
 function compResults(cp){
  if(cp.type=='num'){ let st=numStandings(cp.id);
-  if(!st.length) return '<div class="r" style="color:var(--mut)">Zatiaľ nikto nezadal číslo.</div>';
+  if(!st.length) return '';
   return st.map(s=>{ let pts=(cp.points||[])[s.rank-1]||0;
    return `<div class="r ${ME&&s.person==ME.name?'me':''}"><b>${s.rank}.</b> ${esc(s.person)} <span class="pill">${esc(fmtVal(s.val))}</span>${pts?`<span class="pill">+${pts} b</span>`:''}</div>`; }).join(''); }
  let rs=S.results.filter(r=>r.comp_id==cp.id).sort((a,b)=>a.rank-b.rank);
- if(!rs.length) return '<div class="r" style="color:var(--mut)">Zatiaľ bez výsledkov.</div>';
+ if(!rs.length) return '';
  return rs.map(r=>{ let who=cp.type=='team'?(S.teams.find(t=>t.id==r.entrant)||{}).name:r.entrant; let pts=(cp.points||[])[r.rank-1]||0;
   return `<div class="r"><b>${r.rank}.</b> ${esc(who||'?')} <span class="pill">+${pts} b</span></div>`; }).join('');
 }
