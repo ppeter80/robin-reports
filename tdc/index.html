@@ -50,11 +50,6 @@ input,select,textarea{width:100%;background:#1c0d14;border:1px solid rgba(228,17
 .lbhint{font-size:11px;color:rgba(255,255,255,.55);text-align:center;padding:6px 0 0;}
 #galsel{margin-bottom:10px;}
 .inputwrap{position:relative;}
-.conform{position:absolute;bottom:100%;left:0;right:0;margin-bottom:8px;z-index:7;background:var(--card);border:1px solid rgba(228,178,76,.4);border-radius:14px;padding:10px 12px;box-shadow:0 8px 24px rgba(0,0,0,.55);}
-.concard{margin-top:6px;background:rgba(0,0,0,.28);border:1px solid rgba(255,255,255,.16);border-radius:10px;padding:8px 10px;}
-.concard .conname{font-weight:700;font-size:14px;margin-bottom:4px;}
-.concard .conline{display:block;font-size:13px;color:#8FD3FF;text-decoration:none;margin:2px 0;}
-.concard .conbtn{display:inline-block;margin-top:6px;font-size:12px;color:#F0D592;border:1px solid rgba(228,178,76,.5);border-radius:8px;padding:4px 9px;cursor:pointer;}
 .attmenu{position:absolute;bottom:100%;left:0;margin-bottom:8px;display:flex;gap:8px;z-index:7;}
 .iconbtn{width:52px;height:52px;padding:0;font-size:26px;line-height:1;border-radius:50%;box-shadow:0 6px 18px rgba(0,0,0,.5);}
 .attbtn{font-size:20px;line-height:1;}
@@ -151,12 +146,10 @@ nav button{flex:1;background:none;border:none;color:var(--mut);padding:11px 2px 
 <div id="v-chat" class="view">
  <div id="msgs"></div>
  <input type="file" id="photo" accept="image/*" style="display:none" onchange="pickPhoto(event)">
- <input type="file" id="vcf" accept=".vcf,text/vcard,text/x-vcard,text/directory" style="display:none" onchange="loadVcf(event)">
  <div id="replybar" style="display:none"></div>
  <div class="chipbox" id="mnbox"></div>
  <div class="inputwrap">
-  <div id="attmenu" class="attmenu" style="display:none"><button class="btn iconbtn" onpointerdown="event.preventDefault()" onclick="attach('photo')" title="Fotka">📷</button><button class="btn iconbtn" onpointerdown="event.preventDefault()" onclick="attach('loc')" title="Poloha">📍</button><button class="btn iconbtn" onpointerdown="event.preventDefault()" onclick="attach('contact')" title="Kontakt">👤</button></div>
-  <div id="conform" class="conform" style="display:none"></div>
+  <div id="attmenu" class="attmenu" style="display:none"><button class="btn iconbtn" onpointerdown="event.preventDefault()" onclick="attach('photo')" title="Fotka">📷</button><button class="btn iconbtn" onpointerdown="event.preventDefault()" onclick="attach('loc')" title="Poloha">📍</button></div>
   <div id="photoprev"></div>
  <div class="admrow"><button class="btn sm attbtn" style="flex:0 0 44px" onpointerdown="event.preventDefault()" onclick="toggleAttach()" title="Fotka alebo poloha">⋯</button><textarea id="msgtext" rows="1" placeholder="Napíš správu…" style="margin-top:6px;resize:none;max-height:120px" oninput="growBox(this)" onfocus="typingOn(true)" onblur="typingOn(false)" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMsg();}"></textarea><button class="btn sm" style="flex:0 0 72px" onpointerdown="event.preventDefault()" onclick="sendMsg()">Poslať</button></div>
  </div>
@@ -254,63 +247,8 @@ function toggleAttach(){ let m=document.getElementById('attmenu'); if(!m)return;
  m.style.display = m.style.display==='none' ? 'flex' : 'none'; }
 function attach(kind){ let m=document.getElementById('attmenu'); if(m) m.style.display='none';
  if(kind==='photo') document.getElementById('photo').click();
- else if(kind==='contact') openContact();
  else sendLocation(); }
-// vizitka: z telefónneho zoznamu ju vie podať len Android Chrome, iPhone to webu nedovolí,
-// preto sa dá vždy aj vypísať ručne — výsledná karta funguje rovnako na oboch
-async function openContact(){ if(needLogin())return;
- let f=document.getElementById('conform'); if(!f)return;
- let pre={name:'',tel:'',mail:''};
- try{ if(navigator.contacts && navigator.contacts.select){
-   let r=await navigator.contacts.select(['name','tel','email'],{multiple:false});
-   if(r&&r[0]){ pre.name=(r[0].name||[])[0]||''; pre.tel=(r[0].tel||[])[0]||''; pre.mail=(r[0].email||[])[0]||''; } } }catch(e){}
- f.style.display='block';
- f.innerHTML=`<div class="r" style="font-size:12px;color:#F0D592"><b>👤 Vizitka</b></div>
-  <input id="cn_name" placeholder="Meno" value="${escA(pre.name)}">
-  <input id="cn_tel" inputmode="tel" placeholder="Telefón" value="${escA(pre.tel)}">
-  <input id="cn_mail" inputmode="email" placeholder="E-mail (nepovinné)" value="${escA(pre.mail)}">
-  <div class="admrow" style="margin-top:6px"><button class="btn sm" onclick="document.getElementById('vcf').click()">📇 Načítať z vizitky (.vcf)</button></div>
-  <div class="r" style="font-size:10px;color:var(--mut)">iPhone: Kontakty → Zdieľať kontakt → Uložiť do Súborov, potom sem</div>
-  <div class="admrow" style="margin-top:6px"><button class="btn sm g" onclick="sendContact()">Poslať</button><button class="btn sm" onclick="closeContact()">Zrušiť</button></div>`;
- let el=document.getElementById('cn_name'); if(el&&!pre.name) el.focus(); }
-// iPhone nedá webu prístup ku kontaktom, ale vizitku vyexportovanú do Súborov prečítame
-function parseVcf(txt){
- let riadky=String(txt).replace(/\r\n/g,'\n').split('\n'), spojene=[];
- riadky.forEach(r=>{ if(/^[ \t]/.test(r)&&spojene.length) spojene[spojene.length-1]+=r.slice(1); else spojene.push(r); });
- let out={name:'',tel:'',mail:''};
- spojene.forEach(r=>{ let i=r.indexOf(':'); if(i<0)return;
-  let kluc=r.slice(0,i).toUpperCase().replace(/^ITEM\d+\./,''), hod=r.slice(i+1).trim();
-  if(!hod)return;
-  if(!out.name && /^FN(;|$)/.test(kluc)) out.name=hod;
-  if(!out.tel && /^TEL(;|$)/.test(kluc)) out.tel=hod;
-  if(!out.mail && /^EMAIL(;|$)/.test(kluc)) out.mail=hod;
-  if(!out.name && /^N(;|$)/.test(kluc)){ let c=hod.split(';'); out.name=((c[1]||'')+' '+(c[0]||'')).trim(); } });
- return out; }
-function loadVcf(ev){ let f=ev.target.files[0]; ev.target.value=''; if(!f)return;
- let rd=new FileReader();
- rd.onload=()=>{ let c=parseVcf(rd.result);
-  if(!c.name && !c.tel){ alert('Zo súboru sa nepodarilo nič prečítať.'); return; }
-  let a=document.getElementById('cn_name'), b=document.getElementById('cn_tel'), d=document.getElementById('cn_mail');
-  if(a) a.value=c.name; if(b) b.value=c.tel; if(d) d.value=c.mail; };
- rd.readAsText(f,'utf-8'); }
-function closeContact(){ let f=document.getElementById('conform'); if(f){ f.style.display='none'; f.innerHTML=''; } }
-const clean=v=>String(v||'').split('|').join(' ').replace(/\s+/g,' ').trim();
-async function sendContact(){ if(needLogin())return;
- let n=clean(document.getElementById('cn_name').value), t=clean(document.getElementById('cn_tel').value), m=clean(document.getElementById('cn_mail').value);
- if(!n){ alert('Zadaj meno.'); return; }
- if(!t && !m){ alert('Zadaj aspoň telefón alebo e-mail.'); return; }
- let payload={name:ME.name,body:'##CON##'+n+'|'+t+'|'+m,photo_url:null};
- stick=true; let {error}=await sb.from('tdc_messages').insert(payload);
- if(error){ alert('Odoslanie zlyhalo: '+error.message); return; }
- sb.functions.invoke('bright-processor',{body:{sender:ME.name,body:'👤 '+n}}).catch(()=>{});
- closeContact(); await loadAll(); stick=true; chatToBottom(); }
-function saveVcf(n,t,m){ let v=['BEGIN:VCARD','VERSION:3.0','FN:'+n,'N:'+n+';;;;'];
- if(t) v.push('TEL;TYPE=CELL:'+t); if(m) v.push('EMAIL;TYPE=INTERNET:'+m);
- v.push('END:VCARD');
- let blob=new Blob([v.join('\r\n')],{type:'text/vcard;charset=utf-8'});
- let u=URL.createObjectURL(blob), a=document.createElement('a');
- a.href=u; a.download=n.replace(/[^\p{L}\p{N} _-]/gu,'')+'.vcf'; document.body.appendChild(a); a.click(); a.remove();
- setTimeout(()=>URL.revokeObjectURL(u),4000); }
+
 // počas písania nech lišta nezaberá miesto nad klávesnicou
 function typingOn(on){
  if(on){ document.body.classList.add('typing'); setTimeout(()=>{ if(chatOpen()&&stick) chatToBottom(); },60); return; }
@@ -1007,8 +945,7 @@ function markMentions(escaped){ let ns=mentionNames(); if(!ns.length) return esc
  let re=new RegExp('@(?:'+ns.map(n=>rxEsc(esc(n))).join('|')+')(?![\\p{L}\\p{N}_])','giu');
  let mineEsc=ME?esc(ME.name).toLowerCase():null;
  return escaped.replace(re,m=>`<span class="mn${mineEsc&&m.slice(1).toLowerCase()===mineEsc?' me':''}">${m}</span>`); }
-function msgPreview(m){ if(!m)return''; if(m.body&&m.body.indexOf('##LOC##')===0) return '📍 poloha';
- if(m.body&&m.body.indexOf('##CON##')===0) return '👤 '+(m.body.slice(7).split('|')[0]||'kontakt'); if(m.body) return m.body; if(m.photo_url) return '📷 fotka'; return ''; }
+function msgPreview(m){ if(!m)return''; if(m.body&&m.body.indexOf('##LOC##')===0) return '📍 poloha'; if(m.body) return m.body; if(m.photo_url) return '📷 fotka'; return ''; }
 function reactionsFor(mid){ let map={}; S.reactions.filter(r=>r.message_id==mid).forEach(r=>{ (map[r.emoji]=map[r.emoji]||[]).push(r.name); }); return map; }
 function renderChat(){ let h='';
  if(window.Notification && Notification.permission!=='granted') h+='<div class="notifbtn" onclick="enablePush(false)">🔔 Zapnúť upozornenia na nové správy (aj keď je appka zavretá)</div>';
@@ -1020,12 +957,6 @@ function renderChat(){ let h='';
   let bodyHtml='';
   if(x.body&&x.body.indexOf('##LOC##')===0){ let c=x.body.slice(7).split(','),la=encodeURIComponent(c[0]||''),lo=encodeURIComponent(c[1]||'');
    bodyHtml=`<div class="loccard"><div class="locttl">📍 Zdieľaná poloha</div><div class="loccoord">${esc(c[0]||'')}, ${esc(c[1]||'')}</div><a class="locbtn" href="https://www.google.com/maps/dir/?api=1&destination=${la},${lo}" target="_blank" rel="noopener" onclick="event.stopPropagation()">🧭 Navigovať (Google Maps)</a><a class="locbtn2" href="https://www.google.com/maps?q=${la},${lo}" target="_blank" rel="noopener" onclick="event.stopPropagation()">🗺️ Otvoriť pin</a></div>`;
-  } else if(x.body&&x.body.indexOf('##CON##')===0){ let c=x.body.slice(7).split('|');
-   let nm=c[0]||'', tel=c[1]||'', mail=c[2]||'';
-   bodyHtml=`<div class="concard"><div class="conname">👤 ${esc(nm)}</div>`+
-    (tel?`<a class="conline" href="tel:${escA(tel)}" onclick="event.stopPropagation()">📞 ${esc(tel)}</a>`:'')+
-    (mail?`<a class="conline" href="mailto:${escA(mail)}" onclick="event.stopPropagation()">✉️ ${esc(mail)}</a>`:'')+
-    `<span class="conbtn" onclick="event.stopPropagation();saveVcf('${js1(nm)}','${js1(tel)}','${js1(mail)}')">💾 Uložiť do kontaktov</span></div>`;
   } else if(x.body){ bodyHtml='<br>'+markMentions(esc(x.body)); }
   let atMe=!mine && mentionsMe(x.body);
   let bubble=`<div class="msg ${mine?'mine':'other'}${atMe?' atme':''}"><span class="who" style="color:${nameColor(x.name,mine)}">${esc(x.name)}</span><span class="time">${fmtTime(x.created_at)}</span>${q}${bodyHtml}${x.photo_url?'<br><img loading="lazy" onload="imgLoaded()" class="chatimg" src="'+x.photo_url+'" data-u="'+escA(x.photo_url)+'" onclick="event.stopPropagation();openChatPhoto(this.dataset.u)">':''}${pills?'<div class="rx">'+pills+'</div>':''}</div>`;
