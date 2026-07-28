@@ -48,7 +48,11 @@ input,select,textarea{width:100%;background:#1c0d14;border:1px solid rgba(228,17
 .msg.atme{border-color:#E4B24C!important;box-shadow:0 0 0 2px rgba(228,178,76,.35);}
 .ndot.at{background:#E4B24C;color:#2A1119;}
 .lbhint{font-size:11px;color:rgba(255,255,255,.55);text-align:center;padding:6px 0 0;}
-#galsel{margin-bottom:10px;}
+.galtop{position:sticky;top:var(--hdrh,115px);z-index:4;background:#160A10;margin:0 -14px 8px;padding:8px 14px;border-bottom:1px solid rgba(228,178,76,.14);}
+.galrow{display:flex;gap:8px;align-items:center;}
+.galrow #galsel{flex:1 1 auto;min-width:0;margin:0;}
+.galrow .btn{flex:0 0 auto;width:auto;margin:0;padding:10px 14px;}
+.galrow2{display:flex;gap:8px;} .galrow2 .btn{flex:1 1 0;width:auto;margin:0;padding:9px 6px;font-size:12px;}
 .inputwrap{position:relative;}
 .attmenu{position:absolute;bottom:100%;left:0;margin-bottom:8px;display:flex;gap:8px;z-index:7;}
 .iconbtn{width:52px;height:52px;padding:0;font-size:26px;line-height:1;border-radius:50%;box-shadow:0 6px 18px rgba(0,0,0,.5);}
@@ -220,7 +224,7 @@ function imgLoaded(){ if(chatOpen()&&stick) chatToBottom(); }
 window.addEventListener('scroll',()=>{ if(chatOpen()) stick=nearBottom(); },{passive:true});
 function boot(){ closeGate(); renderAcct();
  loadAll(); setInterval(loadAll, 4000); heartbeat(); setInterval(heartbeat, 15000);
- initSwipe();
+ initSwipe(); hdrVar(); window.addEventListener('resize',hdrVar);
  if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(()=>{}); if(window.Notification && Notification.permission==='granted') enablePush(true); }
  document.addEventListener('visibilitychange',()=>{ if(!document.hidden){ heartbeat(); loadAll(); } }); }
 async function heartbeat(){ if(!ME)return; try{ await sb.from('tdc_participants').update({last_seen:new Date().toISOString()}).eq('name',ME.name); }catch(e){} }
@@ -289,6 +293,8 @@ function goTo(v){ if(v!=='more') curView=v;   // „Viac" nie je obsah, nech ost
  renderAll();
  if(v=='chat'){ markSeen(); stick=true; chatToBottom(); }
  else window.scrollTo(0,0); }
+function hdrVar(){ let h=document.querySelector('header');
+ if(h) document.documentElement.style.setProperty('--hdrh', h.offsetHeight+'px'); }
 function renderMore(){ let el=document.getElementById('moreview'); if(!el)return;
  let unread=0; if(ME){ let seen=localStorage.getItem('tdc_lastSeen')||'';
   unread=S.msgs.filter(m=>m.name!=ME.name && (m.created_at||'')>seen).length; }
@@ -318,7 +324,7 @@ async function loadAll(){ try{
  notify(); renderOnline(); }catch(err){ console.error(err); } }
 let lastSig='';
 function renderAll(){ let f=document.activeElement, typing=f&&/INPUT|SELECT|TEXTAREA/.test(f.tagName);
- if(!typing){ renderComps(); renderTeams(); renderGallery(); } renderChat(); renderLead(); renderProgram(); renderAcct(); renderMore(); renderOnline(); renderSplit(); }
+ if(!typing){ renderComps(); renderTeams(); renderGallery(); } renderChat(); renderLead(); renderProgram(); renderAcct(); renderMore(); renderOnline(); renderSplit(); hdrVar(); }
 
 // ---- admin & comps ----
 function grabComp(){ let a=document.getElementById('c_name'), b=document.getElementById('c_pts'), c=document.getElementById('c_beers');
@@ -1043,7 +1049,7 @@ function allPhotos(){
  let b=S.photos.map(f=>({key:'f'+f.id, id:f.id, src:'comp', comp_id:f.comp_id, name:f.person, body:'', photo_url:f.url, created_at:f.created_at}));
  return a.concat(b).sort((x,y)=>String(x.created_at||'').localeCompare(String(y.created_at||'')));
 }
-function galleryPhotos(){ let all=allPhotos();
+function galleryPhotos(){ let all=allPhotos().slice().reverse();   // najnovšie hore
  if(galFilter==='chat') return all.filter(p=>p.src==='chat');
  if(galFilter) return all.filter(p=>p.comp_id==galFilter);
  return all; }
@@ -1055,20 +1061,19 @@ function renderGallery(){ let el=document.getElementById('galleryview'); if(!el)
  if(!all.length){ el.innerHTML='<div class="soon">Zatiaľ žiadne fotky. Pridaj ich v Chate 📷 alebo priamo pri súťaži.</div>'; return; }
  let groups=STAGES.concat(S.comps.map(c=>({id:c.id,name:c.name}))).filter(g=>S.photos.some(f=>f.comp_id==g.id));
  let nchat=all.filter(p=>p.src==='chat').length;
- let head=`<select id="galsel" onchange="setGalFilter(this.value)">`+
+ let head=`<div class="galtop"><div class="galrow"><select id="galsel" onchange="setGalFilter(this.value)">`+
   `<option value=""${!galFilter?' selected':''}>🖼️ Všetky fotky (${all.length})</option>`+
   (nchat?`<option value="chat"${galFilter==='chat'?' selected':''}>💬 Z chatu (${nchat})</option>`:'')+
   groups.map(g=>{ let n=S.photos.filter(f=>f.comp_id==g.id).length;
    return `<option value="${escA(g.id)}"${galFilter==g.id?' selected':''}>${esc(g.name)} (${n})</option>`; }).join('')+
   `</select>`;
+ // ovládanie ostáva prilepené hore, aj keď sa roluje
+ if(ME) head+=`<button class="btn sm${selMode?'':' g'}" style="flex:0 0 auto" onclick="toggleSelMode()">${selMode?'✕ Zrušiť':'☑️ Vybrať'}</button>`;
+ head+=`</div>`;
+ if(ME&&selMode) head+=`<div id="selbar"></div><div class="galrow2" style="margin-top:6px"><button class="btn sm" onclick="selAll()">${sel.size===ph.length?'Odznačiť všetky':'Označiť všetky'}</button><button class="btn sm g" onclick="dlSelected()"${sel.size?'':' disabled'}>⬇ Uložiť (${sel.size})</button><button class="btn sm" onclick="delSelected()"${sel.size?'':' disabled'}>🗑 Zmazať (${sel.size})</button></div>`;
+ head+=`</div>`;
  if(!ph.length){ el.innerHTML=head+'<div class="soon">V tomto výbere zatiaľ nič nie je.</div>'; return; }
- let bar='';
- if(ME){ bar=`<div class="admrow" style="margin-bottom:8px"><button class="btn sm${selMode?'':' g'}" onclick="toggleSelMode()">${selMode?'✕ Zrušiť výber':'☑️ Vybrať viac'}</button>`+
-   (selMode?`<button class="btn sm" onclick="selAll()">${sel.size===ph.length?'Odznačiť všetky':'Označiť všetky'}</button>`:'')+`</div>`;
-  if(selMode) bar+=`<div id="selbar"></div><div class="admrow" style="margin-bottom:8px"><button class="btn sm g" onclick="dlSelected()"${sel.size?'':' disabled'}>⬇ Uložiť (${sel.size})</button><button class="btn sm" onclick="delSelected()"${sel.size?'':' disabled'}>🗑 Zmazať (${sel.size})</button></div>`;
- }
- let hint = selMode ? 'ťukaním označuj fotky, potom ich ulož alebo zmaž naraz' : 'ťukni pre zväčšenie a stiahnutie';
- el.innerHTML=head+bar+'<div class="r" style="color:var(--mut);font-size:12px;margin-bottom:6px">'+ph.length+' '+(ph.length==1?'fotka':(ph.length<5?'fotky':'fotiek'))+' · '+hint+'</div>'+
+ el.innerHTML=head+
   '<div class="gallery">'+ph.map((m,i)=> selMode
     ? `<div class="gsel${sel.has(m.key)?' on':''}" onclick="toggleSel('${js1(m.key)}')"><img class="gthumb" loading="lazy" src="${m.photo_url}"><span class="gtick">${sel.has(m.key)?'✓':''}</span></div>`
     : `<img class="gthumb" loading="lazy" src="${m.photo_url}" onclick="openLightbox(${i})">`).join('')+'</div>';
