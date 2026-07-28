@@ -465,9 +465,11 @@ async function addExpense(){ if(needLogin())return;
  clearExp(); ['ex_title','ex_amount'].forEach(id=>{ let e=document.getElementById(id); if(e) e.value=''; });
  await loadAll(); alert('Náklad pridaný ✅'); }
 async function delExpense(id){ let x=S.exp.find(e=>e.id==id); if(!x)return;
- if(!(ME && (x.created_by===ME.name || ADMIN))){ alert('Zmazať môžeš len to, čo si zapísal ty.'); return; }
+ if(!canDelExp(x)){ alert('Zmazať to môže len ten, kto náklad zapísal, alebo ten, kto platil.'); return; }
  if(!confirm('Zmazať náklad „'+x.title+'"?'))return;
  await sb.from('tdc_expenses').delete().eq('id',id); expOpen=null; await loadAll(); }
+// zmazať smie ten, kto zapísal, aj ten, kto platil (a admin)
+function canDelExp(x){ return !!(ME && x && (x.created_by===ME.name || x.payer===ME.name || ADMIN)); }
 function toggleExp(id){ expOpen=(expOpen==id?null:id); renderSplit(); }
 
 function exportText(){ let out=['TOUR DE CROATIA — vyúčtovanie',''];
@@ -538,7 +540,7 @@ function renderSplit(){ let el=document.getElementById('splitview'); if(!el)retu
    <div class="r" style="font-size:11px;color:var(--mut)">platil <b style="color:#F0D592">${esc(x.payer)}</b> · delí sa medzi ${n} ${n==1?'osobu':(n<5?'osoby':'osôb')} · ${x.mode==='exact'?'presne':'rovným dielom'}</div>`;
   if(expOpen==x.id){
    h+=Object.keys(m).sort((a,b)=>a.localeCompare(b,'sk')).map(p=>`<div class="r" style="font-size:12px">${esc(p)} <span class="pill">${eur(m[p])}</span></div>`).join('');
-   if(ME&&(x.created_by===ME.name||ADMIN)) h+=`<button class="btn sm" style="margin-top:8px" onclick="delExpense('${js1(x.id)}')">🗑 Zmazať náklad</button>`;
+   if(canDelExp(x)) h+=`<button class="btn sm" style="margin-top:8px" onclick="delExpense('${js1(x.id)}')">🗑 Zmazať náklad</button>`;
   }
   h+='</div>'; });
  h+='</div>';
