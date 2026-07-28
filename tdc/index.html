@@ -20,7 +20,13 @@ body{font-family:'Segoe UI',system-ui,Arial,sans-serif;background:
 header{padding:8px 12px 10px;text-align:center;position:sticky;top:0;z-index:5;background:#180C12;border-bottom:1px solid rgba(228,178,76,.16);box-shadow:0 6px 16px rgba(0,0,0,.45);}
 header .k{letter-spacing:3px;font-size:9px;color:var(--gold);text-transform:uppercase;}
 header h1{font-family:Georgia,serif;font-size:22px;color:#F6E9EE;text-shadow:0 2px 14px rgba(176,40,70,.5);}
-header h1 .tref{color:#FF3B30;cursor:pointer;text-shadow:0 0 16px rgba(255,59,48,.55);} header h1 .tadm{cursor:pointer;}
+header h1 .tref{color:#FF3B30;cursor:pointer;} header h1 .tadm{cursor:pointer;}
+/* chorvátska šahovnica orezaná do písmen; bez podpory ostane červená */
+@supports ((-webkit-background-clip:text) or (background-clip:text)){
+ header h1 .tref{background-image:conic-gradient(#FFFFFF 25%,#E8112D 0 50%,#FFFFFF 0 75%,#E8112D 0);
+  background-size:12px 12px;-webkit-background-clip:text;background-clip:text;color:transparent;
+  filter:drop-shadow(0 1px 2px rgba(0,0,0,.75));}
+}
 header .acct{position:relative;text-align:right;min-height:26px;z-index:6;}
 .acctbtn{display:inline-block;background:rgba(228,178,76,.14);border:1px solid rgba(228,178,76,.45);color:#F0D592;border-radius:14px;padding:5px 11px;font-size:12px;font-weight:700;cursor:pointer;max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .acctmenu{position:absolute;top:34px;right:0;background:var(--card);border:1px solid rgba(228,178,76,.35);border-radius:10px;padding:4px;min-width:130px;box-shadow:0 8px 24px rgba(0,0,0,.5);}
