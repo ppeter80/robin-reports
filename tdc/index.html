@@ -293,8 +293,8 @@ function renderComps(){
 function compResults(cp){
  if(cp.type=='num'){ let st=numStandings(cp.id);
   if(!st.length) return '';
-  return st.map(s=>{ let pts=(cp.points||[])[s.rank-1]||0;
-   return `<div class="r ${ME&&s.person==ME.name?'me':''}"><b>${s.rank}.</b> ${esc(s.person)} <span class="pill">${esc(fmtVal(s.val))}</span>${pts?`<span class="pill">+${pts} b</span>`:''}</div>`; }).join(''); }
+  return st.map(s=>{ let pts=s.rank?((cp.points||[])[s.rank-1]||0):0;
+   return `<div class="r ${ME&&s.person==ME.name?'me':''}"><b>${s.rank?s.rank+'.':'—'}</b> ${esc(s.person)} <span class="pill">${esc(fmtVal(s.val))}</span>${pts?`<span class="pill">+${pts} b</span>`:''}</div>`; }).join(''); }
  let rs=S.results.filter(r=>r.comp_id==cp.id).sort((a,b)=>a.rank-b.rank);
  if(!rs.length) return '';
  return rs.map(r=>{ let who=cp.type=='team'?(S.teams.find(t=>t.id==r.entrant)||{}).name:r.entrant; let pts=(cp.points||[])[r.rank-1]||0;
@@ -407,8 +407,10 @@ function renderProgram(){ STAGES.forEach(s=>{ let el=document.getElementById('pb
 // ---- číselné súťaže (promile) ----
 function numStandings(cid){ let vs=S.values.filter(v=>v.comp_id==cid).map(v=>({person:v.person,val:Number(v.val)}));
  vs.sort((a,b)=>b.val-a.val||a.person.localeCompare(b.person,'sk'));
+ // nula sa neumiestňuje — za samotnú účasť body nie sú
  let rank=0, prev=null, seen=0;
- vs.forEach(v=>{ seen++; if(v.val!==prev){ rank=seen; prev=v.val; } v.rank=rank; });
+ vs.forEach(v=>{ if(!(v.val>0)){ v.rank=null; return; }
+  seen++; if(v.val!==prev){ rank=seen; prev=v.val; } v.rank=rank; });
  return vs; }
 function myVal(cid){ let v=ME&&S.values.find(x=>x.comp_id==cid&&x.person==ME.name); return v?String(v.val):''; }
 const fmtVal=v=>String(v).replace('.',',');
@@ -570,7 +572,8 @@ async function revealTasting(cid){ let cp=S.comps.find(c=>c.id==cid); if(!cp)ret
  for(const u of upd) await sb.from('tdc_tasting_items').update({num:u.num}).eq('id',u.id);
  await loadAll();
  let sc=tScores(cid), rows=[], rank=0, prev=null, seen=0;
- sc.forEach(s=>{ seen++; if(s.hits!==prev){ rank=seen; prev=s.hits; } rows.push({comp_id:cid,entrant:s.person,rank}); });
+ sc.forEach(s=>{ if(!s.hits) return;   // nula trafených = bez umiestnenia
+  seen++; if(s.hits!==prev){ rank=seen; prev=s.hits; } rows.push({comp_id:cid,entrant:s.person,rank}); });
  await sb.from('tdc_results').delete().eq('comp_id',cid);
  if(rows.length) await sb.from('tdc_results').insert(rows);
  sb.functions.invoke('bright-processor',{body:{sender:ME.name,body:'odhalil ochutnávku „'+cp.name+'" — výsledky sú vonku 🍺'}}).catch(()=>{});
@@ -745,7 +748,7 @@ function computeLead(){ let tot={}; S.participants.forEach(p=>tot[p]=0);
 }
 function computeMatrix(){ let per={}; S.participants.forEach(n=>per[n]={});
  S.comps.forEach(cp=>{
-  if(cp.type=='num'){ numStandings(cp.id).forEach(s=>{ let pts=(cp.points||[])[s.rank-1]||0;
+  if(cp.type=='num'){ numStandings(cp.id).forEach(s=>{ if(!s.rank) return; let pts=(cp.points||[])[s.rank-1]||0;
     if(per[s.person]) per[s.person][cp.id]=(per[s.person][cp.id]||0)+pts; }); return; }
   S.results.filter(r=>r.comp_id==cp.id).forEach(r=>{ let pts=(cp.points||[])[r.rank-1]||0;
    if(cp.type!='team'){ if(per[r.entrant]) per[r.entrant][cp.id]=(per[r.entrant][cp.id]||0)+pts; }
