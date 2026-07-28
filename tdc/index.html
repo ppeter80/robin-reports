@@ -48,6 +48,7 @@ input,select,textarea{width:100%;background:#1c0d14;border:1px solid rgba(228,17
 .modalcard{background:var(--card);border:1px solid rgba(228,178,76,.4);border-radius:16px;padding:14px;max-width:420px;width:100%;max-height:82vh;overflow-y:auto;box-shadow:0 18px 50px rgba(0,0,0,.6);}
 .modalhd{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:15px;color:#F6E9EE;margin-bottom:8px;border-bottom:1px solid rgba(228,178,76,.25);padding-bottom:8px;}
 .modalbody{margin-bottom:10px;}
+.ptsline{border-bottom:1px solid rgba(228,178,76,.25);padding-bottom:8px;margin-bottom:8px!important;}
 .modalbody .rline{font-size:12px;line-height:1.5;color:#EADFE3;margin:5px 0;}
 .gsel{position:relative;cursor:pointer;} .gsel .gtick{position:absolute;top:5px;right:5px;width:22px;height:22px;border-radius:50%;border:2px solid #fff;background:rgba(0,0,0,.45);color:#2A1119;font-weight:800;font-size:14px;line-height:20px;text-align:center;}
 .gsel.on .gtick{background:#E4B24C;border-color:#E4B24C;} .gsel.on .gthumb{outline:3px solid #E4B24C;outline-offset:-3px;opacity:.75;}
@@ -279,7 +280,7 @@ function renderComps(){
  let h=''; if(!S.comps.length) h='<div class="soon">Zatiaľ žiadne súťaže. '+(ADMIN?'Pridaj prvú hore.':'')+'</div>';
  S.comps.forEach((cp,ci)=>{ let done=S.results.some(r=>r.comp_id==cp.id);
   h+=`<div class="card"><h3><span class="tag" style="background:#5A4A6A;color:#fff">${ci+1}</span> ${esc(cp.name)} <span class="chip rulechip" onclick="toggleRules('${js1(cp.id)}')">📜 Pravidlá</span>${ADMIN?`<span onclick="delComp('${cp.id}')" style="margin-left:auto;cursor:pointer;color:#c66">🗑</span>`:''}</h3>`;
-  h+=`<div class="r"><span class="lab">Body:</span> ${(cp.points||[]).join(' / ')}</div>${compResults(cp)}`;
+  h+=compResults(cp);
   if(cp.type=='team') h+=`<div class="r" style="color:var(--mut);font-size:11px">Tímy poskladáte v tabe 👥 Tímy.</div>`;
   if(cp.type=='tasting') h+=tastingBlock(cp);
   else if(cp.type=='num') h+=numBlock(cp);
@@ -366,7 +367,8 @@ function renderRules(){ let m=document.getElementById('rulesmodal'); if(!m)retur
  m.style.display='flex';
  m.innerHTML=`<div class="modalcard" onclick="event.stopPropagation()">
    <div class="modalhd"><b>📜 ${esc(cp.name)}</b><span class="lbx" onclick="closeRules()">✕</span></div>
-   <div class="modalbody">${RULES[rulesKind(cp)].map(x=>`<div class="rline">${x}</div>`).join('')}</div>
+   <div class="modalbody"><div class="rline ptsline">🏆 <b>Body za umiestnenie:</b> ${(cp.points||[]).join(' / ')||'—'} <span style="color:var(--mut)">(1. · 2. · 3. miesto…)</span></div>
+    ${RULES[rulesKind(cp)].map(x=>`<div class="rline">${x}</div>`).join('')}</div>
    <button class="btn sm g" onclick="closeRules()">Rozumiem</button></div>`; }
 
 // ---- fotky pri súťaži a etape (idú LEN do galérie, nie do chatu) ----
