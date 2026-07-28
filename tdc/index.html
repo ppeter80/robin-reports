@@ -151,6 +151,7 @@ nav button{flex:1;background:none;border:none;color:var(--mut);padding:11px 2px 
 </div>
 <div id="v-lead" class="view"><div id="leadview"></div></div>
 <div id="v-gallery" class="view"><div id="galleryview"></div></div>
+<div id="v-split" class="view"><div id="splitview"></div></div>
 <div id="v-more" class="view"><div id="moreview"></div></div>
 
 <div id="lightbox" class="lb" style="display:none"></div>
@@ -172,7 +173,7 @@ const VAPID_PUBLIC='BO3HLckvkWtHJMq71x2OLioQCtS2nSHFx0mXGGLAEoMBHEp7FRAIec06z9ug
 let ME = JSON.parse(localStorage.getItem('tdc_me')||'null');
 let ADMIN=false, pendingPhoto=null, replyTo=null, openMsg=null, stick=true, openTeam=null, teamMode=null, openResults=null;
 let openRules=null, openTast=null, tdrafts={}, newCompType='ind', newComp={name:'',pts:'',beers:''}, galFilter=null;
-let S = {participants:[],comps:[],teams:[],results:[],extra:[],msgs:[],reactions:[],plist:[],titems:[],tpicks:[],values:[],photos:[]};
+let S = {participants:[],comps:[],teams:[],results:[],extra:[],msgs:[],reactions:[],plist:[],titems:[],tpicks:[],values:[],photos:[],exp:[]};
 const esc=s=>(s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 const js1=s=>(s||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
 const escA=s=>esc(s).replace(/"/g,'&quot;');
@@ -266,7 +267,8 @@ const TABS=[{v:'program',ic:'🗺️',n:'Program',d:'Etapy, mapy a fotky z ciest
  {v:'teams',ic:'👥',n:'Tímy',d:'Zloženie tímov pre tímové súťaže'},
  {v:'chat',ic:'💬',n:'Chat',d:'Správy, fotky a poloha'},
  {v:'gallery',ic:'🖼️',n:'Galéria',d:'Všetky fotky z výletu'},
- {v:'lead',ic:'🏆',n:'Rebríček',d:'Priebežné poradie a body'}];
+ {v:'lead',ic:'🏆',n:'Rebríček',d:'Priebežné poradie a body'},
+ {v:'split',ic:'💶',n:'Splitter',d:'Spoločné náklady a kto komu dlží'}];
 const NAVTABS=['program','chat','gallery'];
 let curView='program';
 function go(btn){ goTo(btn.dataset.v); }
@@ -288,7 +290,7 @@ function renderMore(){ let el=document.getElementById('moreview'); if(!el)return
  }).join('')+'</div>'; }
 
 async function loadAll(){ try{
- const [p,c,t,r,e,m,rx,ti,tp,vl,cf]=await Promise.all([
+ const [p,c,t,r,e,m,rx,ti,tp,vl,cf,ex]=await Promise.all([
   sb.from('tdc_participants').select('*').order('name'),
   sb.from('tdc_comps').select('*').order('created_at'),
   sb.from('tdc_teams').select('*'),
@@ -299,14 +301,15 @@ async function loadAll(){ try{
   sb.from('tdc_tasting_items').select('*'),
   sb.from('tdc_tasting_picks').select('*'),
   sb.from('tdc_values').select('*'),
-  sb.from('tdc_photos').select('*').order('created_at')]);
- S.plist=p.data||[]; S.participants=S.plist.map(x=>x.name); S.comps=c.data||[]; S.teams=t.data||[]; S.results=r.data||[]; S.extra=e.data||[]; S.msgs=m.data||[]; S.reactions=rx.data||[]; S.titems=ti.data||[]; S.tpicks=tp.data||[]; S.values=vl.data||[]; S.photos=cf.data||[];
- let sig=JSON.stringify([S.participants,S.comps,S.teams,S.results,S.extra,S.msgs,S.reactions,S.titems,S.tpicks,S.values,S.photos]);
+  sb.from('tdc_photos').select('*').order('created_at'),
+  sb.from('tdc_expenses').select('*').order('created_at')]);
+ S.plist=p.data||[]; S.participants=S.plist.map(x=>x.name); S.comps=c.data||[]; S.teams=t.data||[]; S.results=r.data||[]; S.extra=e.data||[]; S.msgs=m.data||[]; S.reactions=rx.data||[]; S.titems=ti.data||[]; S.tpicks=tp.data||[]; S.values=vl.data||[]; S.photos=cf.data||[]; S.exp=ex.data||[];
+ let sig=JSON.stringify([S.participants,S.comps,S.teams,S.results,S.extra,S.msgs,S.reactions,S.titems,S.tpicks,S.values,S.photos,S.exp]);
  if(sig!==lastSig){ lastSig=sig; renderAll(); }
  notify(); renderOnline(); }catch(err){ console.error(err); } }
 let lastSig='';
 function renderAll(){ let f=document.activeElement, typing=f&&/INPUT|SELECT|TEXTAREA/.test(f.tagName);
- if(!typing){ renderComps(); renderTeams(); renderGallery(); } renderChat(); renderLead(); renderProgram(); renderAcct(); renderMore(); renderOnline(); }
+ if(!typing){ renderComps(); renderTeams(); renderGallery(); } renderChat(); renderLead(); renderProgram(); renderAcct(); renderMore(); renderOnline(); renderSplit(); }
 
 // ---- admin & comps ----
 function grabComp(){ let a=document.getElementById('c_name'), b=document.getElementById('c_pts'), c=document.getElementById('c_beers');
@@ -395,6 +398,167 @@ async function saveResults(cid){ let cp=S.comps.find(c=>c.id==cid); if(!cp)retur
  openResults=null; await loadAll(); alert('Výsledky uložené a uzamknuté ✅'); }
 async function addExtra(){ let name=document.getElementById('e_who').value, pts=parseInt(document.getElementById('e_pts').value)||0, why=document.getElementById('e_why').value;
  await sb.from('tdc_extra').insert({name,points:pts,reason:why}); loadAll(); alert('Extra body pridané ✅'); }
+
+
+// ---- Splitter: spoločné náklady ----
+const c2=v=>Math.round((Number(v)||0)*100)/100;
+const eur=v=>c2(v).toFixed(2).replace('.',',')+' €';
+let expOpen=null, expMode='equal', expPick=[], expExact={}, expDraft={title:'',amount:'',payer:''};
+// bez zapamätania sa rozpísaný náklad stratí pri každom prekreslení (aj pri ťuknutí na meno)
+function grabExp(){ let a=document.getElementById('ex_title'), b=document.getElementById('ex_amount'), c=document.getElementById('ex_payer');
+ if(a) expDraft.title=a.value; if(b) expDraft.amount=b.value; if(c) expDraft.payer=c.value; }
+function clearExp(){ expDraft={title:'',amount:'',payer:''}; expPick=[]; expExact={}; }
+// mená = účastníci appky + ktokoľvek dopísaný v nákladoch (do rebríčka nezasahujú)
+function splitNames(){ let extra=[];
+ S.exp.forEach(x=>{ let ps=shareMap(x); Object.keys(ps).forEach(n=>extra.push(n)); if(x.payer) extra.push(x.payer); });
+ return [...new Set(S.participants.concat(extra))].sort((a,b)=>a.localeCompare(b,'sk')); }
+// rozpis jedného nákladu: kto koľko dlží. Zvyšné centy dostane platca.
+function shareMap(x){ let out={};
+ if(x.mode==='exact'){ let o=x.parts||{}; Object.keys(o).forEach(n=>out[n]=c2(o[n])); return out; }
+ let ns=Array.isArray(x.parts)?x.parts:[]; if(!ns.length) return out;
+ let per=Math.floor((Number(x.amount)||0)*100/ns.length)/100;
+ ns.forEach(n=>out[n]=per);
+ let zvysok=c2((Number(x.amount)||0)-per*ns.length);
+ if(zvysok) out[ns.includes(x.payer)?x.payer:ns[0]]=c2(out[ns.includes(x.payer)?x.payer:ns[0]]+zvysok);
+ return out; }
+function balances(){ let bal={};
+ splitNames().forEach(n=>bal[n]=0);
+ S.exp.forEach(x=>{ let m=shareMap(x);
+  bal[x.payer]=c2((bal[x.payer]||0)+(Number(x.amount)||0));
+  Object.keys(m).forEach(n=>bal[n]=c2((bal[n]||0)-m[n])); });
+ return bal; }
+// najmenej prevodov: vždy spáruj najväčšieho dlžníka s najväčším veriteľom
+function settle(){ let bal=balances();
+ let dl=[], ve=[];
+ Object.keys(bal).forEach(n=>{ let v=c2(bal[n]); if(v<-0.004) dl.push({n,v:-v}); else if(v>0.004) ve.push({n,v}); });
+ dl.sort((a,b)=>b.v-a.v); ve.sort((a,b)=>b.v-a.v);
+ let out=[], i=0, j=0, guard=0;
+ while(i<dl.length && j<ve.length && guard++<500){
+  let s=Math.min(dl[i].v,ve[j].v); s=c2(s);
+  if(s>0.004) out.push({from:dl[i].n,to:ve[j].n,amount:s});
+  dl[i].v=c2(dl[i].v-s); ve[j].v=c2(ve[j].v-s);
+  if(dl[i].v<=0.004) i++;
+  if(ve[j].v<=0.004) j++; }
+ return out; }
+
+
+function setExpMode(m){ expMode=m; renderSplit(); }
+function toggleExpPick(n){ let i=expPick.indexOf(n); if(i<0) expPick.push(n); else expPick.splice(i,1); renderSplit(); }
+function expAll(){ let ns=splitNames(); expPick = expPick.length===ns.length ? [] : ns.slice(); renderSplit(); }
+function expAddName(){ let el=document.getElementById('ex_new'); if(!el)return; let v=el.value.trim(); if(!v)return;
+ if(!expPick.includes(v)) expPick.push(v); el.value=''; renderSplit(); }
+function expExactSum(){ return c2(expPick.reduce((a,n)=>a+(parseFloat(String(expExact[n]||'').replace(',','.'))||0),0)); }
+async function addExpense(){ if(needLogin())return;
+ let t=document.getElementById('ex_title').value.trim();
+ let a=c2(parseFloat(document.getElementById('ex_amount').value.replace(',','.')));
+ let payer=document.getElementById('ex_payer').value;
+ if(!t){alert('Zadaj názov nákladu.');return;}
+ if(!(a>0)){alert('Zadaj sumu väčšiu ako 0.');return;}
+ if(!expPick.length){alert('Vyber, medzi koho sa náklad delí.');return;}
+ let parts;
+ if(expMode==='exact'){ let sum=expExactSum();
+  if(Math.abs(sum-a)>0.004){ alert('Súčet podielov je '+eur(sum)+', ale náklad je '+eur(a)+'. Rozdiel: '+eur(a-sum)); return; }
+  parts={}; expPick.forEach(n=>parts[n]=c2(parseFloat(String(expExact[n]||'').replace(',','.'))||0));
+ } else parts=expPick.slice();
+ let {error}=await sb.from('tdc_expenses').insert({id:uid(),title:t,amount:a,payer,mode:expMode,parts,created_by:ME.name});
+ if(error){ alert('Uloženie zlyhalo: '+error.message); return; }
+ clearExp(); ['ex_title','ex_amount'].forEach(id=>{ let e=document.getElementById(id); if(e) e.value=''; });
+ await loadAll(); alert('Náklad pridaný ✅'); }
+async function delExpense(id){ let x=S.exp.find(e=>e.id==id); if(!x)return;
+ if(!(ME && (x.created_by===ME.name || ADMIN))){ alert('Zmazať môžeš len to, čo si zapísal ty.'); return; }
+ if(!confirm('Zmazať náklad „'+x.title+'"?'))return;
+ await sb.from('tdc_expenses').delete().eq('id',id); expOpen=null; await loadAll(); }
+function toggleExp(id){ expOpen=(expOpen==id?null:id); renderSplit(); }
+
+function exportText(){ let out=['TOUR DE CROATIA — vyúčtovanie',''];
+ out.push('NÁKLADY');
+ S.exp.forEach(x=>{ let m=shareMap(x);
+  out.push('• '+x.title+' — '+eur(x.amount)+' (platil '+x.payer+')');
+  Object.keys(m).sort((a,b)=>a.localeCompare(b,'sk')).forEach(n=>out.push('    '+n+': '+eur(m[n]))); });
+ out.push('','SPOLU: '+eur(S.exp.reduce((a,x)=>a+(Number(x.amount)||0),0)),'','ZOSTATKY');
+ let bal=balances();
+ Object.keys(bal).sort((a,b)=>bal[b]-bal[a]).forEach(n=>{ if(Math.abs(bal[n])<0.005) return;
+  out.push('• '+n+': '+(bal[n]>0?'má dostať ':'dlží ')+eur(Math.abs(bal[n]))); });
+ out.push('','KTO KOMU PLATÍ');
+ let tr=settle();
+ if(!tr.length) out.push('• Nikto nikomu nič — je vyrovnané.');
+ tr.forEach(t=>out.push('• '+t.from+' → '+t.to+': '+eur(t.amount)));
+ return out.join('\n'); }
+async function shareText(){ let txt=exportText();
+ try{ if(navigator.share){ await navigator.share({text:txt}); return; } }catch(e){ if(e&&e.name==='AbortError') return; }
+ try{ await navigator.clipboard.writeText(txt); alert('Vyúčtovanie skopírované do schránky ✅'); }
+ catch(e){ prompt('Skopíruj text:',txt); } }
+// CSV pre Excel: bodkočiarka + desatinná čiarka + BOM, inak Excel rozhádže stĺpce a diakritiku
+function exportCsv(){ let R=[['NÁKLADY'],['Názov','Suma (€)','Platil','Delenie','Zapísal','Dátum']];
+ const num=v=>String(c2(v).toFixed(2)).replace('.',',');
+ S.exp.forEach(x=>R.push([x.title,num(x.amount),x.payer,x.mode==='exact'?'presne':'rovným dielom',x.created_by||'',(x.created_at||'').slice(0,10)]));
+ R.push([],['PODIELY'],['Náklad','Osoba','Podiel (€)']);
+ S.exp.forEach(x=>{ let m=shareMap(x); Object.keys(m).sort((a,b)=>a.localeCompare(b,'sk')).forEach(n=>R.push([x.title,n,num(m[n])])); });
+ R.push([],['ZOSTATKY'],['Osoba','Zostatok (€)','Stav']);
+ let bal=balances();
+ Object.keys(bal).sort((a,b)=>bal[b]-bal[a]).forEach(n=>R.push([n,num(bal[n]),bal[n]>0.004?'má dostať':(bal[n]<-0.004?'dlží':'vyrovnaný')]));
+ R.push([],['KTO KOMU PLATÍ'],['Od','Komu','Suma (€)']);
+ settle().forEach(t=>R.push([t.from,t.to,num(t.amount)]));
+ let csv=R.map(r=>r.map(c=>{ let v=String(c==null?'':c); return /[";\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; }).join(';')).join('\r\n');
+ let blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'});
+ let u=URL.createObjectURL(blob), a=document.createElement('a');
+ a.href=u; a.download='TdC_vyuctovanie.csv'; document.body.appendChild(a); a.click(); a.remove();
+ setTimeout(()=>URL.revokeObjectURL(u),4000); }
+
+
+function renderSplit(){ let el=document.getElementById('splitview'); if(!el)return;
+ let f=document.activeElement, typing=f&&/INPUT|SELECT|TEXTAREA/.test(f.tagName)&&el.contains(f);
+ if(typing) return;
+ grabExp();
+ let ns=splitNames(), h='';
+ if(ME){
+  h+=`<div class="card"><h3>➕ Nový náklad</h3>
+   <input id="ex_title" placeholder="Za čo (napr. Večera v Piráne)" value="${escA(expDraft.title)}">
+   <input id="ex_amount" inputmode="decimal" placeholder="Suma v € (napr. 250)" value="${escA(expDraft.amount)}">
+   <div class="r" style="font-size:11px;color:var(--mut)">Platil:</div>
+   <select id="ex_payer">`+ns.map(n=>`<option${n===(expDraft.payer||ME.name)?' selected':''}>${esc(n)}</option>`).join('')+`</select>
+   <div class="r" style="font-size:11px;color:var(--mut);margin-top:8px">Delíme medzi (${expPick.length}):</div>
+   <div class="chipbox">`+ns.map(n=>`<span class="pill pick${expPick.includes(n)?' on':''}" onclick="toggleExpPick('${js1(n)}')">${esc(n)}</span>`).join('')+`</div>
+   <div class="admrow" style="margin-top:8px"><button class="btn sm" onclick="expAll()">${expPick.length===ns.length?'Odznačiť všetkých':'Označiť všetkých'}</button></div>
+   <div class="admrow" style="margin-top:6px"><input id="ex_new" placeholder="Dopísať meno (aj kto nemá appku)" onkeydown="if(event.key==='Enter'){event.preventDefault();expAddName();}"><button class="btn sm" style="flex:0 0 90px" onclick="expAddName()">Pridať</button></div>
+   <div class="admrow" style="margin-top:10px"><button class="btn sm${expMode==='equal'?' g':''}" onclick="setExpMode('equal')">Rovným dielom</button><button class="btn sm${expMode==='exact'?' g':''}" onclick="setExpMode('exact')">Presne</button></div>`;
+  if(expMode==='exact'&&expPick.length){
+   h+='<div class="resform">'+expPick.map(n=>`<div class="resrow"><span>${esc(n)}</span><input style="flex:0 0 90px;width:90px" inputmode="decimal" value="${escA(expExact[n]||'')}" oninput="expExact['${js1(n)}']=this.value" placeholder="€"></div>`).join('')+
+     `<div class="r" style="font-size:12px;color:#E4B24C">Súčet podielov: ${eur(expExactSum())}</div></div>`;
+  }
+  h+=`<button class="btn g" onclick="addExpense()">Pridať náklad</button></div>`;
+ } else h+='<div class="card"><div class="r">Prihlás sa hore vpravo a môžeš zapisovať náklady.</div></div>';
+
+ let spolu=S.exp.reduce((a,x)=>a+(Number(x.amount)||0),0);
+ h+=`<div class="card"><h3>🧾 Náklady <span class="chip">${S.exp.length}</span><span style="margin-left:auto;color:var(--gold);font-weight:700">${eur(spolu)}</span></h3>`;
+ if(!S.exp.length) h+='<div class="r" style="color:var(--mut)">Zatiaľ nič — pridaj prvý náklad hore.</div>';
+ S.exp.forEach(x=>{ let m=shareMap(x), n=Object.keys(m).length;
+  h+=`<div class="team"><div class="teamhd" onclick="toggleExp('${js1(x.id)}')"><b>${esc(x.title)}</b> · ${eur(x.amount)}
+   <span style="float:right;color:var(--mut)">${expOpen==x.id?'▲':'▼'}</span></div>
+   <div class="r" style="font-size:11px;color:var(--mut)">platil <b style="color:#F0D592">${esc(x.payer)}</b> · delí sa medzi ${n} ${n==1?'osobu':(n<5?'osoby':'osôb')} · ${x.mode==='exact'?'presne':'rovným dielom'}</div>`;
+  if(expOpen==x.id){
+   h+=Object.keys(m).sort((a,b)=>a.localeCompare(b,'sk')).map(p=>`<div class="r" style="font-size:12px">${esc(p)} <span class="pill">${eur(m[p])}</span></div>`).join('');
+   if(ME&&(x.created_by===ME.name||ADMIN)) h+=`<button class="btn sm" style="margin-top:8px" onclick="delExpense('${js1(x.id)}')">🗑 Zmazať náklad</button>`;
+  }
+  h+='</div>'; });
+ h+='</div>';
+
+ let bal=balances(), tr=settle();
+ let ppl=Object.keys(bal).filter(n=>Math.abs(bal[n])>0.004).sort((a,b)=>bal[b]-bal[a]);
+ if(S.exp.length){
+  h+='<div class="card"><h3>⚖️ Zostatky</h3>';
+  if(!ppl.length) h+='<div class="r" style="color:var(--mut)">Všetci sú vyrovnaní.</div>';
+  ppl.forEach(n=>{ let v=bal[n];
+   h+=`<div class="r ${ME&&n===ME.name?'me':''}">${esc(n)} <span class="pill" style="color:${v>0?'#7CB77C':'#f2b8b8'}">${v>0?'má dostať ':'dlží '}${eur(Math.abs(v))}</span></div>`; });
+  h+='</div>';
+  h+='<div class="card"><h3>💸 Kto komu platí</h3>';
+  if(!tr.length) h+='<div class="r" style="color:var(--mut)">Nikto nikomu nič — je vyrovnané.</div>';
+  else { h+=`<div class="r" style="font-size:11px;color:var(--mut)">Stačí ${tr.length} ${tr.length==1?'prevod':(tr.length<5?'prevody':'prevodov')}:</div>`;
+   tr.forEach(t=>h+=`<div class="r"><b>${esc(t.from)}</b> → <b>${esc(t.to)}</b> <span class="pill" style="color:#E4B24C">${eur(t.amount)}</span></div>`); }
+  h+='</div>';
+  h+=`<div class="card"><h3>📤 Export</h3><div class="admrow"><button class="btn sm g" onclick="shareText()">Text / zdieľať</button><button class="btn sm" onclick="exportCsv()">Excel (CSV)</button></div></div>`;
+ }
+ el.innerHTML=h; }
 
 // ---- pravidlá súťaží ----
 const RULES={
