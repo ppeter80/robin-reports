@@ -416,10 +416,11 @@ function splitNames(){ let extra=[];
 function shareMap(x){ let out={};
  if(x.mode==='exact'){ let o=x.parts||{}; Object.keys(o).forEach(n=>out[n]=c2(o[n])); return out; }
  let ns=Array.isArray(x.parts)?x.parts:[]; if(!ns.length) return out;
- let per=Math.floor((Number(x.amount)||0)*100/ns.length)/100;
- ns.forEach(n=>out[n]=per);
- let zvysok=c2((Number(x.amount)||0)-per*ns.length);
- if(zvysok) out[ns.includes(x.payer)?x.payer:ns[0]]=c2(out[ns.includes(x.payer)?x.payer:ns[0]]+zvysok);
+ let cel=Math.round((Number(x.amount)||0)*100), zaklad=Math.floor(cel/ns.length), zvysok=cel-zaklad*ns.length;
+ ns.forEach(n=>out[n]=zaklad/100);
+ // zvyšné centy rozdeľ po JEDNOM (platca prvý) — inak by celý zvyšok niesol on sám
+ let poradie=ns.includes(x.payer)?[x.payer].concat(ns.filter(n=>n!==x.payer)):ns.slice();
+ for(let i=0;i<zvysok;i++) out[poradie[i%poradie.length]]=c2(out[poradie[i%poradie.length]]+0.01);
  return out; }
 function balances(){ let bal={};
  splitNames().forEach(n=>bal[n]=0);
