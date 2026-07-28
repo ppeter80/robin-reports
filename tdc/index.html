@@ -43,6 +43,9 @@ input,select,textarea{width:100%;background:#1c0d14;border:1px solid rgba(228,17
 .ndot.at{background:#E4B24C;color:#2A1119;}
 .lbhint{font-size:11px;color:rgba(255,255,255,.55);text-align:center;padding:6px 0 0;}
 #galsel{margin-bottom:10px;}
+.rulechip{cursor:pointer;background:rgba(228,178,76,.16);border:1px solid rgba(228,178,76,.45);color:#F0D592;}
+.rulebox{background:rgba(228,178,76,.07);border:1px dashed rgba(228,178,76,.35);border-radius:10px;padding:10px 12px;margin:8px 0;}
+.rulebox .rline{font-size:12px;line-height:1.5;color:#EADFE3;margin:5px 0;}
 .gsel{position:relative;cursor:pointer;} .gsel .gtick{position:absolute;top:5px;right:5px;width:22px;height:22px;border-radius:50%;border:2px solid #fff;background:rgba(0,0,0,.45);color:#2A1119;font-weight:800;font-size:14px;line-height:20px;text-align:center;}
 .gsel.on .gtick{background:#E4B24C;border-color:#E4B24C;} .gsel.on .gthumb{outline:3px solid #E4B24C;outline-offset:-3px;opacity:.75;}
 button[disabled]{opacity:.45;}
@@ -134,7 +137,7 @@ const sb = supabase.createClient(SB_URL, SB_KEY);
 const VAPID_PUBLIC='BO3HLckvkWtHJMq71x2OLioQCtS2nSHFx0mXGGLAEoMBHEp7FRAIec06z9ug4QkUDmrZAU59cbTf_p8cnDEhbRI';
 let ME = JSON.parse(localStorage.getItem('tdc_me')||'null');
 let ADMIN=false, pendingPhoto=null, replyTo=null, openMsg=null, stick=true, openTeam=null, teamMode=null, openResults=null;
-let openTast=null, tdrafts={}, newCompType='ind', newComp={name:'',pts:'',beers:''}, galFilter=null;
+let openRules=null, openTast=null, tdrafts={}, newCompType='ind', newComp={name:'',pts:'',beers:''}, galFilter=null;
 let S = {participants:[],comps:[],teams:[],results:[],extra:[],msgs:[],reactions:[],plist:[],titems:[],tpicks:[],values:[],photos:[]};
 const esc=s=>(s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 const js1=s=>(s||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
@@ -271,9 +274,9 @@ function renderComps(){
   : '';
  let h=''; if(!S.comps.length) h='<div class="soon">Zatiaľ žiadne súťaže. '+(ADMIN?'Pridaj prvú hore.':'')+'</div>';
  S.comps.forEach((cp,ci)=>{ let done=S.results.some(r=>r.comp_id==cp.id);
-  let tname={ind:'Individuálna',team:'Tímová',tasting:'🍺 Ochutnávka',num:'🔢 Číslo od hráča'}[cp.type]||cp.type;
-  h+=`<div class="card"><h3><span class="tag" style="background:#5A4A6A;color:#fff">${ci+1}</span> ${esc(cp.name)} <span class="chip">${tname}</span>${cp.day?'<span class="chip">'+esc(cp.day)+'</span>':''}${ADMIN?`<span onclick="delComp('${cp.id}')" style="margin-left:auto;cursor:pointer;color:#c66">🗑</span>`:''}</h3>
-   <div class="r"><span class="lab">Body:</span> ${(cp.points||[]).join(' / ')}</div>${compResults(cp)}`;
+  h+=`<div class="card"><h3><span class="tag" style="background:#5A4A6A;color:#fff">${ci+1}</span> ${esc(cp.name)} <span class="chip rulechip" onclick="toggleRules('${js1(cp.id)}')">📜 Pravidlá ${openRules==cp.id?'▲':'▼'}</span>${ADMIN?`<span onclick="delComp('${cp.id}')" style="margin-left:auto;cursor:pointer;color:#c66">🗑</span>`:''}</h3>`;
+  if(openRules==cp.id) h+=`<div class="rulebox">${RULES[rulesKind(cp)].map(x=>`<div class="rline">${x}</div>`).join('')}</div>`;
+  h+=`<div class="r"><span class="lab">Body:</span> ${(cp.points||[]).join(' / ')}</div>${compResults(cp)}`;
   if(cp.type=='team') h+=`<div class="r" style="color:var(--mut);font-size:11px">Tímy poskladáte v tabe 👥 Tímy.</div>`;
   if(cp.type=='tasting') h+=tastingBlock(cp);
   else if(cp.type=='num') h+=numBlock(cp);
@@ -311,6 +314,47 @@ async function saveResults(cid){ let cp=S.comps.find(c=>c.id==cid); if(!cp)retur
  openResults=null; await loadAll(); alert('Výsledky uložené a uzamknuté ✅'); }
 async function addExtra(){ let name=document.getElementById('e_who').value, pts=parseInt(document.getElementById('e_pts').value)||0, why=document.getElementById('e_why').value;
  await sb.from('tdc_extra').insert({name,points:pts,reason:why}); loadAll(); alert('Extra body pridané ✅'); }
+
+// ---- pravidlá súťaží ----
+const RULES={
+ tasting:[
+  '<b>1.</b> Fľaše sú očíslované, etikety nikde. Tvoje chuťové poháriky sú jediný laborant, ktorý je dnes v službe.',
+  '<b>2.</b> Ku každej fľaši priradíš pivo zo zoznamu. To isté pivo môžeš tipnúť aj viackrát — je to slepá ochutnávka, nie skúška z pamäte.',
+  '<b>3.</b> Za každú správne trafenú fľašu <b>1 bod</b>. Z počtu bodov vznikne poradie a z poradia body do rebríčka.',
+  '<b>4.</b> Tipy sa dajú meniť až do odhalenia. Potom už môžeš len vysvetľovať, ako si si pomýlil ležiak s nealkom.',
+  '<b>5.</b> Kto vyhlási, že pivo spozná po pene, tipuje ako prvý a nahlas.',
+  '<b>6.</b> Fľaše označuje organizátor. Kto nazrie do kľúča, má automaticky nula bodov a hanbu do konca výletu.'],
+ drager:[
+  '<b>1.</b> Fúkneš do prístroja a svoje promile zapíšeš do appky. Vyhráva <b>najvyššie číslo</b> — áno, čítaš správne.',
+  '<b>2.</b> Zapisuje sa len v okne, ktoré vyhlási organizátor. Kto zaspí pred uzávierkou, súťaží s nulou.',
+  '<b>3.</b> Číslo si môžeš do uzávierky ľubovoľne prepísať — večer býva dynamický.',
+  '<b>4.</b> Podvádzať je zbytočné, prístroj je síce nemý, ale úprimný.',
+  '<b>5.</b> Ráno na bicykel sadá každý sám za seba. Body sa na výhovorky nekonvertujú.',
+  '<b>6.</b> Víťaz má nárok na obdiv. Nárok na tempo v čele pelotónu už nie.'],
+ beers:[
+  '<b>1.</b> Počítaš vypité pivá a číslo zapíšeš do appky. Vyhráva <b>najvyššie</b>.',
+  '<b>2.</b> Ráta sa len to, čo si vypil v stanovenom okne. História sa neuznáva, ani tá včerajšia.',
+  '<b>3.</b> Pivo sa ráta, keď je pohár prázdny. Držať plné pivo a fotiť sa s ním je iná disciplína.',
+  '<b>4.</b> Rozhoduje počet, nie objem. Kto pije z pollitra, nech si nesťažuje na taktiku ostatných.',
+  '<b>5.</b> Nula je tiež výsledok. Smutný, ale platný.',
+  '<b>6.</b> Čestnosť je jediný rozhodca. Kamera tu nie je, svedomie áno.'],
+ num:[
+  '<b>1.</b> Každý si sám zapíše svoje číslo. Vyhráva <b>najvyššie</b>.',
+  '<b>2.</b> Zapisuje sa len v okne, ktoré vyhlási organizátor.',
+  '<b>3.</b> Do uzávierky sa číslo dá prepísať, po nej už ani organizátorovi.',
+  '<b>4.</b> Rovnaké čísla znamenajú delené miesto a delenú slávu.'],
+ tba:[
+  '<b>To be agreed.</b>',
+  'Pravidlá dohodneme na mieste — ideálne pred treťou rundou, kým ešte vieme počítať do troch.',
+  'Kto počas hry príde s vlastným výkladom pravidiel, podlieha rozhodnutiu organizátora. To je konečné, aj keď je nespravodlivé.']
+};
+function rulesKind(cp){ let n=(cp.name||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+ if(n.includes('drager')) return 'drager';
+ if(cp.type=='tasting'||n.includes('ochutnav')) return 'tasting';
+ if(cp.type=='num'&&n.includes('piv')) return 'beers';
+ if(cp.type=='num') return 'num';
+ return 'tba'; }
+function toggleRules(id){ openRules=(openRules==id?null:id); renderComps(); }
 
 // ---- fotky pri súťaži a etape (idú LEN do galérie, nie do chatu) ----
 // etapy nie sú v DB, preto majú kľúč stage_* — tdc_photos.comp_id je len text
