@@ -99,7 +99,8 @@ button[disabled]{opacity:.45;}
 .lbtop{position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:center;padding:12px 16px;color:#eee;font-size:13px;} .lbx{cursor:pointer;font-size:24px;}
 .lbbar{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-top:14px;width:100%;max-width:420px;} .lbnav{font-size:34px;color:#fff;cursor:pointer;padding:0 10px;user-select:none;min-width:34px;text-align:center;}
 .admrow{display:flex;gap:8px;align-items:flex-end;} .admrow>*{flex:1;} #msgtext{line-height:1.35;overflow-y:auto;}
-#onlinebar{font-size:11px;color:#9FE0B0;margin:8px -12px -10px;padding:6px 12px;background:rgba(0,0,0,.22);border-top:1px solid rgba(228,178,76,.10);text-align:left;} .ondot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#3ddc84;box-shadow:0 0 6px #3ddc84;vertical-align:middle;margin-right:4px;}
+#onlinebar{font-size:11px;color:#9FE0B0;margin:8px -12px -10px;padding:6px 12px;background:rgba(0,0,0,.22);border-top:1px solid rgba(228,178,76,.10);text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;}
+#onlinebar.open{white-space:normal;} .olmore{color:#E4B24C;} .ondot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#3ddc84;box-shadow:0 0 6px #3ddc84;vertical-align:middle;margin-right:4px;}
 .mdel{flex:1;text-align:center;font-size:12px;color:#ef6b6b;border:1px solid #ef6b6b;border-radius:9px;padding:6px 8px;cursor:pointer;}
 .badge2{font-size:10px;background:var(--wine);color:#fff;padding:2px 8px;border-radius:10px;margin-left:6px;}
 nav{position:fixed;bottom:0;left:0;right:0;display:flex;background:#1c0d14;border-top:1px solid rgba(228,178,76,.2);z-index:6;}
@@ -218,9 +219,23 @@ async function heartbeat(){ if(!ME)return; try{ await sb.from('tdc_participants'
 function renderOnline(){ let bar=document.getElementById('onlinebar'); if(!bar)return;
  if(curView!=='chat'){ bar.style.display='none'; return; } bar.style.display='block'; let now=Date.now();
  let on=(S.plist||[]).filter(u=>u.last_seen && (now-new Date(u.last_seen).getTime())<45000).map(u=>u.name);
- if(ME && !on.includes(ME.name)) on.push(ME.name); on=[...new Set(on)].sort((a,b)=>a.localeCompare(b));
- let html = on.length ? `<span class="ondot"></span>Online (${on.length}): ${on.map(esc).join(', ')}` : '';
- if(bar.innerHTML!==html) bar.innerHTML=html; }
+ if(ME && !on.includes(ME.name)) on.push(ME.name); on=[...new Set(on)].sort((a,b)=>a.localeCompare(b,'sk'));
+ // zbalene: jeden riadok — inak pri 15 ludoch hlavicka narastie o dva riadky
+ let html='';
+ if(on.length){
+  if(onlineOpen){
+   html=`<span class="ondot"></span>Online (${on.length}): ${on.map(esc).join(', ')} <b class="olmore">skryť</b>`;
+  } else {
+   let shown=[], len=0;
+   for(const n of on){ if(shown.length && len+n.length>26) break; shown.push(n); len+=n.length+2; }
+   let rest=on.length-shown.length;
+   html=`<span class="ondot"></span>Online (${on.length}): ${shown.map(esc).join(', ')}`+
+        (rest?`… <b class="olmore">+${rest} ${rest<5?'ďalší':'ďalších'}</b>`:'');
+  }
+ }
+ bar.classList.toggle('open',onlineOpen);
+ if(bar.innerHTML!==html) bar.innerHTML=html;
+ bar.onclick = on.length>1 ? toggleOnline : null; }
 function toggleAttach(){ let m=document.getElementById('attmenu'); if(!m)return;
  m.style.display = m.style.display==='none' ? 'flex' : 'none'; }
 function attach(kind){ let m=document.getElementById('attmenu'); if(m) m.style.display='none';
@@ -910,7 +925,8 @@ async function delPhoto(){ let ph=galPhotos[lbIdx]; if(!ph||!ME)return;
  await removePhoto(ph);
  closeLightbox(); await loadAll(); }
 // ---- hromadný výber fotiek ----
-let selMode=false, sel=new Set(), blobCache=new Map();
+let selMode=false, sel=new Set(), blobCache=new Map(), onlineOpen=false;
+function toggleOnline(){ onlineOpen=!onlineOpen; renderOnline(); }
 function toggleSelMode(){ selMode=!selMode; sel.clear(); renderGallery(); }
 function toggleSel(k){ if(sel.has(k))sel.delete(k); else { sel.add(k);
   let p=galleryPhotos().find(x=>x.key===k); if(p) prefetch(p); }   // sťahuj už pri označení
