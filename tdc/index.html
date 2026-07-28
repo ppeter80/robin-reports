@@ -43,8 +43,13 @@ input,select,textarea{width:100%;background:#1c0d14;border:1px solid rgba(228,17
 .ndot.at{background:#E4B24C;color:#2A1119;}
 .lbhint{font-size:11px;color:rgba(255,255,255,.55);text-align:center;padding:6px 0 0;}
 #galsel{margin-bottom:10px;}
-.attmenu{display:flex;gap:8px;margin-bottom:6px;} .attmenu .btn{flex:1;}
+.inputwrap{position:relative;}
+.attmenu{position:absolute;bottom:100%;left:0;margin-bottom:8px;display:flex;gap:8px;z-index:7;}
+.iconbtn{width:52px;height:52px;padding:0;font-size:26px;line-height:1;border-radius:50%;box-shadow:0 6px 18px rgba(0,0,0,.5);}
 .attbtn{font-size:20px;line-height:1;}
+#photoprev:not(:empty){position:absolute;bottom:100%;left:0;margin-bottom:8px;z-index:7;background:var(--card);border:1px solid rgba(228,178,76,.4);border-radius:12px;padding:6px 8px;box-shadow:0 6px 18px rgba(0,0,0,.5);font-size:12px;}
+#photoprev img{max-height:52px;border-radius:8px;vertical-align:middle;}
+.ppx{cursor:pointer;color:#f2b8b8;font-weight:800;margin-left:8px;font-size:15px;vertical-align:middle;}
 .morelist{display:flex;flex-direction:column;gap:8px;}
 .morerow{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid rgba(228,178,76,.22);border-radius:14px;padding:13px 14px;cursor:pointer;}
 .morerow.on{border-color:var(--gold);background:rgba(228,178,76,.1);}
@@ -131,9 +136,12 @@ nav button{flex:1;background:none;border:none;color:var(--mut);padding:11px 2px 
  <input type="file" id="photo" accept="image/*" style="display:none" onchange="pickPhoto(event)">
  <div id="replybar" style="display:none"></div>
  <div class="chipbox" id="mnbox"></div>
- <div id="attmenu" class="attmenu" style="display:none"><button class="btn sm" onpointerdown="event.preventDefault()" onclick="attach('photo')">📷 Fotka</button><button class="btn sm" onpointerdown="event.preventDefault()" onclick="attach('loc')">📍 Poloha</button></div>
+ <div class="inputwrap">
+  <div id="attmenu" class="attmenu" style="display:none"><button class="btn iconbtn" onpointerdown="event.preventDefault()" onclick="attach('photo')" title="Fotka">📷</button><button class="btn iconbtn" onpointerdown="event.preventDefault()" onclick="attach('loc')" title="Poloha">📍</button></div>
+  <div id="photoprev"></div>
  <div class="admrow"><button class="btn sm attbtn" style="flex:0 0 44px" onpointerdown="event.preventDefault()" onclick="toggleAttach()" title="Fotka alebo poloha">⋯</button><textarea id="msgtext" rows="1" placeholder="Napíš správu…" style="margin-top:6px;resize:none;max-height:120px" oninput="growBox(this)" onfocus="typingOn(true)" onblur="typingOn(false)" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMsg();}"></textarea><button class="btn sm" style="flex:0 0 72px" onpointerdown="event.preventDefault()" onclick="sendMsg()">Poslať</button></div>
- <div id="photoprev"></div>
+ </div>
+
 </div>
 <div id="v-lead" class="view"><div id="leadview"></div></div>
 <div id="v-gallery" class="view"><div id="galleryview"></div></div>
@@ -678,7 +686,9 @@ async function addMemberTyped(tid){ let el=document.getElementById('newmem_'+tid
 async function removeMember(tid,name){ let t=S.teams.find(x=>x.id==tid); if(!t)return; let mem=(t.members||[]).filter(m=>m!=name); await sb.from('tdc_teams').update({members:mem}).eq('id',tid); loadAll(); }
 // ---- chat ----
 function pickPhoto(ev){ let f=ev.target.files[0]; if(!f)return; pendingPhoto=f;
- document.getElementById('photoprev').innerHTML='<div class="r">📎 fotka pripravená <img src="'+URL.createObjectURL(f)+'" style="max-height:80px;border-radius:6px;vertical-align:middle"></div>'; }
+ document.getElementById('photoprev').innerHTML='<img src="'+URL.createObjectURL(f)+'"><span class="ppx" onclick="cancelPhoto()" title="Zrušiť">✕</span>'; }
+function cancelPhoto(){ pendingPhoto=null; document.getElementById('photoprev').innerHTML='';
+ let ph=document.getElementById('photo'); if(ph) ph.value=''; }
 let sending=false;
 async function compress(file){ try{
   let bmp=await createImageBitmap(file,{imageOrientation:'from-image'});
@@ -689,7 +699,7 @@ async function compress(file){ try{
   return await new Promise(r=>cv.toBlob(b=>r(b||file),'image/jpeg',0.82));
  }catch(e){ return file; } }
 async function sendMsg(){ if(needLogin()||sending)return; let t=document.getElementById('msgtext').value.trim(); let photo_url=null;
- if(pendingPhoto){ sending=true; document.getElementById('photoprev').innerHTML='<div class="r">📤 Nahrávam fotku…</div>';
+ if(pendingPhoto){ sending=true; document.getElementById('photoprev').innerHTML='📤 Nahrávam…';
    let blob=await compress(pendingPhoto);
    let path=Date.now()+'_'+Math.random().toString(36).slice(2)+'.jpg';
    let up=await sb.storage.from('tdc-photos').upload(path,blob,{contentType:'image/jpeg',cacheControl:'3600'});
