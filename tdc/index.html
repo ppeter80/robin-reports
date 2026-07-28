@@ -66,7 +66,7 @@ button[disabled]{opacity:.45;}
 #lightbox > img{touch-action:pan-y;}
 .msg{background:var(--card);border-radius:12px;padding:10px 13px;margin:7px 0;font-size:15px;line-height:1.45;max-width:84%;width:fit-content;} .msg .who{font-weight:700;font-size:12px;} .msg img{max-width:100%;max-height:400px;border-radius:8px;margin-top:6px;}
 .msgrow{display:flex;align-items:center;gap:5px;margin:7px 0;} .msgrow.mine{justify-content:flex-end;} .msgrow.other{justify-content:flex-start;} .msgrow .msg{margin:0;} .msgtrig{flex:0 0 auto;color:var(--mut);font-size:21px;cursor:pointer;padding:0 3px;line-height:1;user-select:none;}
-.msg.mine{margin-left:auto;background:#157F4C;border:1px solid rgba(255,255,255,.18);color:#FFFFFF;} .msg.mine .time{margin-left:7px;color:rgba(255,255,255,.8);} .msg.mine .who{color:#FFFFFF!important;}
+.msg.mine{margin-left:auto;background:#0F6236;border:1px solid rgba(255,255,255,.18);color:#FFFFFF;} .msg.mine .time{margin-left:7px;color:rgba(255,255,255,.8);} .msg.mine .who{text-shadow:0 1px 2px rgba(0,0,0,.45);}
 .msg.other{margin-right:auto;background:#0B0B0D;border:1px solid rgba(255,255,255,.14);color:#FFFFFF;} .msg.other .time{color:rgba(255,255,255,.5);}
 .msg.mine .qreply{background:rgba(0,0,0,.22);border-left-color:rgba(255,255,255,.7);color:rgba(255,255,255,.85);} .msg.mine .qreply b{color:#fff;}
 .msg.mine .rxpill{background:rgba(0,0,0,.25);} .msg.mine .mn{color:#CFF3DE;} .msg.mine .mn.me{background:#fff;color:#0B0B0D;}
@@ -719,7 +719,10 @@ async function enablePush(silent){ if(!('serviceWorker' in navigator)||!('PushMa
  }catch(e){ if(!silent) alert('Nepodarilo sa zapnúť upozornenia: '+(e.message||e)); } }
 function askNotif(){ enablePush(false); }
 const QUICK=['👍','❤️','😂','🔥','🍺','🍷','🚴','🎉'];
-function nameColor(n){ let h=0; for(let i=0;i<(n||'').length;i++) h=(h*31+n.charCodeAt(i))>>>0; return `hsl(${h%360},72%,68%)`; }
+// vo vlastnej (zelenej) bubline drž rovnaký odtieň, len oveľa svetlejší — inak
+// zelenkasté mená na zelenom pozadí zaniknú
+function nameColor(n,onGreen){ let h=0; for(let i=0;i<(n||'').length;i++) h=(h*31+n.charCodeAt(i))>>>0;
+ return onGreen ? `hsl(${h%360},95%,88%)` : `hsl(${h%360},72%,68%)`; }
 // @zmienky: mená hľadáme od najdlhšieho, nech „Jano Novák" vyhrá nad „Jano"
 function mentionNames(){ return S.participants.slice().sort((a,b)=>b.length-a.length); }
 function mentionsMe(text){ return !!(ME && text && new RegExp('@'+rxEsc(ME.name)+'(?![\\p{L}\\p{N}_])','iu').test(text)); }
@@ -745,7 +748,7 @@ function renderChat(){ let h='';
    bodyHtml=`<div class="loccard"><div class="locttl">📍 Zdieľaná poloha</div><div class="loccoord">${esc(c[0]||'')}, ${esc(c[1]||'')}</div><a class="locbtn" href="https://www.google.com/maps/dir/?api=1&destination=${la},${lo}" target="_blank" rel="noopener" onclick="event.stopPropagation()">🧭 Navigovať (Google Maps)</a><a class="locbtn2" href="https://www.google.com/maps?q=${la},${lo}" target="_blank" rel="noopener" onclick="event.stopPropagation()">🗺️ Otvoriť pin</a></div>`;
   } else if(x.body){ bodyHtml='<br>'+markMentions(esc(x.body)); }
   let atMe=!mine && mentionsMe(x.body);
-  let bubble=`<div class="msg ${mine?'mine':'other'}${atMe?' atme':''}"><span class="who" style="color:${nameColor(x.name)}">${esc(x.name)}</span><span class="time">${fmtTime(x.created_at)}</span>${q}${bodyHtml}${x.photo_url?'<br><img loading="lazy" onload="imgLoaded()" src="'+x.photo_url+'">':''}${pills?'<div class="rx">'+pills+'</div>':''}</div>`;
+  let bubble=`<div class="msg ${mine?'mine':'other'}${atMe?' atme':''}"><span class="who" style="color:${nameColor(x.name,mine)}">${esc(x.name)}</span><span class="time">${fmtTime(x.created_at)}</span>${q}${bodyHtml}${x.photo_url?'<br><img loading="lazy" onload="imgLoaded()" src="'+x.photo_url+'">':''}${pills?'<div class="rx">'+pills+'</div>':''}</div>`;
   let trig=`<span class="msgtrig" onclick="toggleMsgActions(${x.id})">⋯</span>`;
   h+=`<div class="msgrow ${mine?'mine':'other'}">`+(mine?trig+bubble:bubble+trig)+`</div>`;
   if(openMsg==x.id){ let delBtn=mine?`<span class="mdel" onclick="delMsg(${x.id})">🗑 Zmazať</span>`:'';
