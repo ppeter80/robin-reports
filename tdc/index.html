@@ -17,7 +17,7 @@ body{font-family:'Segoe UI',system-ui,Arial,sans-serif;background:
  radial-gradient(700px 380px at 84% -10%,rgba(150,32,58,.35),transparent 60%),
  radial-gradient(560px 360px at -10% 106%,rgba(120,22,44,.32),transparent 58%),var(--bg);
  color:var(--txt);min-height:100vh;padding-bottom:96px;}
-header{padding:8px 12px 10px;text-align:center;position:sticky;top:0;z-index:5;background:linear-gradient(180deg,rgba(22,10,16,.97) 72%,transparent);}
+header{padding:8px 12px 10px;text-align:center;position:sticky;top:0;z-index:5;background:#180C12;border-bottom:1px solid rgba(228,178,76,.16);box-shadow:0 6px 16px rgba(0,0,0,.45);}
 header .k{letter-spacing:3px;font-size:9px;color:var(--gold);text-transform:uppercase;}
 header h1{font-family:Georgia,serif;font-size:22px;color:#F6E9EE;text-shadow:0 2px 14px rgba(176,40,70,.5);}
 header h1 .tref{color:#FF3B30;cursor:pointer;text-shadow:0 0 16px rgba(255,59,48,.55);} header h1 .tadm{cursor:pointer;}
@@ -99,7 +99,7 @@ button[disabled]{opacity:.45;}
 .lbtop{position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:center;padding:12px 16px;color:#eee;font-size:13px;} .lbx{cursor:pointer;font-size:24px;}
 .lbbar{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-top:14px;width:100%;max-width:420px;} .lbnav{font-size:34px;color:#fff;cursor:pointer;padding:0 10px;user-select:none;min-width:34px;text-align:center;}
 .admrow{display:flex;gap:8px;align-items:flex-end;} .admrow>*{flex:1;} #msgtext{line-height:1.35;overflow-y:auto;}
-#onlinebar{position:sticky;top:88px;z-index:4;font-size:11px;color:#9FE0B0;margin:0 -14px 6px;padding:7px 14px;min-height:16px;background:rgba(22,10,16,.97);border-bottom:1px solid rgba(228,178,76,.12);} .ondot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#3ddc84;box-shadow:0 0 6px #3ddc84;vertical-align:middle;margin-right:4px;}
+#onlinebar{font-size:11px;color:#9FE0B0;margin:8px -12px -10px;padding:6px 12px;background:rgba(0,0,0,.22);border-top:1px solid rgba(228,178,76,.10);text-align:left;} .ondot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#3ddc84;box-shadow:0 0 6px #3ddc84;vertical-align:middle;margin-right:4px;}
 .mdel{flex:1;text-align:center;font-size:12px;color:#ef6b6b;border:1px solid #ef6b6b;border-radius:9px;padding:6px 8px;cursor:pointer;}
 .badge2{font-size:10px;background:var(--wine);color:#fff;padding:2px 8px;border-radius:10px;margin-left:6px;}
 nav{position:fixed;bottom:0;left:0;right:0;display:flex;background:#1c0d14;border-top:1px solid rgba(228,178,76,.2);z-index:6;}
@@ -124,7 +124,7 @@ nav button{flex:1;background:none;border:none;color:var(--mut);padding:11px 2px 
 </div>
 
 <header><div class="acct" id="whoami"></div><div class="k">Powered by wine</div>
- <h1><span class="tref" onclick="hardRefresh()" title="Obnoviť appku">TOUR</span> <span class="tadm" onclick="adminTap()" title="Admin">DE CROATIA</span></h1></header>
+ <h1><span class="tref" onclick="hardRefresh()" title="Obnoviť appku">TOUR</span> <span class="tadm" onclick="adminTap()" title="Admin">DE CROATIA</span></h1><div id="onlinebar"></div></header>
 
 <div id="v-program" class="view on">
  <div class="card"><h3><span class="tag" style="background:#7A6A55;color:#fff">DEŇ 0</span> Streda · Príchod</h3><div class="r"><span class="lab">Cestou:</span> Slepá ochutnávka piva (5/3/1) … · <span class="lab">Večer:</span> príchod, voľná večera.</div><div id="pb_stage_d0"></div></div>
@@ -137,7 +137,6 @@ nav button{flex:1;background:none;border:none;color:var(--mut);padding:11px 2px 
 <div id="v-comps" class="view"><div id="admbox"></div><div id="complist"></div></div>
 <div id="v-teams" class="view"><div id="teamsview"></div></div>
 <div id="v-chat" class="view">
- <div id="onlinebar"></div>
  <div id="msgs"></div>
  <input type="file" id="photo" accept="image/*" style="display:none" onchange="pickPhoto(event)">
  <div id="replybar" style="display:none"></div>
@@ -212,12 +211,12 @@ function imgLoaded(){ if(chatOpen()&&stick) chatToBottom(); }
 window.addEventListener('scroll',()=>{ if(chatOpen()) stick=nearBottom(); },{passive:true});
 function boot(){ closeGate(); renderAcct();
  loadAll(); setInterval(loadAll, 4000); heartbeat(); setInterval(heartbeat, 15000);
- positionOnline(); window.addEventListener('resize',positionOnline); initSwipe();
+ initSwipe();
  if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(()=>{}); if(window.Notification && Notification.permission==='granted') enablePush(true); }
  document.addEventListener('visibilitychange',()=>{ if(!document.hidden){ heartbeat(); loadAll(); } }); }
-function positionOnline(){ let h=document.querySelector('header'), bar=document.getElementById('onlinebar'); if(h&&bar) bar.style.top=h.offsetHeight+'px'; }
 async function heartbeat(){ if(!ME)return; try{ await sb.from('tdc_participants').update({last_seen:new Date().toISOString()}).eq('name',ME.name); }catch(e){} }
-function renderOnline(){ let bar=document.getElementById('onlinebar'); if(!bar)return; let now=Date.now();
+function renderOnline(){ let bar=document.getElementById('onlinebar'); if(!bar)return;
+ if(curView!=='chat'){ bar.style.display='none'; return; } bar.style.display='block'; let now=Date.now();
  let on=(S.plist||[]).filter(u=>u.last_seen && (now-new Date(u.last_seen).getTime())<45000).map(u=>u.name);
  if(ME && !on.includes(ME.name)) on.push(ME.name); on=[...new Set(on)].sort((a,b)=>a.localeCompare(b));
  let html = on.length ? `<span class="ondot"></span>Online (${on.length}): ${on.map(esc).join(', ')}` : '';
@@ -262,7 +261,7 @@ function goTo(v){ if(v!=='more') curView=v;   // „Viac" nie je obsah, nech ost
  document.querySelectorAll('nav button').forEach(b=>b.classList.remove('on'));
  let nb=document.querySelector('nav button[data-v="'+(NAVTABS.includes(v)?v:'more')+'"]'); if(nb) nb.classList.add('on');
  renderAll();
- if(v=='chat'){ markSeen(); stick=true; positionOnline(); chatToBottom(); }
+ if(v=='chat'){ markSeen(); stick=true; chatToBottom(); }
  else window.scrollTo(0,0); }
 function renderMore(){ let el=document.getElementById('moreview'); if(!el)return;
  let unread=0; if(ME){ let seen=localStorage.getItem('tdc_lastSeen')||'';
@@ -292,7 +291,7 @@ async function loadAll(){ try{
  notify(); renderOnline(); }catch(err){ console.error(err); } }
 let lastSig='';
 function renderAll(){ let f=document.activeElement, typing=f&&/INPUT|SELECT|TEXTAREA/.test(f.tagName);
- if(!typing){ renderComps(); renderTeams(); renderGallery(); } renderChat(); renderLead(); renderProgram(); renderAcct(); renderMore(); }
+ if(!typing){ renderComps(); renderTeams(); renderGallery(); } renderChat(); renderLead(); renderProgram(); renderAcct(); renderMore(); renderOnline(); }
 
 // ---- admin & comps ----
 function grabComp(){ let a=document.getElementById('c_name'), b=document.getElementById('c_pts'), c=document.getElementById('c_beers');
