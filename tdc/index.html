@@ -43,6 +43,14 @@ input,select,textarea{width:100%;background:#1c0d14;border:1px solid rgba(228,17
 .ndot.at{background:#E4B24C;color:#2A1119;}
 .lbhint{font-size:11px;color:rgba(255,255,255,.55);text-align:center;padding:6px 0 0;}
 #galsel{margin-bottom:10px;}
+.morelist{display:flex;flex-direction:column;gap:8px;}
+.morerow{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid rgba(228,178,76,.22);border-radius:14px;padding:13px 14px;cursor:pointer;}
+.morerow.on{border-color:var(--gold);background:rgba(228,178,76,.1);}
+.morerow .mic{font-size:24px;flex:0 0 30px;text-align:center;}
+.morerow .mtxt{flex:1;display:flex;flex-direction:column;font-size:15px;color:#F6E9EE;}
+.morerow .mdesc{font-size:11px;color:var(--mut);margin-top:2px;}
+.morerow .mgo{color:var(--mut);font-size:20px;}
+.mbadge{display:inline-block;background:#e0322f;color:#fff;font-size:10px;font-weight:800;border-radius:9px;padding:1px 6px;margin-left:7px;vertical-align:middle;}
 .rulechip{cursor:pointer;background:rgba(228,178,76,.16);border:1px solid rgba(228,178,76,.45);color:#F0D592;}
 .modal{position:fixed;inset:0;z-index:30;background:rgba(0,0,0,.72);display:flex;align-items:center;justify-content:center;padding:16px;}
 .modalcard{background:var(--card);border:1px solid rgba(228,178,76,.4);border-radius:16px;padding:14px;max-width:420px;width:100%;max-height:82vh;overflow-y:auto;box-shadow:0 18px 50px rgba(0,0,0,.6);}
@@ -121,17 +129,16 @@ nav button{flex:1;background:none;border:none;color:var(--mut);padding:8px 2px 7
 </div>
 <div id="v-lead" class="view"><div id="leadview"></div></div>
 <div id="v-gallery" class="view"><div id="galleryview"></div></div>
+<div id="v-more" class="view"><div id="moreview"></div></div>
 
 <div id="lightbox" class="lb" style="display:none"></div>
 <div id="rulesmodal" class="modal" style="display:none" onclick="closeRules()"></div>
 
 <nav>
  <button class="on" data-v="program" onclick="go(this)"><span class="ic">🗺️</span>Program</button>
- <button data-v="comps" onclick="go(this)"><span class="ic">🎯</span>Súťaže</button>
- <button data-v="teams" onclick="go(this)"><span class="ic">👥</span>Tímy</button>
  <button data-v="chat" onclick="go(this)"><span class="ic">💬</span>Chat</button>
  <button data-v="gallery" onclick="go(this)"><span class="ic">🖼️</span>Galéria</button>
- <button data-v="lead" onclick="go(this)"><span class="ic">🏆</span>Rebríček</button>
+ <button data-v="more" onclick="go(this)"><span class="ic">⋯</span>Viac</button>
 </nav>
 
 <script>
@@ -207,8 +214,33 @@ function pickMention(at,pos,name){ let el=document.getElementById('msgtext'); if
  el.value=el.value.slice(0,at)+'@'+name+' '+el.value.slice(pos);
  document.getElementById('mnbox').innerHTML='';
  el.focus(); let c=at+name.length+2; el.setSelectionRange(c,c); growBox(el); }
-function go(btn){ document.querySelectorAll('nav button').forEach(b=>b.classList.remove('on')); btn.classList.add('on');
- document.querySelectorAll('.view').forEach(v=>v.classList.remove('on')); document.getElementById('v-'+btn.dataset.v).classList.add('on'); renderAll(); if(btn.dataset.v=='chat'){ markSeen(); stick=true; positionOnline(); chatToBottom(); } }
+// dole sú len tri záložky + „Viac"; zvyšok žije na stránke Viac,
+// aby sa dali pridávať ďalšie bez toho, aby sa lišta rozpadla
+const TABS=[{v:'program',ic:'🗺️',n:'Program',d:'Etapy, mapy a fotky z ciest'},
+ {v:'comps',ic:'🎯',n:'Súťaže',d:'Pravidlá, výsledky a zapisovanie'},
+ {v:'teams',ic:'👥',n:'Tímy',d:'Zloženie tímov pre tímové súťaže'},
+ {v:'chat',ic:'💬',n:'Chat',d:'Správy, fotky a poloha'},
+ {v:'gallery',ic:'🖼️',n:'Galéria',d:'Všetky fotky z výletu'},
+ {v:'lead',ic:'🏆',n:'Rebríček',d:'Priebežné poradie a body'}];
+const NAVTABS=['program','chat','gallery'];
+let curView='program';
+function go(btn){ goTo(btn.dataset.v); }
+function goTo(v){ if(v!=='more') curView=v;   // „Viac" nie je obsah, nech ostane zvýraznené, kde si bol
+ document.querySelectorAll('.view').forEach(x=>x.classList.remove('on'));
+ let el=document.getElementById('v-'+v); if(el) el.classList.add('on');
+ document.querySelectorAll('nav button').forEach(b=>b.classList.remove('on'));
+ let nb=document.querySelector('nav button[data-v="'+(NAVTABS.includes(v)?v:'more')+'"]'); if(nb) nb.classList.add('on');
+ renderAll();
+ if(v=='chat'){ markSeen(); stick=true; positionOnline(); chatToBottom(); }
+ else window.scrollTo(0,0); }
+function renderMore(){ let el=document.getElementById('moreview'); if(!el)return;
+ let unread=0; if(ME){ let seen=localStorage.getItem('tdc_lastSeen')||'';
+  unread=S.msgs.filter(m=>m.name!=ME.name && (m.created_at||'')>seen).length; }
+ el.innerHTML='<div class="morelist">'+TABS.map(t=>{
+  let badge = t.v=='chat'&&unread ? `<span class="mbadge">${unread>9?'9+':unread}</span>` : '';
+  return `<div class="morerow${curView==t.v?' on':''}" onclick="goTo('${t.v}')">
+   <span class="mic">${t.ic}</span><span class="mtxt"><b>${t.n}</b>${badge}<span class="mdesc">${t.d}</span></span><span class="mgo">›</span></div>`;
+ }).join('')+'</div>'; }
 
 async function loadAll(){ try{
  const [p,c,t,r,e,m,rx,ti,tp,vl,cf]=await Promise.all([
@@ -229,7 +261,7 @@ async function loadAll(){ try{
  notify(); renderOnline(); }catch(err){ console.error(err); } }
 let lastSig='';
 function renderAll(){ let f=document.activeElement, typing=f&&/INPUT|SELECT|TEXTAREA/.test(f.tagName);
- if(!typing){ renderComps(); renderTeams(); renderGallery(); } renderChat(); renderLead(); renderProgram(); renderAcct(); }
+ if(!typing){ renderComps(); renderTeams(); renderGallery(); } renderChat(); renderLead(); renderProgram(); renderAcct(); renderMore(); }
 
 // ---- admin & comps ----
 function grabComp(){ let a=document.getElementById('c_name'), b=document.getElementById('c_pts'), c=document.getElementById('c_beers');
