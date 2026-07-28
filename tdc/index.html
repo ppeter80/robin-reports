@@ -43,6 +43,8 @@ input,select,textarea{width:100%;background:#1c0d14;border:1px solid rgba(228,17
 .ndot.at{background:#E4B24C;color:#2A1119;}
 .lbhint{font-size:11px;color:rgba(255,255,255,.55);text-align:center;padding:6px 0 0;}
 #galsel{margin-bottom:10px;}
+.attmenu{display:flex;gap:8px;margin-bottom:6px;} .attmenu .btn{flex:1;}
+.attbtn{font-size:20px;line-height:1;}
 .morelist{display:flex;flex-direction:column;gap:8px;}
 .morerow{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid rgba(228,178,76,.22);border-radius:14px;padding:13px 14px;cursor:pointer;}
 .morerow.on{border-color:var(--gold);background:rgba(228,178,76,.1);}
@@ -129,7 +131,8 @@ nav button{flex:1;background:none;border:none;color:var(--mut);padding:11px 2px 
  <input type="file" id="photo" accept="image/*" style="display:none" onchange="pickPhoto(event)">
  <div id="replybar" style="display:none"></div>
  <div class="chipbox" id="mnbox"></div>
- <div class="admrow"><button class="btn sm" style="flex:0 0 44px" onclick="document.getElementById('photo').click()">📷</button><button class="btn sm" style="flex:0 0 44px" onclick="sendLocation()" title="Zdieľať polohu">📍</button><textarea id="msgtext" rows="1" placeholder="Napíš správu…" style="margin-top:6px;resize:none;max-height:120px" oninput="growBox(this)" onfocus="typingOn(true)" onblur="typingOn(false)" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMsg();}"></textarea><button class="btn sm" style="flex:0 0 66px" onclick="sendMsg()">Poslať</button></div>
+ <div id="attmenu" class="attmenu" style="display:none"><button class="btn sm" onpointerdown="event.preventDefault()" onclick="attach('photo')">📷 Fotka</button><button class="btn sm" onpointerdown="event.preventDefault()" onclick="attach('loc')">📍 Poloha</button></div>
+ <div class="admrow"><button class="btn sm attbtn" style="flex:0 0 44px" onpointerdown="event.preventDefault()" onclick="toggleAttach()" title="Fotka alebo poloha">⋯</button><textarea id="msgtext" rows="1" placeholder="Napíš správu…" style="margin-top:6px;resize:none;max-height:120px" oninput="growBox(this)" onfocus="typingOn(true)" onblur="typingOn(false)" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMsg();}"></textarea><button class="btn sm" style="flex:0 0 72px" onpointerdown="event.preventDefault()" onclick="sendMsg()">Poslať</button></div>
  <div id="photoprev"></div>
 </div>
 <div id="v-lead" class="view"><div id="leadview"></div></div>
@@ -205,6 +208,10 @@ function renderOnline(){ let bar=document.getElementById('onlinebar'); if(!bar)r
  if(ME && !on.includes(ME.name)) on.push(ME.name); on=[...new Set(on)].sort((a,b)=>a.localeCompare(b));
  let html = on.length ? `<span class="ondot"></span>Online (${on.length}): ${on.map(esc).join(', ')}` : '';
  if(bar.innerHTML!==html) bar.innerHTML=html; }
+function toggleAttach(){ let m=document.getElementById('attmenu'); if(!m)return;
+ m.style.display = m.style.display==='none' ? 'flex' : 'none'; }
+function attach(kind){ let m=document.getElementById('attmenu'); if(m) m.style.display='none';
+ if(kind==='photo') document.getElementById('photo').click(); else sendLocation(); }
 // počas písania nech lišta nezaberá miesto nad klávesnicou
 function typingOn(on){
  if(on){ document.body.classList.add('typing'); setTimeout(()=>{ if(chatOpen()&&stick) chatToBottom(); },60); return; }
@@ -693,7 +700,9 @@ async function sendMsg(){ if(needLogin()||sending)return; let t=document.getElem
  let payload={name:ME.name,body:t,photo_url}; if(replyTo)payload.reply_to=replyTo;
  stick=true; await sb.from('tdc_messages').insert(payload);
  sb.functions.invoke('bright-processor',{body:{sender:ME.name,body:msgPreview(payload)}}).catch(()=>{});
- let mb=document.getElementById('msgtext'); mb.value=''; growBox(mb); pendingPhoto=null; document.getElementById('photoprev').innerHTML=''; cancelReply(); await loadAll(); stick=true; chatToBottom(); }
+ let mb=document.getElementById('msgtext'); mb.value=''; growBox(mb); pendingPhoto=null; document.getElementById('photoprev').innerHTML=''; cancelReply(); await loadAll(); stick=true; chatToBottom();
+ // ostaň v písaní — klávesnica nech sa nezatvára po každej správe
+ document.body.classList.add('typing'); try{ mb.focus(); }catch(e){} }
 function fmtTime(iso){ if(!iso)return''; let d=new Date(iso); if(isNaN(d))return'';
  let t=d.toLocaleTimeString('sk-SK',{hour:'2-digit',minute:'2-digit'});
  let today=new Date().toDateString()==d.toDateString();
