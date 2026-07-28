@@ -57,6 +57,8 @@ input,select,textarea{width:100%;background:#1c0d14;border:1px solid rgba(228,17
 .attmenu{position:absolute;bottom:100%;left:0;margin-bottom:8px;display:flex;gap:8px;z-index:7;}
 .iconbtn{width:52px;height:52px;padding:0;font-size:26px;line-height:1;border-radius:50%;box-shadow:0 6px 18px rgba(0,0,0,.5);}
 .attbtn{font-size:20px;line-height:1;}
+.admrow>.sendbtn{flex:0 0 46px;width:46px;height:46px;padding:0;margin:0;border-radius:50%;background:#157F4C;display:flex;align-items:center;justify-content:center;color:#fff;box-shadow:0 3px 10px rgba(0,0,0,.4);}
+.admrow>.sendbtn:active{background:#0F6236;}
 #photoprev:not(:empty){position:absolute;bottom:100%;left:0;margin-bottom:8px;z-index:7;background:var(--card);border:1px solid rgba(228,178,76,.4);border-radius:12px;padding:6px 8px;box-shadow:0 6px 18px rgba(0,0,0,.5);font-size:12px;}
 #photoprev img{max-height:52px;border-radius:8px;vertical-align:middle;}
 .ppx{cursor:pointer;color:#f2b8b8;font-weight:800;margin-left:8px;font-size:15px;vertical-align:middle;}
@@ -156,7 +158,7 @@ nav button{flex:1;background:none;border:none;color:var(--mut);padding:11px 2px 
  <div class="inputwrap">
   <div id="attmenu" class="attmenu" style="display:none"><button class="btn iconbtn" onpointerdown="event.preventDefault()" onclick="attach('photo')" title="Fotka">📷</button><button class="btn iconbtn" onpointerdown="event.preventDefault()" onclick="attach('loc')" title="Poloha">📍</button></div>
   <div id="photoprev"></div>
- <div class="admrow"><button class="btn sm attbtn" style="flex:0 0 44px" onpointerdown="event.preventDefault()" onclick="toggleAttach()" title="Fotka alebo poloha">⋯</button><textarea id="msgtext" rows="1" placeholder="Napíš správu…" style="margin-top:6px;resize:none;max-height:120px" oninput="growBox(this)" onfocus="typingOn(true)" onblur="typingOn(false)" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMsg();}"></textarea><button class="btn sm" style="flex:0 0 72px" onpointerdown="event.preventDefault()" onclick="sendMsg()">Poslať</button></div>
+ <div class="admrow"><button class="btn sm attbtn" style="flex:0 0 44px" onpointerdown="event.preventDefault()" onclick="toggleAttach()" title="Fotka alebo poloha">⋯</button><textarea id="msgtext" rows="1" placeholder="Napíš správu…" style="margin-top:6px;resize:none;max-height:120px" oninput="growBox(this)" onfocus="typingOn(true)" onblur="typingOn(false)" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMsg();}"></textarea><button class="btn sendbtn" onpointerdown="event.preventDefault()" onclick="sendMsg()" title="Poslať" aria-label="Poslať"><svg viewBox="0 0 24 24" width="21" height="21" fill="currentColor" aria-hidden="true"><path d="M3.4 20.4l17.45-7.48a1 1 0 000-1.84L3.4 3.6a.993.993 0 00-1.39.91L2 9.12c0 .5.37.93.87.99L17 12 2.87 13.88c-.5.07-.87.5-.87 1l.01 4.61c0 .71.73 1.2 1.39.91z"/></svg></button></div>
  </div>
 
 </div>
