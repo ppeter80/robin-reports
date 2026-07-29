@@ -40,6 +40,14 @@ header .acct{position:relative;text-align:right;min-height:26px;z-index:6;}
 .map{width:100%;border-radius:10px;margin-top:9px;border:1px solid rgba(255,255,255,.08);}
 .btn{display:block;width:100%;background:linear-gradient(90deg,var(--wine),#8e2038);color:#fff;border:none;padding:12px;border-radius:12px;font-size:15px;font-weight:700;margin-top:10px;cursor:pointer;}
 .btn.g{background:linear-gradient(90deg,var(--gold),#c8901f);color:#241206;} .btn.sm{padding:8px;font-size:13px;margin-top:6px;}
+/* sklenené tlačidlá galérie — plnú farbu má len hlavná akcia (uložiť) */
+.btn.gh{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.22);color:#E8DCE2;}
+.btn.gh:active{background:rgba(255,255,255,.14);}
+.btn.ghg{background:rgba(228,178,76,.14);border:1px solid rgba(228,178,76,.5);color:#F0D592;}
+.btn.ghg:active{background:rgba(228,178,76,.24);}
+.btn.dgr{background:rgba(224,50,47,.13);border:1px solid rgba(224,50,47,.5);color:#ff9d9d;}
+.btn.dgr:active{background:rgba(224,50,47,.22);}
+.btn:disabled{opacity:.42;}
 input,select,textarea{width:100%;background:#1c0d14;border:1px solid rgba(228,178,76,.3);color:var(--txt);padding:11px;border-radius:10px;font-size:15px;margin-top:8px;font-family:inherit;}
 .pill{display:inline-block;background:rgba(228,178,76,.13);color:#F0D592;font-size:12px;padding:3px 9px;border-radius:10px;margin:5px 6px 0 0;}
 .team{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:8px 10px;margin:8px 0;} .teamhd{cursor:pointer;font-size:14px;} .teammem{margin-top:5px;}
@@ -1080,9 +1088,9 @@ function renderGallery(){ let el=document.getElementById('galleryview'); if(!el)
    return `<option value="${escA(g.id)}"${galFilter==g.id?' selected':''}>${esc(g.name)} (${n})</option>`; }).join('')+
   `</select>`;
  // ovládanie ostáva prilepené hore, aj keď sa roluje
- if(ME) head+=`<button class="btn sm${selMode?'':' g'}" style="flex:0 0 auto" onclick="toggleSelMode()">${selMode?'✕ Zrušiť':'☑️ Vybrať'}</button>`;
+ if(ME) head+=`<button class="btn sm ${selMode?'gh':'ghg'}" style="flex:0 0 auto" onclick="toggleSelMode()">${selMode?'✕ Zrušiť':'☑️ Vybrať'}</button>`;
  head+=`</div>`;
- if(ME&&selMode) head+=`<div id="selbar"></div><div class="galrow2" style="margin-top:6px"><button class="btn sm" onclick="selAll()">${sel.size===ph.length?'Odznačiť všetky':'Označiť všetky'}</button><button class="btn sm g" onclick="dlSelected()"${sel.size?'':' disabled'}>⬇ Uložiť (${sel.size})</button><button class="btn sm" onclick="delSelected()"${sel.size?'':' disabled'}>🗑 Zmazať (${sel.size})</button></div>`;
+ if(ME&&selMode) head+=`<div id="selbar"></div><div class="galrow2" style="margin-top:6px"><button class="btn sm gh" onclick="selAll()">${sel.size===ph.length?'Odznačiť všetky':'Označiť všetky'}</button><button class="btn sm g" onclick="dlSelected()"${sel.size?'':' disabled'}>⬇ Uložiť (${sel.size})</button><button class="btn sm dgr" onclick="delSelected()"${sel.size?'':' disabled'}>🗑 Zmazať (${sel.size})</button></div>`;
  head+=`</div>`;
  if(!ph.length){ el.innerHTML=head+'<div class="soon">V tomto výbere zatiaľ nič nie je.</div>'; return; }
  el.innerHTML=head+
@@ -1106,7 +1114,7 @@ function renderLightbox(){ let lb=document.getElementById('lightbox'); if(!lb)re
    (galPhotos.length>1?`<div class="lbhint">↔ potiahni prstom pre ďalšiu fotku</div>`:'')+
    `<div class="lbbar"><span class="lbnav" onclick="lbGo(-1)">${lbIdx>0?'‹':''}</span>`+
    `<button class="btn sm g" style="width:auto;flex:0 0 auto" onclick="dlPhoto('${js1(ph.photo_url)}')">⬇ Stiahnuť</button>`+
-   (ME&&(ph.name===ME.name||ADMIN)?`<button class="btn sm" style="width:auto;flex:0 0 auto" onclick="delPhoto()">🗑 Zmazať${ph.name!==ME.name?' (admin)':''}</button>`:'')+
+   (ME&&(ph.name===ME.name||ADMIN)?`<button class="btn sm dgr" style="width:auto;flex:0 0 auto" onclick="delPhoto()">🗑 Zmazať${ph.name!==ME.name?' (admin)':''}</button>`:'')+
    `<span class="lbnav" onclick="lbGo(1)">${lbIdx<galPhotos.length-1?'›':''}</span></div>`;
 }
 // fotka je príloha správy: ak správa mala aj text, zmaž len fotku a text nechaj
