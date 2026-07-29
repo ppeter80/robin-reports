@@ -112,6 +112,7 @@ button[disabled]{opacity:.45;}
 .avbig{flex:0 0 72px;width:72px;height:72px;border-radius:50%;object-fit:cover;border:2px solid rgba(var(--goldrgb),.55);background:#222;}
 .avbig.avf{display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:800;color:#12121A;}
 .av{cursor:pointer;}
+.olderbtn{margin:8px auto;padding:8px 14px;width:fit-content;border-radius:14px;background:rgba(var(--goldrgb),.12);border:1px solid rgba(var(--goldrgb),.4);color:var(--gold2);font-size:13px;font-weight:700;cursor:pointer;}
 #avview{position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:61;display:none;align-items:center;justify-content:center;padding:18px;}
 #avview .avvbox{text-align:center;max-width:340px;width:100%;}
 .avvimg{width:min(74vw,300px);height:min(74vw,300px);border-radius:50%;object-fit:cover;border:3px solid rgba(var(--goldrgb),.6);background:#000;box-shadow:0 14px 40px rgba(0,0,0,.6);}
@@ -246,7 +247,7 @@ const VAPID_PUBLIC='BO3HLckvkWtHJMq71x2OLioQCtS2nSHFx0mXGGLAEoMBHEp7FRAIec06z9ug
 let ME = JSON.parse(localStorage.getItem('tdc_me')||'null');
 let ADMIN=false, pendingPhoto=null, replyTo=null, openMsg=null, stick=true, openTeam=null, teamMode=null, openResults=null;
 let openRules=null, openTast=null, tdrafts={}, newCompType='ind', newComp={name:'',pts:'',beers:''}, galFilter=null;
-let S = {participants:[],comps:[],teams:[],results:[],extra:[],msgs:[],reactions:[],plist:[],titems:[],tpicks:[],values:[],photos:[],exp:[]};
+let S = {participants:[],comps:[],teams:[],results:[],extra:[],msgs:[],reactions:[],plist:[],titems:[],tpicks:[],values:[],photos:[],exp:[],pmsgs:[]};
 const esc=s=>(s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 const js1=s=>(s||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
 const escA=s=>esc(s).replace(/"/g,'&quot;');
@@ -526,7 +527,7 @@ function goTo(v){ if(v!=='more') curView=v;   // „Viac" nie je obsah, nech ost
  let nb=document.querySelector('nav button[data-v="'+(NAVTABS.includes(v)?v:'more')+'"]'); if(nb) nb.classList.add('on');
  renderAll();
  if(v=='chat'){ markSeen(); stick=true; chatToBottom(); }
- else { if(v==='set') refreshPushState(); window.scrollTo(0,0); } }
+ else { if(v==='set') refreshPushState(); if(v==='gallery') loadAll(); window.scrollTo(0,0); } }
 function hdrVar(){ let h=document.querySelector('header');
  if(h) document.documentElement.style.setProperty('--hdrh', h.offsetHeight+'px'); }
 function renderMore(){ let el=document.getElementById('moreview'); if(!el)return;
@@ -538,22 +539,30 @@ function renderMore(){ let el=document.getElementById('moreview'); if(!el)return
    <span class="mic">${t.ic}</span><span class="mtxt"><b>${t.n}</b>${badge}<span class="mdesc">${t.d}</span></span><span class="mgo">›</span></div>`;
  }).join('')+'</div>'; }
 
+// chat ťahá len posledných MSGPAGE správ (rastie cez „staršie"), inak by polling každé 4 s
+// sťahoval celú históriu; fotky do galérie idú samostatným, oveľa ľahším dotazom
+const MSGPAGE=200;
+let msgLimit=MSGPAGE, msgMore=false, pollN=0, forceP=false;
 async function loadAll(){ try{
- const [p,c,t,r,e,m,rx,ti,tp,vl,cf,ex]=await Promise.all([
+ // zoznam fotiek z chatu netreba každé 4 s — stačí, keď je otvorená galéria, inak občas
+ pollN++; let wantP = forceP || !(S.pmsgs&&S.pmsgs.length) || curView==='gallery' || pollN%10===1; forceP=false;
+ const [p,c,t,r,e,m,rx,ti,tp,vl,cf,ex,pm]=await Promise.all([
   sb.from('tdc_participants').select('*').order('name'),
   sb.from('tdc_comps').select('*').order('created_at'),
   sb.from('tdc_teams').select('*'),
   sb.from('tdc_results').select('*'),
   sb.from('tdc_extra').select('*').order('created_at'),
-  sb.from('tdc_messages').select('*').order('created_at'),
+  sb.from('tdc_messages').select('*').order('created_at',{ascending:false}).limit(msgLimit+1),
   sb.from('tdc_reactions').select('*'),
   sb.from('tdc_tasting_items').select('*'),
   sb.from('tdc_tasting_picks').select('*'),
   sb.from('tdc_values').select('*'),
   sb.from('tdc_photos').select('*').order('created_at'),
-  sb.from('tdc_expenses').select('*').order('created_at')]);
- S.plist=p.data||[]; S.participants=S.plist.map(x=>x.name); S.comps=c.data||[]; S.teams=t.data||[]; S.results=r.data||[]; S.extra=e.data||[]; S.msgs=m.data||[]; S.reactions=rx.data||[]; S.titems=ti.data||[]; S.tpicks=tp.data||[]; S.values=vl.data||[]; S.photos=cf.data||[]; S.exp=ex.data||[];
- let sig=JSON.stringify([S.participants,S.comps,S.teams,S.results,S.extra,S.msgs,S.reactions,S.titems,S.tpicks,S.values,S.photos,S.exp]);
+  sb.from('tdc_expenses').select('*').order('created_at'),
+  wantP ? sb.from('tdc_messages').select('id,name,body,photo_url,created_at').not('photo_url','is',null).order('created_at') : Promise.resolve(null)]);
+ let mm=(m.data||[]).slice(); msgMore=mm.length>msgLimit; if(msgMore) mm=mm.slice(0,msgLimit);
+ S.plist=p.data||[]; S.participants=S.plist.map(x=>x.name); S.comps=c.data||[]; S.teams=t.data||[]; S.results=r.data||[]; S.extra=e.data||[]; S.msgs=mm.reverse(); S.reactions=rx.data||[]; S.titems=ti.data||[]; S.tpicks=tp.data||[]; S.values=vl.data||[]; S.photos=cf.data||[]; S.exp=ex.data||[]; if(pm) S.pmsgs=pm.data||[];
+ let sig=JSON.stringify([S.participants,S.comps,S.teams,S.results,S.extra,S.msgs,S.reactions,S.titems,S.tpicks,S.values,S.photos,S.exp,S.pmsgs,msgMore]);
  if(sig!==lastSig){ lastSig=sig; renderAll(); }
  notify(); renderOnline(); }catch(err){ console.error(err); } }
 let lastSig='';
@@ -587,8 +596,7 @@ async function delComp(id){ if(!confirm('Zmazať súťaž?'))return;
  await sb.from('tdc_values').delete().eq('comp_id',id);
  await sb.from('tdc_comps').delete().eq('id',id); await sb.from('tdc_teams').delete().eq('comp_id',id); await sb.from('tdc_results').delete().eq('comp_id',id);
  await sb.from('tdc_tasting_items').delete().eq('comp_id',id); await sb.from('tdc_tasting_picks').delete().eq('comp_id',id);
- let paths=S.photos.filter(f=>f.comp_id==id).map(f=>(f.url||'').split('/tdc-photos/')[1]).filter(Boolean);
- if(paths.length){ try{ await sb.storage.from('tdc-photos').remove(paths); }catch(e){} }
+ await removeStored(S.photos.filter(f=>f.comp_id==id).map(f=>f.url));
  await sb.from('tdc_photos').delete().eq('comp_id',id);
  localStorage.removeItem('tdc_key_'+id); loadAll(); }
 function renderComps(){
@@ -871,17 +879,36 @@ const STAGES=[{id:'stage_d0',name:'Deň 0 · Príchod'},{id:'stage_e1',name:'Eta
  {id:'stage_e3',name:'Etapa 3 · Pláž'}];
 function groupName(gid){ let s=STAGES.find(x=>x.id===gid); if(s)return s.name;
  let c=S.comps.find(x=>x.id==gid); return c?c.name:'súťaž'; }
-async function uploadTo(blob){ let path=Date.now()+'_'+Math.random().toString(36).slice(2)+'.jpg';
+async function uploadAt(path,blob){
  let up=await sb.storage.from('tdc-photos').upload(path,blob,{contentType:'image/jpeg',cacheControl:'3600'});
  if(up.error) throw up.error;
  return sb.storage.from('tdc-photos').getPublicUrl(path).data.publicUrl; }
+async function uploadTo(blob){ return uploadAt(Date.now()+'_'+Math.random().toString(36).slice(2)+'.jpg',blob); }
+// ku každej fotke sa uložia dve menšie kópie: _t do mriežky galérie, _m do bubliny v chate.
+// Odvodzujú sa z názvu súboru, takže v DB ostáva jediná (plná) adresa a netreba migráciu.
+const PVAR={t:{px:400,q:.78},m:{px:1000,q:.82}};
+function varUrl(url,k){ return (url||'').replace(/\.jpg$/i,'_'+k+'.jpg'); }
+function thumbUrl(u){ return varUrl(u,'t'); }
+function medUrl(u){ return varUrl(u,'m'); }
+// staršie fotky menšie kópie nemajú — po chybe načítania sa ticho vráti plná
+const IMGFB=`onerror="if(!this.dataset.fb){this.dataset.fb=1;this.src=this.dataset.full;}"`;
+async function uploadPhotoSet(file){ let base=Date.now()+'_'+Math.random().toString(36).slice(2);
+ let full=await uploadAt(base+'.jpg', await compress(file));
+ for(const k in PVAR){ try{ await uploadAt(base+'_'+k+'.jpg', await compress(file,PVAR[k].px,PVAR[k].q)); }catch(e){} }
+ return full; }
+// zmaže plnú fotku aj obe menšie kópie
+function photoPaths(url){ let p=(url||'').split('/tdc-photos/')[1]; if(!p)return [];
+ return [p, p.replace(/\.jpg$/i,'_t.jpg'), p.replace(/\.jpg$/i,'_m.jpg')]; }
+async function removeStored(urls){ let paths=[].concat(...(urls||[]).map(photoPaths));
+ forceP=true;   // galéria má vlastný zdroj fotiek, po zmazaní ho treba načítať hneď
+ if(paths.length){ try{ await sb.storage.from('tdc-photos').remove(paths); }catch(e){} } }
 async function compPhoto(ev,cid){ let files=[...(ev.target.files||[])]; ev.target.value='';
  if(!files.length||needLogin())return;
  let note=document.getElementById('cf_note_'+cid);
  let done=0;
  for(const f of files){
   if(note) note.innerHTML='<div class="r" style="font-size:12px;color:#E4B24C">📤 Nahrávam fotku '+(done+1)+'/'+files.length+'…</div>';
-  try{ let url=await uploadTo(await compress(f));
+  try{ let url=await uploadPhotoSet(f);
    let {error}=await sb.from('tdc_photos').insert({id:uid()+'-'+done,comp_id:cid,person:ME.name,url});
    if(error) throw error;
    done++;
@@ -1126,24 +1153,22 @@ function pickPhoto(ev){ let f=ev.target.files[0]; if(!f)return; pendingPhoto=f;
 function cancelPhoto(){ pendingPhoto=null; document.getElementById('photoprev').innerHTML='';
  let ph=document.getElementById('photo'); if(ph) ph.value=''; }
 let sending=false;
-async function compress(file,maxPx){ try{
+async function compress(file,maxPx,q){ try{
   let bmp=await createImageBitmap(file,{imageOrientation:'from-image'});
   let max=maxPx||1600, s=Math.min(1,max/Math.max(bmp.width,bmp.height));
   let w=Math.round(bmp.width*s), h=Math.round(bmp.height*s);
   let cv=document.createElement('canvas'); cv.width=w; cv.height=h;
-  cv.getContext('2d').drawImage(bmp,0,0,w,h); if(bmp.close)bmp.close();
-  return await new Promise(r=>cv.toBlob(b=>r(b||file),'image/jpeg',0.82));
+  let g=cv.getContext('2d'); g.imageSmoothingQuality='high'; g.drawImage(bmp,0,0,w,h); if(bmp.close)bmp.close();
+  return await new Promise(r=>cv.toBlob(b=>r(b||file),'image/jpeg',q||0.82));
  }catch(e){ return file; } }
 async function sendMsg(){ if(needLogin()||sending)return; let t=document.getElementById('msgtext').value.trim(); let photo_url=null;
  if(pendingPhoto){ sending=true; document.getElementById('photoprev').innerHTML='📤 Nahrávam…';
-   let blob=await compress(pendingPhoto);
-   let path=Date.now()+'_'+Math.random().toString(36).slice(2)+'.jpg';
-   let up=await sb.storage.from('tdc-photos').upload(path,blob,{contentType:'image/jpeg',cacheControl:'3600'});
-   sending=false;
-   if(!up.error){ photo_url=sb.storage.from('tdc-photos').getPublicUrl(path).data.publicUrl; }
-   else { document.getElementById('photoprev').innerHTML=''; alert('Foto sa nenahralo: '+up.error.message); return; } }
+   try{ photo_url=await uploadPhotoSet(pendingPhoto); }
+   catch(err){ sending=false; document.getElementById('photoprev').innerHTML=''; alert('Foto sa nenahralo: '+(err.message||err)); return; }
+   sending=false; }
  if(!t&&!photo_url)return;
  let payload={name:ME.name,body:t,photo_url}; if(replyTo)payload.reply_to=replyTo;
+ if(photo_url) forceP=true;   // nech je nová fotka hneď aj v galérii
  stick=true; await sb.from('tdc_messages').insert(payload);
  sb.functions.invoke('bright-processor',{body:{sender:ME.name,body:msgPreview(payload)}}).catch(()=>{});
  let mb=document.getElementById('msgtext'); mb.value=''; growBox(mb); pendingPhoto=null; document.getElementById('photoprev').innerHTML=''; cancelReply(); await loadAll(); stick=true; chatToBottom();
@@ -1235,9 +1260,13 @@ function msgPreview(m){ if(!m)return''; if(m.body&&m.body.indexOf('##LOC##')===0
 function reactionsFor(mid){ let map={}; S.reactions.filter(r=>r.message_id==mid).forEach(r=>{ (map[r.emoji]=map[r.emoji]||[]).push(r.name); }); return map; }
 function renderChat(){ let h='';
  if(window.Notification && Notification.permission!=='granted') h+='<div class="notifbtn" onclick="enablePush(false)">🔔 Zapnúť upozornenia na nové správy (aj keď je appka zavretá)</div>';
+ if(msgMore) h+=`<div class="olderbtn" onclick="loadOlder()">${loadingOlder?'⏳ Načítavam…':'⬆️ Staršie správy'}</div>`;
  if(!S.msgs.length) h+='<div class="soon">Zatiaľ žiadne správy. Napíš prvú! 💬</div>';
  S.msgs.forEach(x=>{
-  let q=''; if(x.reply_to){ let src=S.msgs.find(m=>m.id==x.reply_to); if(src) q=`<div class="qreply">↩︎ <b>${esc(src.name)}</b>: ${esc(msgPreview(src).slice(0,80))}</div>`; }
+  // pri odpovedi na správu, ktorá už nie je načítaná, dopĺňame aspoň fotkovú históriu
+  let q=''; if(x.reply_to){ let src=S.msgs.find(m=>m.id==x.reply_to)||(S.pmsgs||[]).find(m=>m.id==x.reply_to);
+   q=src?`<div class="qreply">↩︎ <b>${esc(src.name)}</b>: ${esc(msgPreview(src).slice(0,80))}</div>`
+        :`<div class="qreply">↩︎ <span style="opacity:.7">staršia správa</span></div>`; }
   let rmap=reactionsFor(x.id); let pills=Object.keys(rmap).map(em=>{ let ns=rmap[em]; let mine=ME&&ns.includes(ME.name); return `<span class="rxpill${mine?' mine':''}" title="${esc(ns.join(', '))}" onclick="event.stopPropagation();toggleReaction(${x.id},'${em}')">${em} ${ns.length}</span>`; }).join('');
   let mine=ME&&x.name==ME.name;
   let bodyHtml='';
@@ -1245,7 +1274,7 @@ function renderChat(){ let h='';
    bodyHtml=`<div class="loccard"><div class="locttl">📍 Zdieľaná poloha</div><div class="loccoord">${esc(c[0]||'')}, ${esc(c[1]||'')}</div><a class="locbtn" href="https://www.google.com/maps/dir/?api=1&destination=${la},${lo}" target="_blank" rel="noopener" onclick="event.stopPropagation()">🧭 Navigovať (Google Maps)</a><a class="locbtn2" href="https://www.google.com/maps?q=${la},${lo}" target="_blank" rel="noopener" onclick="event.stopPropagation()">🗺️ Otvoriť pin</a></div>`;
   } else if(x.body){ bodyHtml='<br>'+markMentions(esc(x.body)); }
   let atMe=!mine && mentionsMe(x.body);
-  let bubble=`<div class="msg ${mine?'mine':'other'}${atMe?' atme':''}"><span class="who" style="color:${nameColor(x.name,mine)}">${esc(x.name)}</span><span class="time">${fmtTime(x.created_at)}</span>${q}${bodyHtml}${x.photo_url?'<br><img loading="lazy" onload="imgLoaded()" class="chatimg" src="'+x.photo_url+'" data-u="'+escA(x.photo_url)+'" onclick="event.stopPropagation();openChatPhoto(this.dataset.u)">':''}${pills?'<div class="rx">'+pills+'</div>':''}</div>`;
+  let bubble=`<div class="msg ${mine?'mine':'other'}${atMe?' atme':''}"><span class="who" style="color:${nameColor(x.name,mine)}">${esc(x.name)}</span><span class="time">${fmtTime(x.created_at)}</span>${q}${bodyHtml}${x.photo_url?'<br><img loading="lazy" onload="imgLoaded()" class="chatimg" src="'+escA(medUrl(x.photo_url))+'" data-full="'+escA(x.photo_url)+'" '+IMGFB+' data-u="'+escA(x.photo_url)+'" onclick="event.stopPropagation();openChatPhoto(this.dataset.u)">':''}${pills?'<div class="rx">'+pills+'</div>':''}</div>`;
   let trig=`<span class="msgtrig" onclick="toggleMsgActions(${x.id})">⋯</span>`;
   let av=avatarHtml(x.name);
   h+=`<div class="msgrow ${mine?'mine':'other'}">`+(mine?trig+bubble+av:av+bubble+trig)+`</div>`;
@@ -1255,13 +1284,23 @@ function renderChat(){ let h='';
  });
  let el=document.getElementById('msgs'); el.innerHTML=h; if(chatOpen()&&stick) chatToBottom();
 }
+// pri dotiahnutí starších správ narastie obsah nad tebou — dorovnáme scroll,
+// aby ti text neposkočil pred očami
+let loadingOlder=false;
+async function loadOlder(){ if(loadingOlder||!msgMore)return;
+ loadingOlder=true; stick=false; renderChat();
+ let before=document.body.scrollHeight, y=window.scrollY;
+ msgLimit+=MSGPAGE;
+ try{ await loadAll(); }catch(e){}
+ loadingOlder=false; renderChat();
+ requestAnimationFrame(()=>window.scrollTo(0, y+(document.body.scrollHeight-before))); }
 function toggleMsgActions(id){ openMsg=(openMsg==id?null:id); renderChat(); }
 function startReply(id){ replyTo=id; openMsg=null; let m=S.msgs.find(x=>x.id==id); let bar=document.getElementById('replybar');
  bar.style.display='flex'; bar.innerHTML=`<div>Odpovedáš <b>${esc(m?m.name:'')}</b>: ${esc(msgPreview(m).slice(0,60))}</div><span onclick="cancelReply()">✕</span>`;
  document.getElementById('msgtext').focus(); renderChat(); }
 function cancelReply(){ replyTo=null; let bar=document.getElementById('replybar'); bar.style.display='none'; bar.innerHTML=''; }
 async function delMsg(id){ if(!confirm('Zmazať túto správu?'))return; let m=S.msgs.find(x=>x.id==id);
- if(m&&m.photo_url){ let path=m.photo_url.split('/tdc-photos/')[1]; if(path){ try{ await sb.storage.from('tdc-photos').remove([path]); }catch(e){} } }
+ if(m&&m.photo_url) await removeStored([m.photo_url]);
  await sb.from('tdc_reactions').delete().eq('message_id',id); await sb.from('tdc_messages').delete().eq('id',id); openMsg=null; await loadAll(); }
 function sendLocation(){ if(needLogin())return; if(!navigator.geolocation){ alert('Tento prehliadač nepodporuje zdieľanie polohy.'); return; }
  if(!confirm('Zdieľať tvoju aktuálnu polohu v chate?')) return;
@@ -1324,8 +1363,10 @@ function renderLead(){ let comps=S.comps, rows=computeMatrix();
 // ---- galéria ----
 let lbIdx=null, galPhotos=[];
 // galéria spája dva zdroje: fotky z chatu a fotky nahrané pri súťažiach
+// fotky z chatu berieme z S.pmsgs (vlastný dotaz), nie z S.msgs — inak by z galérie
+// zmizli staršie fotky hneď, ako chat prestane sťahovať celú históriu
 function allPhotos(){
- let a=S.msgs.filter(m=>m.photo_url).map(m=>({key:'m'+m.id, id:m.id, src:'chat', comp_id:null, name:m.name, body:m.body, photo_url:m.photo_url, created_at:m.created_at}));
+ let a=(S.pmsgs||[]).filter(m=>m.photo_url).map(m=>({key:'m'+m.id, id:m.id, src:'chat', comp_id:null, name:m.name, body:m.body, photo_url:m.photo_url, created_at:m.created_at}));
  // profilovky sedia v tej istej tabuľke pod comp_id='avatar' — do galérie nepatria
  let b=S.photos.filter(f=>f.comp_id!==AVKEY).map(f=>({key:'f'+f.id, id:f.id, src:'comp', comp_id:f.comp_id, name:f.person, body:'', photo_url:f.url, created_at:f.created_at}));
  return a.concat(b).sort((x,y)=>String(x.created_at||'').localeCompare(String(y.created_at||'')));
@@ -1356,8 +1397,8 @@ function renderGallery(){ let el=document.getElementById('galleryview'); if(!el)
  if(!ph.length){ el.innerHTML=head+'<div class="soon">V tomto výbere zatiaľ nič nie je.</div>'; return; }
  el.innerHTML=head+
   '<div class="gallery">'+ph.map((m,i)=> selMode
-    ? `<div class="gsel${sel.has(m.key)?' on':''}" onclick="toggleSel('${js1(m.key)}')"><img class="gthumb" loading="lazy" src="${m.photo_url}"><span class="gtick">${sel.has(m.key)?'✓':''}</span></div>`
-    : `<img class="gthumb" loading="lazy" src="${m.photo_url}" onclick="openLightbox(${i})">`).join('')+'</div>';
+    ? `<div class="gsel${sel.has(m.key)?' on':''}" onclick="toggleSel('${js1(m.key)}')"><img class="gthumb" loading="lazy" src="${escA(thumbUrl(m.photo_url))}" data-full="${escA(m.photo_url)}" ${IMGFB}><span class="gtick">${sel.has(m.key)?'✓':''}</span></div>`
+    : `<img class="gthumb" loading="lazy" src="${escA(thumbUrl(m.photo_url))}" data-full="${escA(m.photo_url)}" ${IMGFB} onclick="openLightbox(${i})">`).join('')+'</div>';
 }
 // z chatu otváraj celú zbierku, nech sa dá listovať aj na fotky zo súťaží
 function openChatPhoto(url){ galPhotos=allPhotos(); let i=galPhotos.findIndex(p=>p.photo_url===url);
@@ -1433,8 +1474,7 @@ async function delSelected(){ let ps=selected().filter(canDel), skipped=selected
  selMode=false; sel.clear(); await loadAll();
  if(skipped) alert(ps.length+' zmazaných · '+skipped+' cudzích preskočených'); }
 async function removePhoto(ph){
- let path=(ph.photo_url||'').split('/tdc-photos/')[1];
- if(path){ try{ await sb.storage.from('tdc-photos').remove([path]); }catch(e){} }
+ await removeStored([ph.photo_url]);
  if(ph.src==='comp') await sb.from('tdc_photos').delete().eq('id',ph.id);
  else if(ph.body&&ph.body.trim()) await sb.from('tdc_messages').update({photo_url:null}).eq('id',ph.id);
  else { await sb.from('tdc_reactions').delete().eq('message_id',ph.id); await sb.from('tdc_messages').delete().eq('id',ph.id); } }
