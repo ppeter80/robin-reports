@@ -111,6 +111,13 @@ button[disabled]{opacity:.45;}
 .avrow{display:flex;align-items:center;gap:14px;margin-top:10px;} .avbtns{display:flex;flex-direction:column;gap:8px;flex:1;}
 .avbig{flex:0 0 72px;width:72px;height:72px;border-radius:50%;object-fit:cover;border:2px solid rgba(var(--goldrgb),.55);background:#222;}
 .avbig.avf{display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:800;color:#12121A;}
+.av{cursor:pointer;}
+#avview{position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:61;display:none;align-items:center;justify-content:center;padding:18px;}
+#avview .avvbox{text-align:center;max-width:340px;width:100%;}
+.avvimg{width:min(74vw,300px);height:min(74vw,300px);border-radius:50%;object-fit:cover;border:3px solid rgba(var(--goldrgb),.6);background:#000;box-shadow:0 14px 40px rgba(0,0,0,.6);}
+span.avvimg{display:flex;align-items:center;justify-content:center;font-weight:800;color:#12121A;}
+.avvname{font-size:19px;font-weight:800;margin-top:14px;}
+#avview .btn{max-width:220px;margin-left:auto;margin-right:auto;}
 #avedit{position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:60;display:none;align-items:center;justify-content:center;padding:16px;}
 #avedit .avpanel{background:var(--card);border:1px solid rgba(var(--goldrgb),.3);border-radius:16px;padding:16px;width:100%;max-width:330px;text-align:center;box-shadow:0 12px 34px rgba(0,0,0,.6);}
 #avstage{width:250px;height:250px;max-width:100%;border-radius:50%;display:block;margin:12px auto 4px;background:#000;border:2px solid rgba(var(--goldrgb),.55);touch-action:none;cursor:grab;}
@@ -212,6 +219,7 @@ nav button{flex:1;background:none;border:none;color:var(--mut);padding:11px 2px 
 
 <div id="lightbox" class="lb" style="display:none"></div>
 <div id="rulesmodal" class="modal" style="display:none" onclick="closeRules()"></div>
+<div id="avview" style="display:none" onclick="closeAvatarView()"></div>
 <!-- orezávač profilovky žije v statickom HTML, nie v renderSettings — inak by ho polling každé 4 s prekreslil -->
 <div id="avedit" style="display:none"><div class="avpanel">
  <h3 style="margin:0 0 2px">Uprav si fotku</h3>
@@ -1166,9 +1174,22 @@ function avatarRows(n){ return S.photos.filter(f=>f.comp_id===AVKEY && f.person=
 function avatarUrl(n){ let r=avatarRows(n); return r.length ? r[r.length-1].url : null; }
 function initials(n){ let p=(n||'').trim().split(/\s+/).filter(Boolean); if(!p.length) return '?';
  return ((p[0][0]||'')+(p.length>1?(p[1][0]||''):'')).toUpperCase(); }
-function avatarHtml(n){ let u=avatarUrl(n);
- return u ? `<img class="av" loading="lazy" src="${escA(u)}" alt="${escA(n)}">`
-          : `<span class="av avf" style="background:${nameColor(n,false)}">${esc(initials(n))}</span>`; }
+// meno cez data-n, nie cez inline reťazec — apostrofy v menách sa v onclick opakovane lámali
+function avatarHtml(n){ let u=avatarUrl(n), cl=`onclick="event.stopPropagation();openAvatarView(this.dataset.n)" data-n="${escA(n)}"`;
+ return u ? `<img class="av" loading="lazy" src="${escA(u)}" alt="${escA(n)}" ${cl}>`
+          : `<span class="av avf" style="background:${nameColor(n,false)}" ${cl}>${esc(initials(n))}</span>`; }
+// ťuknutie na profilovku v chate = fotka na celú obrazovku
+function openAvatarView(n){ let m=document.getElementById('avview'); if(!m||!n)return;
+ let u=avatarUrl(n), mine=ME&&n===ME.name;
+ m.innerHTML='<div class="avvbox" onclick="event.stopPropagation()">'+
+  (u?`<img class="avvimg" src="${escA(u)}" alt="${escA(n)}">`
+    :`<span class="avvimg" style="background:${nameColor(n,false)};font-size:min(24vw,96px)">${esc(initials(n))}</span>`)+
+  `<div class="avvname" style="color:${nameColor(n,false)}">${esc(n)}</div>`+
+  (mine?`<button class="btn sm ghg" onclick="closeAvatarView();goTo('set')">⚙️ ${u?'Zmeniť moju fotku':'Nastaviť si fotku'}</button>`
+      :(u?'':`<div class="r" style="color:var(--mut);font-size:12px;margin-top:6px">Zatiaľ bez fotky.</div>`))+
+  '<button class="btn sm gh" onclick="closeAvatarView()">Zavrieť</button></div>';
+ m.style.display='flex'; }
+function closeAvatarView(){ let m=document.getElementById('avview'); if(m){ m.style.display='none'; m.innerHTML=''; } }
 // @zmienky: mená hľadáme od najdlhšieho, nech „Jano Novák" vyhrá nad „Jano"
 function mentionNames(){ return S.participants.slice().sort((a,b)=>b.length-a.length); }
 function mentionsMe(text){ return !!(ME && text && new RegExp('@'+rxEsc(ME.name)+'(?![\\p{L}\\p{N}_])','iu').test(text)); }
