@@ -111,6 +111,12 @@ button[disabled]{opacity:.45;}
 .avrow{display:flex;align-items:center;gap:14px;margin-top:10px;} .avbtns{display:flex;flex-direction:column;gap:8px;flex:1;}
 .avbig{flex:0 0 72px;width:72px;height:72px;border-radius:50%;object-fit:cover;border:2px solid rgba(var(--goldrgb),.55);background:#222;}
 .avbig.avf{display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:800;color:#12121A;}
+#avedit{position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:60;display:none;align-items:center;justify-content:center;padding:16px;}
+#avedit .avpanel{background:var(--card);border:1px solid rgba(var(--goldrgb),.3);border-radius:16px;padding:16px;width:100%;max-width:330px;text-align:center;box-shadow:0 12px 34px rgba(0,0,0,.6);}
+#avstage{width:250px;height:250px;max-width:100%;border-radius:50%;display:block;margin:12px auto 4px;background:#000;border:2px solid rgba(var(--goldrgb),.55);touch-action:none;cursor:grab;}
+#avstage:active{cursor:grabbing;}
+.avzoom{display:flex;align-items:center;gap:10px;margin-top:8px;font-size:15px;} .avzoom input[type=range]{flex:1;accent-color:var(--gold);}
+.avbtnrow{display:flex;gap:10px;} .avbtnrow .btn{margin-top:12px;}
 .msg.mine{margin-left:auto;background:#0F6236;border:1px solid rgba(255,255,255,.18);color:#FFFFFF;} .msg.mine .time{margin-left:7px;color:rgba(255,255,255,.8);} .msg.mine .who{text-shadow:0 1px 2px rgba(0,0,0,.45);}
 .msg.other{margin-right:auto;background:#0B0B0D;border:1px solid rgba(255,255,255,.14);color:#FFFFFF;} .msg.other .time{color:rgba(255,255,255,.5);}
 .msg.mine .qreply{background:rgba(0,0,0,.22);border-left-color:rgba(255,255,255,.7);color:rgba(255,255,255,.85);} .msg.mine .qreply b{color:#fff;}
@@ -206,6 +212,15 @@ nav button{flex:1;background:none;border:none;color:var(--mut);padding:11px 2px 
 
 <div id="lightbox" class="lb" style="display:none"></div>
 <div id="rulesmodal" class="modal" style="display:none" onclick="closeRules()"></div>
+<!-- orezávač profilovky žije v statickom HTML, nie v renderSettings — inak by ho polling každé 4 s prekreslil -->
+<div id="avedit" style="display:none"><div class="avpanel">
+ <h3 style="margin:0 0 2px">Uprav si fotku</h3>
+ <div class="r" style="color:var(--mut);font-size:12px">Ťahaj prstom = posunutie · posuvník alebo dva prsty = priblíženie</div>
+ <canvas id="avstage" onpointerdown="avDown(event)" onpointermove="avMove(event)" onpointerup="avUp(event)" onpointercancel="avUp(event)"></canvas>
+ <div class="avzoom"><span>➖</span><input id="avzoom" type="range" min="1" max="4" step="0.01" value="1" oninput="setAvZoom(+this.value)"><span>➕</span></div>
+ <div class="avbtnrow"><button class="btn sm gh" onclick="closeAvEdit()">Zrušiť</button><button class="btn sm g" onclick="saveAvEdit()">Uložiť fotku</button></div>
+ <div id="avsave"></div>
+</div></div>
 
 <nav>
  <button class="on" data-v="program" onclick="go(this)"><span class="ic">🗺️</span>Program</button>
@@ -384,19 +399,70 @@ function avatarCard(){
  if(!ME) return '<div class="card"><h3>🙂 Tvoja fotka</h3><div class="r" style="color:var(--mut)">Prihlás sa a môžeš si dať fotku k svojim správam.</div></div>';
  let u=avatarUrl(ME.name);
  return '<div class="card"><h3>🙂 Tvoja fotka</h3>'+
-  '<div class="r" style="color:var(--mut)">Okrúhla fotka pri tvojich správach v chate. Vidia ju všetci.</div>'+
+  '<div class="r" style="color:var(--mut)">Okrúhla fotka pri tvojich správach v chate. Výrez a priblíženie si nastavíš sám. Vidia ju všetci.</div>'+
   '<input type="file" accept="image/*" id="avfile" style="display:none" onchange="pickAvatar(event)">'+
   '<div class="avrow">'+
    (u?`<img class="avbig" src="${escA(u)}" alt="">`:`<span class="avbig avf" style="background:${nameColor(ME.name,false)}">${esc(initials(ME.name))}</span>`)+
    '<div class="avbtns"><button class="btn sm g" onclick="document.getElementById(\'avfile\').click()">'+(u?'📷 Zmeniť fotku':'📷 Vybrať fotku')+'</button>'+
-   (u?'<button class="btn sm gh" onclick="delAvatar()">🗑 Odstrániť</button>':'')+
+   (u?`<button class="btn sm ghg" onclick="openAvEdit('${js1(u)}')">✂️ Upraviť výrez</button><button class="btn sm gh" onclick="delAvatar()">🗑 Odstrániť</button>`:'')+
    '</div></div><div id="avnote"></div></div>'; }
 async function pickAvatar(ev){ let f=(ev.target.files||[])[0]; ev.target.value='';
- if(!f||needLogin())return;
+ if(!f||needLogin())return; openAvEdit(f); }
+// ---- orezávanie profilovky (posun + priblíženie v kruhu) ----
+const AVOUT=400;   // uložená strana v px — s rezervou na neskoršie priblíženie
+let avE={bmp:null,z:1,ox:0,oy:0,base:1,S:250,pts:new Map(),pd:0,pz:1};
+async function openAvEdit(src){ if(needLogin())return;
+ let bmp=null;
+ try{ let blob=(typeof src==='string') ? await (await fetch(src,{cache:'no-store'})).blob() : src;
+  bmp=await createImageBitmap(blob,{imageOrientation:'from-image'});
+ }catch(e){ bmp=null; }
+ if(!bmp){ if(typeof src==='string'){ alert('Fotku sa nepodarilo načítať.'); return; }
+  await uploadAvatar(await compress(src,AVOUT)); return; }   // núdzovo bez orezania, nech sa fotka nestratí
+ avE.bmp=bmp; avE.z=1; avE.ox=0; avE.oy=0; avE.pts.clear(); avE.pd=0;
+ avE.base=avE.S/Math.min(bmp.width,bmp.height);   // pri z=1 kruh presne vyplnený
+ let sl=document.getElementById('avzoom'); if(sl) sl.value=1;
+ document.getElementById('avedit').style.display='flex'; drawAv(); }
+function closeAvEdit(){ let m=document.getElementById('avedit'); if(m)m.style.display='none';
+ let n=document.getElementById('avsave'); if(n)n.innerHTML='';
+ if(avE.bmp&&avE.bmp.close)avE.bmp.close(); avE.bmp=null; avE.pts.clear(); }
+function clampAv(){ let k=avE.base*avE.z, dw=avE.bmp.width*k, dh=avE.bmp.height*k;
+ let mx=Math.max(0,(dw-avE.S)/2), my=Math.max(0,(dh-avE.S)/2);
+ avE.ox=Math.min(mx,Math.max(-mx,avE.ox)); avE.oy=Math.min(my,Math.max(-my,avE.oy)); }
+// výrez v pixeloch pôvodnej fotky — to isté počíta náhľad aj uložený súbor
+function avSrcRect(){ let b=avE.bmp, k=avE.base*avE.z, side=avE.S/k;
+ let cx=b.width/2-avE.ox/k, cy=b.height/2-avE.oy/k;
+ return {sx:cx-side/2, sy:cy-side/2, side}; }
+function drawAv(){ let c=document.getElementById('avstage'); if(!c||!avE.bmp)return;
+ let dpr=Math.min(3,window.devicePixelRatio||1), px=Math.round(avE.S*dpr);
+ if(c.width!==px){ c.width=px; c.height=px; }
+ clampAv(); let r=avSrcRect(), g=c.getContext('2d');
+ g.clearRect(0,0,px,px); g.imageSmoothingQuality='high';
+ g.drawImage(avE.bmp,r.sx,r.sy,r.side,r.side,0,0,px,px); }
+function setAvZoom(z){ if(!avE.bmp)return; z=Math.min(4,Math.max(1,z||1));
+ let k=z/avE.z; avE.ox*=k; avE.oy*=k; avE.z=z;   // priblíženie do stredu kruhu
+ let sl=document.getElementById('avzoom'); if(sl&&+sl.value!==z) sl.value=z; drawAv(); }
+function avDown(e){ if(!avE.bmp)return; e.preventDefault(); try{ e.currentTarget.setPointerCapture(e.pointerId); }catch(x){}
+ avE.pts.set(e.pointerId,{x:e.clientX,y:e.clientY});
+ if(avE.pts.size===2){ let p=[...avE.pts.values()]; avE.pd=Math.hypot(p[0].x-p[1].x,p[0].y-p[1].y); avE.pz=avE.z; } }
+function avMove(e){ if(!avE.bmp||!avE.pts.has(e.pointerId))return; e.preventDefault();
+ let prev=avE.pts.get(e.pointerId); avE.pts.set(e.pointerId,{x:e.clientX,y:e.clientY});
+ if(avE.pts.size>=2){ let p=[...avE.pts.values()]; let d=Math.hypot(p[0].x-p[1].x,p[0].y-p[1].y);
+  if(avE.pd) setAvZoom(avE.pz*d/avE.pd); return; }
+ avE.ox+=e.clientX-prev.x; avE.oy+=e.clientY-prev.y; drawAv(); }
+function avUp(e){ avE.pts.delete(e.pointerId); if(avE.pts.size<2) avE.pd=0; }
+async function saveAvEdit(){ if(!avE.bmp)return;
+ let n=document.getElementById('avsave'); if(n)n.innerHTML='<div class="r" style="font-size:12px;color:var(--gold2)">📤 Nahrávam fotku…</div>';
+ clampAv(); let r=avSrcRect();
+ let cv=document.createElement('canvas'); cv.width=AVOUT; cv.height=AVOUT;
+ let g=cv.getContext('2d'); g.imageSmoothingQuality='high';
+ g.drawImage(avE.bmp,r.sx,r.sy,r.side,r.side,0,0,AVOUT,AVOUT);
+ let blob=await new Promise(res=>cv.toBlob(res,'image/jpeg',0.86));
+ closeAvEdit(); await uploadAvatar(blob); }
+async function uploadAvatar(blob){ if(!blob||!ME)return;
  let note=()=>document.getElementById('avnote');
  if(note()) note().innerHTML='<div class="r" style="font-size:12px;color:var(--gold2)">📤 Nahrávam fotku…</div>';
  try{ let old=avatarRows(ME.name);
-  let url=await uploadTo(await compress(f,320));
+  let url=await uploadTo(blob);
   let {error}=await sb.from('tdc_photos').insert({id:uid(),comp_id:AVKEY,person:ME.name,url}); if(error) throw error;
   await dropAvatars(old);
   await loadAll();
