@@ -285,12 +285,26 @@ function adminTap(){ if(ADMIN){ if(confirm('Vypnúť admin režim?')){ ADMIN=fal
 function hardRefresh(){ location.href=location.pathname+'?v='+Date.now(); }
 // ťuknutie na upozornenie → skok do príslušnej záložky, pri správe až na ňu
 function goToTarget(go,m){ if(!go)return; goTo(go); if(go==='chat'&&m) flashMsg(m); }
+// cieľ, ktorý service worker odložil pre prípad, že appku otvorí telefón po svojom
+async function takeTarget(){ try{ if(!window.caches)return null;
+  let c=await caches.open('tdc-nav'), r=await c.match('nav-target'); if(!r)return null;
+  await c.delete('nav-target'); let j=await r.json();
+  return (j&&j.ts&&Date.now()-j.ts<120000) ? j : null;   // starý cieľ ignoruj
+ }catch(e){ return null; } }
+function clearTarget(){ try{ if(window.caches) caches.open('tdc-nav').then(c=>c.delete('nav-target')); }catch(e){} }
 function flashMsg(id,tries){ tries=tries||0; let el=document.getElementById('m'+id);
  if(!el){ if(tries<20) setTimeout(()=>flashMsg(id,tries+1),300); return; }
  stick=false; el.scrollIntoView({block:'center'});
  el.classList.add('flash'); setTimeout(()=>el.classList.remove('flash'),2600); }
-if('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message',e=>{
- let t=e.data&&e.data.tdc; if(t) goToTarget(t.go,t.m); });
+// POZOR: pri addEventListener sa front správ zo service workera NEROZBEHNE sám —
+// bez startMessages() sa správa „choď sem" nikdy nedoručí a appka ostane tam, kde bola
+if('serviceWorker' in navigator){
+ const onSwMsg=e=>{ let t=e.data&&e.data.tdc; if(!t)return;
+  try{ if(e.ports&&e.ports[0]) e.ports[0].postMessage('ok'); }catch(_){}   // potvrdenie pre sw.js
+  goToTarget(t.go,t.m); };
+ if(navigator.serviceWorker.startMessages){ navigator.serviceWorker.addEventListener('message',onSwMsg); navigator.serviceWorker.startMessages(); }
+ else navigator.serviceWorker.onmessage=onSwMsg;
+}
 function nearBottom(){ return (window.innerHeight+window.scrollY) >= document.body.scrollHeight-90; }
 function chatToBottom(){ requestAnimationFrame(()=>window.scrollTo(0,document.body.scrollHeight)); }
 function imgLoaded(){ if(chatOpen()&&stick) chatToBottom(); }
@@ -299,15 +313,20 @@ function boot(){ closeGate(); renderAcct();
  loadAll(); setInterval(loadAll, 4000); heartbeat(); setInterval(heartbeat, 15000);
  initSwipe(); hdrVar(); window.addEventListener('resize',hdrVar);
  // pushOff je vedomé rozhodnutie používateľa — bez neho by ho automatika pri každom otvorení znova prihlásila
- if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(()=>{});
+ // updateViaCache:'none' + update() — bez toho môže telefón mesiac používať starý service worker
+ // (a teda staré správanie upozornení), lebo prehliadač ho sám kontroluje len občas
+ if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(r=>{ try{ r.update(); }catch(e){} }).catch(()=>{});
   if(window.Notification && Notification.permission==='granted' && !pushOff()) enablePush(true); }
  refreshPushState();
  // appka otvorená z upozornenia (nová karta) — cieľ príde v adrese, potom ju upraceme
  let q=new URLSearchParams(location.search);
  if(q.get('go')){ let go=q.get('go'), m=q.get('m');
   history.replaceState(null,'',location.pathname);
-  setTimeout(()=>goToTarget(go,m),700); }
- document.addEventListener('visibilitychange',()=>{ if(!document.hidden){ heartbeat(); loadAll(); } }); }
+  clearTarget(); setTimeout(()=>goToTarget(go,m),700); }
+ else takeTarget().then(t=>{ if(t) setTimeout(()=>goToTarget(t.go,t.m),700); });
+ document.addEventListener('visibilitychange',()=>{ if(!document.hidden){ heartbeat(); loadAll();
+  if('serviceWorker' in navigator) navigator.serviceWorker.getRegistration().then(r=>{ if(r){ try{ r.update(); }catch(e){} } }).catch(()=>{}); } }); }
 async function heartbeat(){ if(!ME)return; try{ await sb.from('tdc_participants').update({last_seen:new Date().toISOString()}).eq('name',ME.name); }catch(e){} }
 function renderOnline(){ let bar=document.getElementById('onlinebar'); if(!bar)return;
  if(curView!=='chat'){ bar.style.display='none'; return; } bar.style.display='block'; let now=Date.now();

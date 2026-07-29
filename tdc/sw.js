@@ -41,17 +41,42 @@ self.addEventListener('push', e => {
   })());
 });
 
+// pockame na potvrdenie od appky; ked nepride (stara verzia v cache), prejdeme na adresu s cielom
+function ping(c, msg) {
+  return new Promise(res => {
+    let done = false;
+    try {
+      const ch = new MessageChannel();
+      ch.port1.onmessage = () => { done = true; res(true); };
+      c.postMessage(msg, [ch.port2]);
+    } catch (_) { return res(false); }
+    setTimeout(() => { if (!done) res(false); }, 600);
+  });
+}
+
+// poistka: ked telefon otvori appku po svojom (bez adresy s cielom), appka si ciel
+// vyzdvihne odtialto. Plati kratko, aby neskocila pri nesuvisiacom otvoreni.
+async function saveTarget(go, m) {
+  try {
+    const c = await caches.open('tdc-nav');
+    await c.put('nav-target', new Response(JSON.stringify({ go, m, ts: Date.now() }),
+      { headers: { 'Content-Type': 'application/json' } }));
+  } catch (_) {}
+}
+
 self.addEventListener('notificationclick', e => {
   e.notification.close();
   const t = e.notification.data || {};
   const go = t.go || 'chat', m = t.m || null;
   const url = './?go=' + go + (m ? '&m=' + m : '');
   e.waitUntil((async () => {
+    await saveTarget(go, m);
     const cs = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
     // otvorenu appku len prepneme (bez reloadu), inak otvorime novu s cielom v adrese
     for (const c of cs) {
       if (c.url.indexOf('/tdc') >= 0) {
-        try { c.postMessage({ tdc: { go, m } }); } catch (_) {}
+        const acked = await ping(c, { tdc: { go, m } });
+        if (!acked && c.navigate) { try { await c.navigate(url); } catch (_) {} }
         if ('focus' in c) return c.focus();
       }
     }
