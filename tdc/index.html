@@ -105,7 +105,12 @@ button[disabled]{opacity:.45;}
 #lightbox > img{touch-action:pan-y;}
 #v-chat{background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='300' height='300' viewBox='0 0 300 300'><defs><g id='pohar-vino'>  <path d='M-14,-30 L14,-30 C14,-8 8,2 0,4 C-8,2 -14,-8 -14,-30 Z'/>  <path d='M0,4 L0,24'/>  <path d='M-11,26 L11,26'/></g><g id='pohar-pivo'>  <path d='M-12,-26 L12,-26 L10,26 L-10,26 Z'/>  <path d='M12,-16 C24,-16 24,4 12,4'/>  <path d='M-12,-18 L12,-18'/></g><g id='flasa'>  <path d='M-4,-34 L4,-34 L4,-16 C10,-10 12,-4 12,6 L12,30 L-12,30 L-12,6 C-12,-4 -10,-10 -4,-16 Z'/>  <path d='M-4,-30 L4,-30'/>  <path d='M-12,8 L12,8'/></g><g id='sud'>  <path d='M-15,-24 C-19,-8 -19,8 -15,24 L15,24 C19,8 19,-8 15,-24 Z'/>  <path d='M-15,-24 L15,-24'/>  <path d='M-18,-10 L18,-10'/>  <path d='M-18,10 L18,10'/>  <path d='M15,14 L25,14'/>  <path d='M25,14 L25,22'/>  <path d='M21,9 L21,14'/></g></defs><g fill='none' stroke='%23E4B24C' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round' opacity='0.16'>  <use href='%23pohar-vino' transform='translate(38,40) rotate(-14)'/>  <use href='%23pohar-pivo' transform='translate(112,34) rotate(18) scale(.9)'/>  <use href='%23flasa'      transform='translate(186,40) rotate(24) scale(.85)'/>  <use href='%23sud'        transform='translate(258,44) rotate(-7)'/>  <use href='%23pohar-vino' transform='translate(300,112) rotate(30) scale(.9)'/>  <use href='%23pohar-vino' transform='translate(0,112) rotate(30) scale(.9)'/>  <use href='%23pohar-pivo' transform='translate(72,116) rotate(-22)'/>  <use href='%23pohar-vino' transform='translate(150,124) rotate(9) scale(.95)'/>  <use href='%23pohar-pivo' transform='translate(224,118) rotate(34) scale(.85)'/>  <use href='%23flasa'      transform='translate(36,196) rotate(-20) scale(.9)'/>  <use href='%23pohar-vino' transform='translate(106,204) rotate(24) scale(.9)'/>  <use href='%23sud'        transform='translate(178,200) rotate(10) scale(.9)'/>  <use href='%23pohar-pivo' transform='translate(252,206) rotate(-12) scale(.95)'/>  <use href='%23pohar-vino' transform='translate(300,262) rotate(-28) scale(.85)'/>  <use href='%23pohar-vino' transform='translate(0,262) rotate(-28) scale(.85)'/>  <use href='%23pohar-pivo' transform='translate(74,272) rotate(14) scale(.9)'/>  <use href='%23pohar-vino' transform='translate(150,268) rotate(-8)'/>  <use href='%23flasa'      transform='translate(224,272) rotate(16) scale(.8)'/></g></svg>");background-size:300px 300px;background-repeat:repeat;background-position:center top;min-height:70vh;}
 .msg{background:var(--card);border-radius:12px;padding:10px 13px;margin:7px 0;font-size:15px;line-height:1.45;max-width:84%;width:fit-content;} .msg .who{font-weight:700;font-size:12px;} .msg img{max-width:100%;max-height:400px;border-radius:8px;margin-top:6px;} .msg img.chatimg{cursor:zoom-in;}
-.msgrow{display:flex;align-items:center;gap:5px;margin:7px 0;} .msgrow.mine{justify-content:flex-end;} .msgrow.other{justify-content:flex-start;} .msgrow .msg{margin:0;} .msgtrig{flex:0 0 auto;color:var(--mut);font-size:21px;cursor:pointer;padding:0 3px;line-height:1;user-select:none;}
+.msgrow{display:flex;align-items:center;gap:5px;margin:7px 0;} .msgrow.mine{justify-content:flex-end;} .msgrow.other{justify-content:flex-start;} .msgrow .msg{margin:0;max-width:76%;} .msgtrig{flex:0 0 auto;color:var(--mut);font-size:21px;cursor:pointer;padding:0 3px;line-height:1;user-select:none;}
+.av{flex:0 0 32px;width:32px;height:32px;border-radius:50%;object-fit:cover;align-self:flex-end;border:1px solid rgba(255,255,255,.28);background:#222;}
+.av.avf{display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#12121A;letter-spacing:.5px;}
+.avrow{display:flex;align-items:center;gap:14px;margin-top:10px;} .avbtns{display:flex;flex-direction:column;gap:8px;flex:1;}
+.avbig{flex:0 0 72px;width:72px;height:72px;border-radius:50%;object-fit:cover;border:2px solid rgba(var(--goldrgb),.55);background:#222;}
+.avbig.avf{display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:800;color:#12121A;}
 .msg.mine{margin-left:auto;background:#0F6236;border:1px solid rgba(255,255,255,.18);color:#FFFFFF;} .msg.mine .time{margin-left:7px;color:rgba(255,255,255,.8);} .msg.mine .who{text-shadow:0 1px 2px rgba(0,0,0,.45);}
 .msg.other{margin-right:auto;background:#0B0B0D;border:1px solid rgba(255,255,255,.14);color:#FFFFFF;} .msg.other .time{color:rgba(255,255,255,.5);}
 .msg.mine .qreply{background:rgba(0,0,0,.22);border-left-color:rgba(255,255,255,.7);color:rgba(255,255,255,.85);} .msg.mine .qreply b{color:#fff;}
@@ -375,9 +380,38 @@ function applyTheme(id){ let t=THEMES.find(x=>x.id===id)||THEMES[0], r=document.
 function setTheme(id){ if(!THEMES.some(x=>x.id===id))return;
  localStorage.setItem('tdc_theme',id); applyTheme(id); renderSettings(); hdrVar(); }
 applyTheme(themeId()); applyFont(fontId());   // hneď, nech to nebliká
+function avatarCard(){
+ if(!ME) return '<div class="card"><h3>🙂 Tvoja fotka</h3><div class="r" style="color:var(--mut)">Prihlás sa a môžeš si dať fotku k svojim správam.</div></div>';
+ let u=avatarUrl(ME.name);
+ return '<div class="card"><h3>🙂 Tvoja fotka</h3>'+
+  '<div class="r" style="color:var(--mut)">Okrúhla fotka pri tvojich správach v chate. Vidia ju všetci.</div>'+
+  '<input type="file" accept="image/*" id="avfile" style="display:none" onchange="pickAvatar(event)">'+
+  '<div class="avrow">'+
+   (u?`<img class="avbig" src="${escA(u)}" alt="">`:`<span class="avbig avf" style="background:${nameColor(ME.name,false)}">${esc(initials(ME.name))}</span>`)+
+   '<div class="avbtns"><button class="btn sm g" onclick="document.getElementById(\'avfile\').click()">'+(u?'📷 Zmeniť fotku':'📷 Vybrať fotku')+'</button>'+
+   (u?'<button class="btn sm gh" onclick="delAvatar()">🗑 Odstrániť</button>':'')+
+   '</div></div><div id="avnote"></div></div>'; }
+async function pickAvatar(ev){ let f=(ev.target.files||[])[0]; ev.target.value='';
+ if(!f||needLogin())return;
+ let note=()=>document.getElementById('avnote');
+ if(note()) note().innerHTML='<div class="r" style="font-size:12px;color:var(--gold2)">📤 Nahrávam fotku…</div>';
+ try{ let old=avatarRows(ME.name);
+  let url=await uploadTo(await compress(f,320));
+  let {error}=await sb.from('tdc_photos').insert({id:uid(),comp_id:AVKEY,person:ME.name,url}); if(error) throw error;
+  await dropAvatars(old);
+  await loadAll();
+ }catch(e){ alert('Fotka sa nenahrala: '+(e.message||e)); }
+ if(note()) note().innerHTML=''; }
+async function dropAvatars(rows){ for(const o of rows){
+  await sb.from('tdc_photos').delete().eq('id',o.id);
+  let path=(o.url||'').split('/tdc-photos/')[1];
+  if(path){ try{ await sb.storage.from('tdc-photos').remove([path]); }catch(e){} } } }
+async function delAvatar(){ if(!ME)return; if(!confirm('Odstrániť tvoju profilovú fotku?'))return;
+ await dropAvatars(avatarRows(ME.name)); await loadAll(); }
 function renderSettings(){ let el=document.getElementById('setview'); if(!el)return;
  let cur=themeId(), curf=fontId();
- el.innerHTML='<div class="card"><h3>🎨 Farba apky</h3>'+
+ el.innerHTML=avatarCard()+
+  '<div class="card"><h3>🎨 Farba apky</h3>'+
   '<div class="r" style="color:var(--mut)">Platí len na tomto telefóne. Každý si môže dať svoju.</div>'+
   '<div class="thlist">'+THEMES.map(t=>`<div class="throw${t.id===cur?' on':''}" onclick="setTheme('${t.id}')">
     <span class="thsw"><i style="background:${t.v.bg}"></i><i style="background:${t.v.card}"></i><i style="background:${t.v.wine}"></i><i style="background:${t.v.gold}"></i></span>
@@ -398,7 +432,7 @@ const TABS=[{v:'program',ic:'🗺️',n:'Program',d:'Etapy, mapy a fotky z ciest
  {v:'gallery',ic:'🖼️',n:'Galéria',d:'Všetky fotky z výletu'},
  {v:'lead',ic:'🏆',n:'Rebríček',d:'Priebežné poradie a body'},
  {v:'split',ic:'💶',n:'Splitter',d:'Spoločné náklady a kto komu dlží'},
- {v:'set',ic:'⚙️',n:'Nastavenia',d:'Farba apky a vzhľad'}];
+ {v:'set',ic:'⚙️',n:'Nastavenia',d:'Tvoja fotka, farba apky a vzhľad'}];
 const NAVTABS=['program','chat','gallery'];
 let curView='program';
 function go(btn){ goTo(btn.dataset.v); }
@@ -1009,9 +1043,9 @@ function pickPhoto(ev){ let f=ev.target.files[0]; if(!f)return; pendingPhoto=f;
 function cancelPhoto(){ pendingPhoto=null; document.getElementById('photoprev').innerHTML='';
  let ph=document.getElementById('photo'); if(ph) ph.value=''; }
 let sending=false;
-async function compress(file){ try{
+async function compress(file,maxPx){ try{
   let bmp=await createImageBitmap(file,{imageOrientation:'from-image'});
-  let max=1600, s=Math.min(1,max/Math.max(bmp.width,bmp.height));
+  let max=maxPx||1600, s=Math.min(1,max/Math.max(bmp.width,bmp.height));
   let w=Math.round(bmp.width*s), h=Math.round(bmp.height*s);
   let cv=document.createElement('canvas'); cv.width=w; cv.height=h;
   cv.getContext('2d').drawImage(bmp,0,0,w,h); if(bmp.close)bmp.close();
@@ -1058,6 +1092,17 @@ function lighten(hex,f){ let r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(
 function nameColor(n,onGreen){ let h=0; for(let i=0;i<(n||'').length;i++) h=(h*131+n.charCodeAt(i)*7)>>>0;
  let c=NAMEC[h%NAMEC.length];
  return onGreen ? lighten(c,.58) : c; }
+// ---- profilová fotka ----
+// bez migrácie: profilovka je riadok v tdc_photos s comp_id='avatar' (comp_id je voľný text, ako etapy)
+const AVKEY='avatar';
+function avatarRows(n){ return S.photos.filter(f=>f.comp_id===AVKEY && f.person===n)
+ .sort((a,b)=>String(a.created_at||'').localeCompare(String(b.created_at||''))); }
+function avatarUrl(n){ let r=avatarRows(n); return r.length ? r[r.length-1].url : null; }
+function initials(n){ let p=(n||'').trim().split(/\s+/).filter(Boolean); if(!p.length) return '?';
+ return ((p[0][0]||'')+(p.length>1?(p[1][0]||''):'')).toUpperCase(); }
+function avatarHtml(n){ let u=avatarUrl(n);
+ return u ? `<img class="av" loading="lazy" src="${escA(u)}" alt="${escA(n)}">`
+          : `<span class="av avf" style="background:${nameColor(n,false)}">${esc(initials(n))}</span>`; }
 // @zmienky: mená hľadáme od najdlhšieho, nech „Jano Novák" vyhrá nad „Jano"
 function mentionNames(){ return S.participants.slice().sort((a,b)=>b.length-a.length); }
 function mentionsMe(text){ return !!(ME && text && new RegExp('@'+rxEsc(ME.name)+'(?![\\p{L}\\p{N}_])','iu').test(text)); }
@@ -1085,7 +1130,8 @@ function renderChat(){ let h='';
   let atMe=!mine && mentionsMe(x.body);
   let bubble=`<div class="msg ${mine?'mine':'other'}${atMe?' atme':''}"><span class="who" style="color:${nameColor(x.name,mine)}">${esc(x.name)}</span><span class="time">${fmtTime(x.created_at)}</span>${q}${bodyHtml}${x.photo_url?'<br><img loading="lazy" onload="imgLoaded()" class="chatimg" src="'+x.photo_url+'" data-u="'+escA(x.photo_url)+'" onclick="event.stopPropagation();openChatPhoto(this.dataset.u)">':''}${pills?'<div class="rx">'+pills+'</div>':''}</div>`;
   let trig=`<span class="msgtrig" onclick="toggleMsgActions(${x.id})">⋯</span>`;
-  h+=`<div class="msgrow ${mine?'mine':'other'}">`+(mine?trig+bubble:bubble+trig)+`</div>`;
+  let av=avatarHtml(x.name);
+  h+=`<div class="msgrow ${mine?'mine':'other'}">`+(mine?trig+bubble+av:av+bubble+trig)+`</div>`;
   if(openMsg==x.id){ let delBtn=mine?`<span class="mdel" onclick="delMsg(${x.id})">🗑 Zmazať</span>`:'';
    h+=`<div class="msgact ${mine?'mine':'other'}"><div class="emorow">`+QUICK.map(em=>`<span class="ra" onclick="toggleReaction(${x.id},'${em}')">${em}</span>`).join('')+
     `</div><div class="btnrow"><span class="rb" onclick="startReply(${x.id})">↩︎ Odpovedať</span>${delBtn}</div></div>`; }
@@ -1163,7 +1209,8 @@ let lbIdx=null, galPhotos=[];
 // galéria spája dva zdroje: fotky z chatu a fotky nahrané pri súťažiach
 function allPhotos(){
  let a=S.msgs.filter(m=>m.photo_url).map(m=>({key:'m'+m.id, id:m.id, src:'chat', comp_id:null, name:m.name, body:m.body, photo_url:m.photo_url, created_at:m.created_at}));
- let b=S.photos.map(f=>({key:'f'+f.id, id:f.id, src:'comp', comp_id:f.comp_id, name:f.person, body:'', photo_url:f.url, created_at:f.created_at}));
+ // profilovky sedia v tej istej tabuľke pod comp_id='avatar' — do galérie nepatria
+ let b=S.photos.filter(f=>f.comp_id!==AVKEY).map(f=>({key:'f'+f.id, id:f.id, src:'comp', comp_id:f.comp_id, name:f.person, body:'', photo_url:f.url, created_at:f.created_at}));
  return a.concat(b).sort((x,y)=>String(x.created_at||'').localeCompare(String(y.created_at||'')));
 }
 function galleryPhotos(){ let all=allPhotos().slice().reverse();   // najnovšie hore
