@@ -410,7 +410,6 @@ function avatarCard(){
  if(!ME) return '<div class="card"><h3>🙂 Tvoja fotka</h3><div class="r" style="color:var(--mut)">Prihlás sa a môžeš si dať fotku k svojim správam.</div></div>';
  let u=avatarUrl(ME.name);
  return '<div class="card"><h3>🙂 Tvoja fotka</h3>'+
-  '<div class="r" style="color:var(--mut)">Okrúhla fotka pri tvojich správach v chate. Výrez a priblíženie si nastavíš sám. Vidia ju všetci.</div>'+
   '<input type="file" accept="image/*" id="avfile" style="display:none" onchange="pickAvatar(event)">'+
   '<div class="avrow">'+
    (u?`<img class="avbig" src="${escA(u)}" alt="">`:`<span class="avbig avf" style="background:${nameColor(ME.name,false)}">${esc(initials(ME.name))}</span>`)+
@@ -498,13 +497,11 @@ function renderSettings(){ let el=document.getElementById('setview'); if(!el)ret
  let cur=themeId(), curf=fontId();
  el.innerHTML=avatarCard()+pushCard()+
   '<div class="card"><h3>🎨 Farba apky</h3>'+
-  '<div class="r" style="color:var(--mut)">Platí len na tomto telefóne. Každý si môže dať svoju.</div>'+
   '<div class="thlist">'+THEMES.map(t=>`<div class="throw${t.id===cur?' on':''}" onclick="setTheme('${t.id}')">
     <span class="thsw"><i style="background:${t.v.bg}"></i><i style="background:${t.v.card}"></i><i style="background:${t.v.wine}"></i><i style="background:${t.v.gold}"></i></span>
     <span class="thtxt"><b>${esc(t.n)}</b><span class="thd">${esc(t.d)}</span></span>
     <span class="thok">${t.id===cur?'✓':''}</span></div>`).join('')+'</div></div>'+
   '<div class="card"><h3>🔤 Písmo</h3>'+
-  '<div class="r" style="color:var(--mut)">Nezávisle od farby. Tiež len na tomto telefóne.</div>'+
   '<div class="thlist">'+FONTS.map(f=>`<div class="throw${f.id===curf?' on':''}" onclick="setFont('${f.id}')">
     <span class="fprev" style="font-family:${f.f2}${f.cap?';text-transform:uppercase':''}">Aa</span>
     <span class="thtxt"><b>${esc(f.n)}</b><span class="thd">${esc(f.d)}</span></span>
