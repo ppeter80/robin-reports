@@ -112,6 +112,8 @@ button[disabled]{opacity:.45;}
 .avbig{flex:0 0 72px;width:72px;height:72px;border-radius:50%;object-fit:cover;border:2px solid rgba(var(--goldrgb),.55);background:#222;}
 .avbig.avf{display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:800;color:#12121A;}
 .av{cursor:pointer;}
+@keyframes tdcflash{0%,100%{box-shadow:0 0 0 0 rgba(var(--goldrgb),0)}20%,60%{box-shadow:0 0 0 3px rgba(var(--goldrgb),.85)}}
+.msgrow.flash .msg{animation:tdcflash 1.3s ease-in-out 2;border-radius:12px;}
 .olderbtn{margin:8px auto;padding:8px 14px;width:fit-content;border-radius:14px;background:rgba(var(--goldrgb),.12);border:1px solid rgba(var(--goldrgb),.4);color:var(--gold2);font-size:13px;font-weight:700;cursor:pointer;}
 #avview{position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:61;display:none;align-items:center;justify-content:center;padding:18px;}
 #avview .avvbox{text-align:center;max-width:340px;width:100%;}
@@ -281,6 +283,14 @@ function adminTap(){ if(ADMIN){ if(confirm('Vypnúť admin režim?')){ ADMIN=fal
  if(p===ADMIN_PIN){ if(needLogin())return; ADMIN=true; renderAll(); alert('Admin odomknutý ✅'); }
  else alert('Nesprávne heslo'); }
 function hardRefresh(){ location.href=location.pathname+'?v='+Date.now(); }
+// ťuknutie na upozornenie → skok do príslušnej záložky, pri správe až na ňu
+function goToTarget(go,m){ if(!go)return; goTo(go); if(go==='chat'&&m) flashMsg(m); }
+function flashMsg(id,tries){ tries=tries||0; let el=document.getElementById('m'+id);
+ if(!el){ if(tries<20) setTimeout(()=>flashMsg(id,tries+1),300); return; }
+ stick=false; el.scrollIntoView({block:'center'});
+ el.classList.add('flash'); setTimeout(()=>el.classList.remove('flash'),2600); }
+if('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message',e=>{
+ let t=e.data&&e.data.tdc; if(t) goToTarget(t.go,t.m); });
 function nearBottom(){ return (window.innerHeight+window.scrollY) >= document.body.scrollHeight-90; }
 function chatToBottom(){ requestAnimationFrame(()=>window.scrollTo(0,document.body.scrollHeight)); }
 function imgLoaded(){ if(chatOpen()&&stick) chatToBottom(); }
@@ -292,6 +302,11 @@ function boot(){ closeGate(); renderAcct();
  if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(()=>{});
   if(window.Notification && Notification.permission==='granted' && !pushOff()) enablePush(true); }
  refreshPushState();
+ // appka otvorená z upozornenia (nová karta) — cieľ príde v adrese, potom ju upraceme
+ let q=new URLSearchParams(location.search);
+ if(q.get('go')){ let go=q.get('go'), m=q.get('m');
+  history.replaceState(null,'',location.pathname);
+  setTimeout(()=>goToTarget(go,m),700); }
  document.addEventListener('visibilitychange',()=>{ if(!document.hidden){ heartbeat(); loadAll(); } }); }
 async function heartbeat(){ if(!ME)return; try{ await sb.from('tdc_participants').update({last_seen:new Date().toISOString()}).eq('name',ME.name); }catch(e){} }
 function renderOnline(){ let bar=document.getElementById('onlinebar'); if(!bar)return;
@@ -1277,7 +1292,7 @@ function renderChat(){ let h='';
   let bubble=`<div class="msg ${mine?'mine':'other'}${atMe?' atme':''}"><span class="who" style="color:${nameColor(x.name,mine)}">${esc(x.name)}</span><span class="time">${fmtTime(x.created_at)}</span>${q}${bodyHtml}${x.photo_url?'<br><img loading="lazy" onload="imgLoaded()" class="chatimg" src="'+escA(medUrl(x.photo_url))+'" data-full="'+escA(x.photo_url)+'" '+IMGFB+' data-u="'+escA(x.photo_url)+'" onclick="event.stopPropagation();openChatPhoto(this.dataset.u)">':''}${pills?'<div class="rx">'+pills+'</div>':''}</div>`;
   let trig=`<span class="msgtrig" onclick="toggleMsgActions(${x.id})">⋯</span>`;
   let av=avatarHtml(x.name);
-  h+=`<div class="msgrow ${mine?'mine':'other'}">`+(mine?trig+bubble+av:av+bubble+trig)+`</div>`;
+  h+=`<div class="msgrow ${mine?'mine':'other'}" id="m${x.id}">`+(mine?trig+bubble+av:av+bubble+trig)+`</div>`;
   if(openMsg==x.id){ let delBtn=mine?`<span class="mdel" onclick="delMsg(${x.id})">🗑 Zmazať</span>`:'';
    h+=`<div class="msgact ${mine?'mine':'other'}"><div class="emorow">`+QUICK.map(em=>`<span class="ra" onclick="toggleReaction(${x.id},'${em}')">${em}</span>`).join('')+
     `</div><div class="btnrow"><span class="rb" onclick="startReply(${x.id})">↩︎ Odpovedať</span>${delBtn}</div></div>`; }
@@ -1327,7 +1342,10 @@ function notify(){ if(!ME)return; let onChat=chatOpen(); let seen=localStorage.g
    let last=fresh[fresh.length-1]; if(navigator.vibrate)navigator.vibrate(180);
    let mention=fresh.find(m=>mentionsMe(m.body))||null; let show=mention||last;
    if(mention && navigator.vibrate) navigator.vibrate([120,80,120]);
-   if(window.Notification && Notification.permission==='granted'){ try{ new Notification(mention?'Tour de Croatia — spomenuli ťa':'Tour de Croatia', {body:`${show.name}: ${msgPreview(show).slice(0,80)}`, icon:'icon-192.png', tag:'tdc-chat', renotify:true}); }catch(e){} } } }
+   if(window.Notification && Notification.permission==='granted'){ try{
+     let nt=new Notification(mention?'Tour de Croatia — spomenuli ťa':'Tour de Croatia', {body:`${show.name}: ${msgPreview(show).slice(0,80)}`, icon:'icon-192.png', tag:'tdc-chat', renotify:true});
+     nt.onclick=()=>{ try{ window.focus(); }catch(e){} goToTarget('chat',show.id); nt.close(); };
+   }catch(e){} } } }
  firstLoad=false; if(onChat) markSeen();
 }
 // ---- leaderboard ----
