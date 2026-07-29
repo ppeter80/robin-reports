@@ -113,6 +113,15 @@ button[disabled]{opacity:.45;}
 .lbtop{position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:center;padding:12px 16px;color:#eee;font-size:13px;} .lbx{cursor:pointer;font-size:24px;}
 .lbbar{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-top:14px;width:100%;max-width:420px;} .lbnav{font-size:34px;color:#fff;cursor:pointer;padding:0 10px;user-select:none;min-width:34px;text-align:center;}
 .admrow{display:flex;gap:8px;align-items:flex-end;} .admrow>*{flex:1;} #msgtext{line-height:1.35;overflow-y:auto;}
+/* jednotné "pridať fotku" — rovnaký tvar ako + a poslať v chate */
+.photorow{display:flex;gap:8px;align-items:center;margin-top:9px;}
+.photobtn{flex:0 0 42px;width:42px;height:42px;padding:0;margin:0;border-radius:50%;font-size:19px;line-height:1;
+ display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.08);
+ border:1px solid rgba(255,255,255,.24);color:#F1E6EB;cursor:pointer;}
+.photobtn:active{background:rgba(228,178,76,.18);border-color:rgba(228,178,76,.5);}
+.photocnt{flex:0 0 auto;background:rgba(228,178,76,.13);border:1px solid rgba(228,178,76,.4);color:#F0D592;
+ border-radius:20px;padding:8px 13px;font-size:12px;font-weight:700;cursor:pointer;}
+.photocnt:active{background:rgba(228,178,76,.22);}
 #onlinebar{font-size:11px;color:#9FE0B0;margin:8px -12px -10px;padding:6px 12px;background:rgba(0,0,0,.22);border-top:1px solid rgba(228,178,76,.10);text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;}
 #onlinebar.open{white-space:normal;} .olmore{color:#E4B24C;} .ondot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#3ddc84;box-shadow:0 0 6px #3ddc84;vertical-align:middle;margin-right:4px;}
 .mdel{flex:1;text-align:center;font-size:12px;color:#ef6b6b;border:1px solid #ef6b6b;border-radius:9px;padding:6px 8px;cursor:pointer;}
@@ -662,7 +671,7 @@ function photoBox(gid){ let n=S.photos.filter(f=>f.comp_id==gid).length;
  if(!ME) return '';
  return `<div id="cf_note_${gid}"></div>
   <input type="file" accept="image/*" multiple id="cf_${gid}" style="display:none" onchange="compPhoto(event,'${js1(gid)}')">
-  <div class="admrow" style="margin-top:8px"><button class="btn sm" onclick="document.getElementById('cf_${gid}').click()">📷 Pridať fotku</button>${n?`<button class="btn sm" onclick="showGallery('${js1(gid)}')">🖼️ ${n} ${n==1?'fotka':(n<5?'fotky':'fotiek')}</button>`:''}</div>`; }
+  <div class="photorow"><button class="photobtn" title="Pridať fotku" onclick="document.getElementById('cf_${gid}').click()">📷</button>${n?`<div class="photocnt" onclick="showGallery('${js1(gid)}')">🖼️ ${n} ${n==1?'fotka':(n<5?'fotky':'fotiek')}</div>`:''}</div>`; }
 function renderProgram(){ STAGES.forEach(s=>{ let el=document.getElementById('pb_'+s.id);
  if(el) el.innerHTML=photoBox(s.id); }); }
 
