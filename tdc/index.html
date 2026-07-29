@@ -287,7 +287,10 @@ window.addEventListener('scroll',()=>{ if(chatOpen()) stick=nearBottom(); },{pas
 function boot(){ closeGate(); renderAcct();
  loadAll(); setInterval(loadAll, 4000); heartbeat(); setInterval(heartbeat, 15000);
  initSwipe(); hdrVar(); window.addEventListener('resize',hdrVar);
- if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(()=>{}); if(window.Notification && Notification.permission==='granted') enablePush(true); }
+ // pushOff je vedomé rozhodnutie používateľa — bez neho by ho automatika pri každom otvorení znova prihlásila
+ if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(()=>{});
+  if(window.Notification && Notification.permission==='granted' && !pushOff()) enablePush(true); }
+ refreshPushState();
  document.addEventListener('visibilitychange',()=>{ if(!document.hidden){ heartbeat(); loadAll(); } }); }
 async function heartbeat(){ if(!ME)return; try{ await sb.from('tdc_participants').update({last_seen:new Date().toISOString()}).eq('name',ME.name); }catch(e){} }
 function renderOnline(){ let bar=document.getElementById('onlinebar'); if(!bar)return;
@@ -482,9 +485,18 @@ async function dropAvatars(rows){ for(const o of rows){
   if(path){ try{ await sb.storage.from('tdc-photos').remove([path]); }catch(e){} } } }
 async function delAvatar(){ if(!ME)return; if(!confirm('Odstrániť tvoju profilovú fotku?'))return;
  await dropAvatars(avatarRows(ME.name)); await loadAll(); }
+function pushCard(){ let h='<div class="card"><h3>🔔 Upozornenia</h3>';
+ if(!pushSupported()) return h+'<div class="r" style="color:var(--mut)">Tento prehliadač push upozornenia nepodporuje. Na iPhone appku najprv pridaj na plochu (Zdieľať → Pridať na plochu) a otvor ju odtiaľ.</div></div>';
+ if(!ME) return h+'<div class="r" style="color:var(--mut)">Najprv sa prihlás, potom si ich vieš zapnúť.</div></div>';
+ if(Notification.permission==='denied') return h+'<div class="r" style="color:var(--mut)">🚫 Zakázané v prehliadači. Povoľ ich pre túto stránku v nastaveniach telefónu a vráť sa sem.</div></div>';
+ let on=pushOn===true;
+ h+=`<div class="r"><b>${on?'✅ Zapnuté':'🔕 Vypnuté'}</b> <span style="color:var(--mut)">— ${on?'nová správa, súťaž alebo výsledky ti prídu, aj keď je appka zavretá.':'nič ti nechodí; správy uvidíš, až keď si appku otvoríš.'}</span></div>`;
+ h+= on ? '<button class="btn sm gh" onclick="disablePush()">🔕 Vypnúť upozornenia</button>'
+        : '<button class="btn sm g" onclick="enablePush(false)">🔔 Zapnúť upozornenia</button>';
+ return h+'</div>'; }
 function renderSettings(){ let el=document.getElementById('setview'); if(!el)return;
  let cur=themeId(), curf=fontId();
- el.innerHTML=avatarCard()+
+ el.innerHTML=avatarCard()+pushCard()+
   '<div class="card"><h3>🎨 Farba apky</h3>'+
   '<div class="r" style="color:var(--mut)">Platí len na tomto telefóne. Každý si môže dať svoju.</div>'+
   '<div class="thlist">'+THEMES.map(t=>`<div class="throw${t.id===cur?' on':''}" onclick="setTheme('${t.id}')">
@@ -506,7 +518,7 @@ const TABS=[{v:'program',ic:'🗺️',n:'Program',d:'Etapy, mapy a fotky z ciest
  {v:'gallery',ic:'🖼️',n:'Galéria',d:'Všetky fotky z výletu'},
  {v:'lead',ic:'🏆',n:'Rebríček',d:'Priebežné poradie a body'},
  {v:'split',ic:'💶',n:'Splitter',d:'Spoločné náklady a kto komu dlží'},
- {v:'set',ic:'⚙️',n:'Nastavenia',d:'Tvoja fotka, farba apky a vzhľad'}];
+ {v:'set',ic:'⚙️',n:'Nastavenia',d:'Fotka, upozornenia a vzhľad'}];
 const NAVTABS=['program','chat','gallery'];
 let curView='program';
 function go(btn){ goTo(btn.dataset.v); }
@@ -517,7 +529,7 @@ function goTo(v){ if(v!=='more') curView=v;   // „Viac" nie je obsah, nech ost
  let nb=document.querySelector('nav button[data-v="'+(NAVTABS.includes(v)?v:'more')+'"]'); if(nb) nb.classList.add('on');
  renderAll();
  if(v=='chat'){ markSeen(); stick=true; chatToBottom(); }
- else window.scrollTo(0,0); }
+ else { if(v==='set') refreshPushState(); window.scrollTo(0,0); } }
 function hdrVar(){ let h=document.querySelector('header');
  if(h) document.documentElement.style.setProperty('--hdrh', h.offsetHeight+'px'); }
 function renderMore(){ let el=document.getElementById('moreview'); if(!el)return;
@@ -1145,15 +1157,36 @@ function fmtTime(iso){ if(!iso)return''; let d=new Date(iso); if(isNaN(d))return
  let today=new Date().toDateString()==d.toDateString();
  return today? t : d.toLocaleDateString('sk-SK',{day:'numeric',month:'numeric'})+'. '+t; }
 function urlB64ToUint8(s){ let pad='='.repeat((4-s.length%4)%4); let base=(s+pad).replace(/-/g,'+').replace(/_/g,'/'); let raw=atob(base); let arr=new Uint8Array(raw.length); for(let i=0;i<raw.length;i++)arr[i]=raw.charCodeAt(i); return arr; }
-async function enablePush(silent){ if(!('serviceWorker' in navigator)||!('PushManager' in window)){ if(!silent)alert('Tento prehliadač nepodporuje push. Na iPhone: pridaj appku na plochu (Zdieľať → Pridať na plochu) a otvor ju odtiaľ, potom zapni upozornenia.'); return; }
+function pushOff(){ return localStorage.getItem('tdc_push_off')==='1'; }
+function pushSupported(){ return ('serviceWorker' in navigator) && ('PushManager' in window) && !!window.Notification; }
+let pushOn=null;   // null = ešte nezistené; renderSettings kreslí z tejto premennej, lebo sám je synchrónny
+async function refreshPushState(){ let on=false;
+ try{ if(pushSupported() && Notification.permission==='granted' && !pushOff()){
+   let reg=await navigator.serviceWorker.getRegistration();
+   let sub=reg && await reg.pushManager.getSubscription(); on=!!sub; }
+ }catch(e){}
+ if(pushOn!==on){ pushOn=on; renderSettings(); } }
+async function enablePush(silent){ if(!pushSupported()){ if(!silent)alert('Tento prehliadač nepodporuje push. Na iPhone: pridaj appku na plochu (Zdieľať → Pridať na plochu) a otvor ju odtiaľ, potom zapni upozornenia.'); return; }
+ if(!ME){ if(!silent) needLogin(); return; }
  try{ let reg=await navigator.serviceWorker.register('sw.js'); await navigator.serviceWorker.ready;
-  let perm=await Notification.requestPermission(); if(perm!=='granted'){ renderChat(); return; }
+  let perm=await Notification.requestPermission(); if(perm!=='granted'){ pushOn=false; renderChat(); renderSettings(); if(!silent) alert('Upozornenia si zakázal v prehliadači. Povoľ ich pre túto stránku v nastaveniach telefónu.'); return; }
   let sub=await reg.pushManager.getSubscription();
   if(!sub) sub=await reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey:urlB64ToUint8(VAPID_PUBLIC) });
   let j=sub.toJSON();
   await sb.from('tdc_push_subs').upsert({ name:ME.name, endpoint:j.endpoint, p256dh:j.keys.p256dh, auth:j.keys.auth },{ onConflict:'endpoint' });
-  renderChat(); if(!silent) alert('Upozornenia zapnuté ✅ Teraz ti prídu aj keď je appka zavretá.');
+  localStorage.removeItem('tdc_push_off'); pushOn=true;
+  renderChat(); renderSettings(); if(!silent) alert('Upozornenia zapnuté ✅ Teraz ti prídu aj keď je appka zavretá.');
  }catch(e){ if(!silent) alert('Nepodarilo sa zapnúť upozornenia: '+(e.message||e)); } }
+async function disablePush(){
+ try{ let reg=pushSupported() ? await navigator.serviceWorker.getRegistration() : null;
+  let sub=reg && await reg.pushManager.getSubscription();
+  if(sub){ let ep=sub.endpoint;
+   try{ await sb.from('tdc_push_subs').delete().eq('endpoint',ep); }catch(e){}   // odhlás sa aj na serveri, nech neposiela naprázdno
+   await sub.unsubscribe(); }
+  localStorage.setItem('tdc_push_off','1'); pushOn=false;
+  renderChat(); renderSettings();
+  alert('Upozornenia vypnuté 🔕 Správy uvidíš, keď si appku otvoríš.');
+ }catch(e){ alert('Nepodarilo sa vypnúť upozornenia: '+(e.message||e)); } }
 function askNotif(){ enablePush(false); }
 const QUICK=['👍','❤️','😂','🔥','🍺','🍷','🚴','🎉'];
 // pevná paleta výrazne odlišných farieb — hash na odtieň mená zhlukoval do zelenej
