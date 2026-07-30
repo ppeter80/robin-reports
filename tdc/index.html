@@ -134,6 +134,8 @@ button[disabled]{opacity:.45;}
 .addbtn{flex:0 0 46px;width:46px;height:46px;padding:0;margin:0;border-radius:50%;border:none;background:linear-gradient(90deg,var(--gold),var(--gold3));color:var(--onacc);font-size:22px;font-weight:800;cursor:pointer;}
 @keyframes tdcflash{0%,100%{box-shadow:0 0 0 0 rgba(var(--goldrgb),0)}20%,60%{box-shadow:0 0 0 3px rgba(var(--goldrgb),.85)}}
 .msgrow.flash .msg{animation:tdcflash 1.3s ease-in-out 2;border-radius:12px;}
+.pill.neg{color:#f2b8b8;border-color:rgba(242,184,184,.45);background:rgba(176,40,70,.18);}
+td.neg{color:#f2b8b8;}
 .olderbtn{margin:8px auto;padding:8px 14px;width:fit-content;border-radius:14px;background:rgba(var(--goldrgb),.12);border:1px solid rgba(var(--goldrgb),.4);color:var(--gold2);font-size:13px;font-weight:700;cursor:pointer;}
 #avview{position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:61;display:none;align-items:center;justify-content:center;padding:18px;}
 #avview .avvbox{text-align:center;max-width:340px;width:100%;}
@@ -638,8 +640,18 @@ function grabComp(){ let a=document.getElementById('c_name'), b=document.getElem
 function clearComp(){ newComp={name:'',pts:'',beers:''};
  ['c_name','c_pts','c_beers'].forEach(id=>{ let el=document.getElementById(id); if(el) el.value=''; }); }
 function setCompType(v){ grabComp(); newCompType=v; renderComps(); }
+// Body sa zadávajú na mobile, kde „-" ľahko vznikne ako pomlčka (– —) alebo s medzerou („- 2").
+// Pôvodné delenie podľa medzier a čiarok pri „5,3,1, - 2" vyrobilo z mínus dvojky KLADNÉ 2.
+function parsePts(s){ let out=[];
+ let m=String(s||'').replace(/[‐-―−]/g,'-').match(/[+-]?\s*\d+/g);
+ (m||[]).forEach(x=>{ let n=Number(x.replace(/\s+/g,'')); if(!isNaN(n)) out.push(n); });
+ return out; }
+function ptsText(a){ return (a||[]).map((p,i)=>(i+1)+'. '+(p>0?'+':'')+p+' b').join(' · '); }
+function ptsPrev(){ let el=document.getElementById('c_ptsprev'); if(!el)return;
+ let a=parsePts((document.getElementById('c_pts')||{}).value);
+ el.innerHTML = a.length ? 'Uloží sa: '+esc(ptsText(a)) : 'Nezadané → 1. +5 b · 2. +3 b · 3. +1 b'; }
 async function addComp(){ let name=document.getElementById('c_name').value.trim(); if(!name){alert('Názov súťaže');return;}
- let type=document.getElementById('c_type').value, pts=document.getElementById('c_pts').value.split(/[ ,]+/).map(Number).filter(x=>!isNaN(x));
+ let type=document.getElementById('c_type').value, pts=parsePts(document.getElementById('c_pts').value);
  if(!pts.length) pts=[5,3,1];
  let cid=uid(), beers=null;
  if(type=='tasting'){
@@ -670,16 +682,17 @@ function renderComps(){
    ${newCompType=='num'?`<div class="hint">Každý si sám zapíše svoje číslo, appka priebežne zoradí — <b>vyhráva najvyššie</b>. Netreba nič uzatvárať, body podľa poradia idú živo do rebríčka.</div>`:''}
    ${newCompType=='tasting'?`<textarea id="c_beers" rows="4" placeholder="Zoznam pív — jedno na riadok, v poradí ako budeš označovať fľaše. Môžeš nechať prázdne a pridávať po jednom neskôr." style="resize:vertical">${esc(newComp.beers)}</textarea>
    <div class="hint">Appka ich očísluje 1…N a ukáže ti označovací zoznam. Kľúč (ktoré pivo je v ktorej fľaši) ostáva LEN v tomto telefóne až do „Odhaliť a vyhodnotiť" — v databáze nie je, takže sa nedá vyčítať. Pokojne nechaj prázdne a pridávaj pivá po jednom priamo v súťaži.</div>`:''}
-   <input id="c_pts" placeholder="Body za poradie (napr. 5,3,1)" value="${escA(newComp.pts)}">
+   <input id="c_pts" placeholder="Body za poradie (napr. 5,3,1,-2)" value="${escA(newComp.pts)}" oninput="grabComp();ptsPrev()">
+   <div id="c_ptsprev" class="hint" style="margin-top:4px">Záporné body pokojne použi — napr. <b>5,3,1,-2</b> dá poslednému mínus dva.</div>
    <button class="btn g" onclick="addComp()">Pridať súťaž</button>
    <hr style="border-color:rgba(228,178,76,.2);margin:12px 0"><h3>⭐ Extra body</h3>
    <select id="e_who">`+S.participants.map(p=>`<option>${esc(p)}</option>`).join('')+`</select>
-   <div class="admrow"><input id="e_pts" placeholder="Body" inputmode="numeric"><input id="e_why" placeholder="Za čo (napr. najviac pív)"></div>
+   <div class="admrow"><input id="e_pts" placeholder="Body (aj -3)"><input id="e_why" placeholder="Za čo (napr. najviac pív)"></div>
    <button class="btn sm" onclick="addExtra()">Udeliť extra body</button></div>`
   : '';
  let h=''; if(!S.comps.length) h='<div class="soon">Zatiaľ žiadne súťaže. '+(ADMIN?'Pridaj prvú hore.':'')+'</div>';
  S.comps.forEach((cp,ci)=>{ let done=S.results.some(r=>r.comp_id==cp.id);
-  h+=`<div class="card"><h3><span class="tag" style="background:#5A4A6A;color:#fff">${ci+1}</span> ${esc(cp.name)} <span class="chip rulechip" onclick="toggleRules('${js1(cp.id)}')">📜 Pravidlá</span>${ADMIN?`<span onclick="delComp('${cp.id}')" style="margin-left:auto;cursor:pointer;color:#c66">🗑</span>`:''}</h3>`;
+  h+=`<div class="card"><h3><span class="tag" style="background:#5A4A6A;color:#fff">${ci+1}</span> ${esc(cp.name)} <span class="chip rulechip" onclick="toggleRules('${js1(cp.id)}')">📜 Pravidlá</span>${ADMIN?`<span class="chip rulechip" onclick="editPts('${js1(cp.id)}')">✏️ ${esc((cp.points||[]).join(','))}</span><span onclick="delComp('${cp.id}')" style="margin-left:auto;cursor:pointer;color:#c66">🗑</span>`:''}</h3>`;
   h+=compResults(cp);
   if(cp.type=='team') h+=`<div class="r" style="color:var(--mut);font-size:11px">Tímy poskladáte v tabe 👥 Tímy.</div>`;
   if(cp.type=='tasting') h+=tastingBlock(cp);
@@ -694,12 +707,23 @@ function compResults(cp){
  if(cp.type=='num'){ let st=numStandings(cp.id);
   if(!st.length) return '';
   return st.map(s=>{ let pts=s.rank?((cp.points||[])[s.rank-1]||0):0;
-   return `<div class="r ${ME&&s.person==ME.name?'me':''}"><b>${s.rank?s.rank+'.':'—'}</b> ${esc(s.person)} <span class="pill">${esc(fmtVal(s.val))}</span>${pts?`<span class="pill">+${pts} b</span>`:''}</div>`; }).join(''); }
+   return `<div class="r ${ME&&s.person==ME.name?'me':''}"><b>${s.rank?s.rank+'.':'—'}</b> ${esc(s.person)} <span class="pill">${esc(fmtVal(s.val))}</span>${pts?`<span class="pill${pts<0?' neg':''}">${ptsLabel(pts)}</span>`:''}</div>`; }).join(''); }
  let rs=S.results.filter(r=>r.comp_id==cp.id).sort((a,b)=>a.rank-b.rank);
  if(!rs.length) return '';
  return rs.map(r=>{ let who=cp.type=='team'?(S.teams.find(t=>t.id==r.entrant)||{}).name:r.entrant; let pts=(cp.points||[])[r.rank-1]||0;
-  return `<div class="r"><b>${r.rank}.</b> ${esc(who||'?')} <span class="pill">+${pts} b</span></div>`; }).join('');
+  return `<div class="r"><b>${r.rank}.</b> ${esc(who||'?')} <span class="pill${pts<0?' neg':''}">${ptsLabel(pts)}</span></div>`; }).join('');
 }
+function ptsLabel(p){ return (p>0?'+':'')+p+' b'; }
+// body sa dali zadať len pri zakladaní súťaže — bez tohto by sa zlá schéma opravila len zmazaním
+async function editPts(id){ if(!ADMIN)return; let cp=S.comps.find(x=>x.id==id); if(!cp)return;
+ let v=prompt('Body za poradie pri „'+cp.name+'“ (1., 2., 3.…).\nZáporné pokojne, napr. 5,3,1,-2', (cp.points||[]).join(','));
+ if(v==null)return; let a=parsePts(v);
+ if(!a.length){ alert('Nezadal si žiadne číslo.'); return; }
+ let has=S.results.some(r=>r.comp_id==id)||S.values.some(x=>x.comp_id==id);
+ if(!confirm((has?'Súťaž už má výsledky — body sa prepočítajú.\n\n':'')+ptsText(a)+'\n\nUložiť?')) return;
+ let {error}=await sb.from('tdc_comps').update({points:a}).eq('id',id);
+ if(error){ alert('Nepodarilo sa uložiť: '+error.message); return; }
+ await loadAll(); }
 function entrants(cp){ return cp.type=='team'? S.teams.filter(t=>t.comp_id==cp.id).map(t=>({id:t.id,name:t.name})) : S.participants.map(p=>({id:p,name:p})); }
 function toggleResults(cid){ openResults=(openResults==cid?null:cid); renderComps(); }
 function resultsForm(cp){ let es=entrants(cp);
@@ -716,8 +740,12 @@ async function saveResults(cid){ let cp=S.comps.find(c=>c.id==cid); if(!cp)retur
  if(rows.length) await sb.from('tdc_results').insert(rows);
  if(rows.length) sb.functions.invoke('bright-processor',{body:{sender:ME.name,body:'uzavrel súťaž „'+cp.name+'" — výsledky sú vonku 🏆'}}).catch(()=>{});
  openResults=null; await loadAll(); alert('Výsledky uložené a uzamknuté ✅'); }
-async function addExtra(){ let name=document.getElementById('e_who').value, pts=parseInt(document.getElementById('e_pts').value)||0, why=document.getElementById('e_why').value;
- await sb.from('tdc_extra').insert({name,points:pts,reason:why}); loadAll(); alert('Extra body pridané ✅'); }
+async function addExtra(){ let name=document.getElementById('e_who').value, why=document.getElementById('e_why').value;
+ let a=parsePts(document.getElementById('e_pts').value), pts=a.length?a[0]:0;
+ if(!pts){ alert('Zadaj počet bodov (môže byť aj záporný, napr. -3).'); return; }
+ await sb.from('tdc_extra').insert({name,points:pts,reason:why});
+ ['e_pts','e_why'].forEach(id=>{ let el=document.getElementById(id); if(el) el.value=''; });
+ loadAll(); alert((pts>0?'Extra body pridané ✅':'Mínusové body pridané ✅')); }
 
 
 // ---- Splitter: spoločné náklady ----
@@ -1420,10 +1448,10 @@ function renderLead(){ let comps=S.comps, rows=computeMatrix();
  if(!rows.length){ document.getElementById('leadview').innerHTML='<div class="soon">Zatiaľ bez účastníkov.</div>'; return; }
  let h='<div class="tblwrap"><table class="lead"><tr><th>#</th><th>Účastník</th>'+comps.map((cp,i)=>`<th title="${esc(cp.name)}">${i+1}</th>`).join('')+'<th class="tot">Σ</th><th>⭐</th></tr>';
  rows.forEach((r,i)=>{ h+=`<tr class="${ME&&r.name==ME.name?'me':''}"><td>${i+1}</td><td>${esc(r.name)}</td>`+
-   r.cpv.map(p=>`<td>${p||'·'}</td>`).join('')+`<td class="tot">${r.total}</td><td>${r.extra||'·'}</td></tr>`; });
+   r.cpv.map(p=>`<td class="${p<0?'neg':''}">${p||'·'}</td>`).join('')+`<td class="tot">${r.total}</td><td class="${r.extra<0?'neg':''}">${r.extra||'·'}</td></tr>`; });
  h+='</table></div>';
  if(comps.length) h+='<div class="r" style="color:var(--mut);font-size:11px;margin-top:8px">'+comps.map((cp,i)=>`<b>${i+1}</b> = ${esc(cp.name)}`).join(' · ')+' · <b>⭐</b> = extra body (posledný stĺpec)</div>';
- if(S.extra.length){ h+='<div class="card" style="margin-top:12px"><h3>⭐ Extra body</h3>'+S.extra.map(e=>`<div class="r"><b>${esc(e.name)}</b> +${e.points} <span style="color:var(--mut)">— ${esc(e.reason||'')}</span></div>`).join('')+'</div>'; }
+ if(S.extra.length){ h+='<div class="card" style="margin-top:12px"><h3>⭐ Extra body</h3>'+S.extra.map(e=>`<div class="r"><b>${esc(e.name)}</b> <span class="${e.points<0?'neg':''}">${(e.points>0?'+':'')+e.points}</span> <span style="color:var(--mut)">— ${esc(e.reason||'')}</span></div>`).join('')+'</div>'; }
  document.getElementById('leadview').innerHTML=h;
 }
 // ---- Poznámky (zoznamy) ----
