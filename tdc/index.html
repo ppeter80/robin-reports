@@ -1600,6 +1600,7 @@ function setAnimAt(km){ if(!rvStage||!rvMap)return;
  rvGrow.setLatLngs(rvStage.line.slice(0,i).concat([head]));
  if(!rvHead){ let ic=L.divIcon({className:'',html:'<div class="rvbike">🚴</div>',iconSize:[30,30],iconAnchor:[15,15]});
   rvHead=L.marker(head,{icon:ic,zIndexOffset:900}).addTo(rvMap); } else rvHead.setLatLng(head);
+ faceBike(km);
  // profil ide s trasou
  let frac=km/(total||1), W=600, H=96, pad=6, cur=document.getElementById('rv_cur');
  if(cur){ let x=pad+(W-2*pad)*frac; cur.setAttribute('x1',x); cur.setAttribute('x2',x); }
@@ -1616,6 +1617,7 @@ function setAnimAt(km){ if(!rvStage||!rvMap)return;
 function fmtKm(k){ return Number(k).toFixed(1).replace('.',','); }
 const STOPEMO={start:'🚩',vino:'🍷',obed:'🍽️',plaz:'🏖️',mesto:'🏘️'};
 const HOLD_MS=3200;
+function holdFor(s){ return Math.min(9000, 2800 + ((s&&s.d)||'').length*60); }   // dlhší text = dlhšie stojíme
 function showStopCard(s){ let c=document.getElementById('rv_card'); if(!c)return;
  c.innerHTML=`<div class="rvcttl">${STOPEMO[s.t]||'📍'} ${esc(s.n)}`+
    (s.min?`<span class="rvcbadge">${s.min} min</span>`:'')+`</div>`+
@@ -1625,6 +1627,12 @@ function showStopCard(s){ let c=document.getElementById('rv_card'); if(!c)return
  let mk=document.querySelectorAll('#rv_map .rvmk')[s._mk]; if(mk){ mk.classList.add('hit'); setTimeout(()=>mk.classList.remove('hit'),1100); } }
 function toggleAttr(){ let b=document.getElementById('rv_attrbox'); if(b) b.classList.toggle('on'); }
 function hideStopCard(){ let c=document.getElementById('rv_card'); if(c) c.classList.remove('on'); }
+// emoji cyklistu pozerá doľava — keď ideme na východ, preklopíme ho, nech necúva
+function faceBike(km){ if(!rvHead)return;
+ let el=rvHead.getElement(); if(!el)return; let b=el.querySelector('.rvbike'); if(!b)return;
+ let a=posAtKm(Math.max(0,km-0.25)), c=posAtKm(km+0.25);
+ let east=(c[1]-a[1])>=0;
+ b.style.transform = east ? 'scaleX(-1)' : 'none'; }
 function stepAnim(ts){ if(!rvAnim)return;
  if(!rvAnim.t0) rvAnim.t0=ts-rvAnim.done;
  // stojíme na zastávke — čas animácie sa dovtedy neposúva
@@ -1637,7 +1645,7 @@ function stepAnim(ts){ if(!rvAnim)return;
  for(let k=rvPassed+1;k<stops.length;k++){
   let s=stops[k]; if(s.km==null||km<s.km) break;
   rvPassed=k; setAnimAt(s.km); rvAnim.done=s.km/total*ANIM_SEC*1000;
-  if(!s.pass){ showStopCard(s); rvAnim.holdStart=ts; rvAnim.holdUntil=ts+HOLD_MS;
+  if(!s.pass){ showStopCard(s); rvAnim.holdStart=ts; rvAnim.holdUntil=ts+holdFor(s);
    rvAnim.t0=ts-rvAnim.done; rvAnim.raf=requestAnimationFrame(stepAnim); return; }
  }
  setAnimAt(km); rvAnim.done=ts-rvAnim.t0;
