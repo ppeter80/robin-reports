@@ -10,6 +10,7 @@ function targetFor(body) {
   const b = (body || '').toLowerCase();
   if (b.indexOf('🏆') >= 0 || b.indexOf('výsledky') >= 0 || b.indexOf('uzavrel') >= 0) return 'lead';
   if (b.indexOf('🎯') >= 0 || b.indexOf('🍺') >= 0 || b.indexOf('súťaž') >= 0) return 'comps';
+  if (b.indexOf('📝') >= 0 || b.indexOf('zoznam') >= 0) return 'notes';
   if (b.indexOf('👥') >= 0 || b.indexOf('tím') >= 0 || b.indexOf('založil') >= 0) return 'teams';
   return 'chat';
 }

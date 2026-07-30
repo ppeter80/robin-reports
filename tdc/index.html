@@ -112,6 +112,26 @@ button[disabled]{opacity:.45;}
 .avbig{flex:0 0 72px;width:72px;height:72px;border-radius:50%;object-fit:cover;border:2px solid rgba(var(--goldrgb),.55);background:#222;}
 .avbig.avf{display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:800;color:#12121A;}
 .av{cursor:pointer;}
+/* ---- Poznámky ---- */
+.lrow{display:flex;align-items:center;gap:12px;padding:13px;border-radius:13px;background:var(--card);border:1px solid rgba(var(--goldrgb),.18);margin:9px 0;cursor:pointer;}
+.lic{flex:0 0 42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:21px;background:rgba(var(--goldrgb),.13);border:1px solid rgba(var(--goldrgb),.3);}
+.ltx{flex:1;min-width:0;} .ltx b{display:block;font-size:16px;word-break:break-word;}
+.lmeta{font-size:12px;color:var(--mut);margin-top:2px;}
+.lbar{height:5px;border-radius:3px;background:rgba(255,255,255,.09);margin-top:7px;overflow:hidden;}
+.lbar i{display:block;height:100%;background:linear-gradient(90deg,var(--gold),var(--gold3));}
+.lgo{color:var(--mut);font-size:20px;} .lx{color:#c66;font-size:15px;opacity:.7;padding:4px 2px;}
+.back{display:inline-flex;align-items:center;gap:6px;color:var(--gold2);font-size:13px;font-weight:700;margin:2px 0 8px;cursor:pointer;}
+.item{display:flex;align-items:center;gap:11px;padding:12px;border-radius:12px;background:var(--card);border:1px solid rgba(255,255,255,.07);margin:7px 0;}
+.ibox{flex:0 0 24px;height:24px;border-radius:7px;border:2px solid rgba(var(--goldrgb),.55);display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--onacc);cursor:pointer;}
+.item.done .ibox{background:var(--gold);border-color:var(--gold);}
+.itx{flex:1;font-size:15px;cursor:pointer;word-break:break-word;}
+.item.done .itx{text-decoration:line-through;color:var(--mut);}
+.iwho{font-size:11px;color:var(--mut);white-space:nowrap;}
+.item .ix{color:#c66;font-size:15px;opacity:.65;cursor:pointer;padding:0 2px;}
+.sep{display:flex;align-items:center;gap:10px;margin:18px 0 8px;color:var(--mut);font-size:12px;font-weight:700;letter-spacing:.4px;}
+.sep:before,.sep:after{content:"";flex:1;height:1px;background:rgba(255,255,255,.12);}
+.addrow{display:flex;gap:8px;margin-top:4px;align-items:center;} .addrow input{flex:1;}
+.addbtn{flex:0 0 46px;width:46px;height:46px;padding:0;margin:0;border-radius:50%;border:none;background:linear-gradient(90deg,var(--gold),var(--gold3));color:var(--onacc);font-size:22px;font-weight:800;cursor:pointer;}
 @keyframes tdcflash{0%,100%{box-shadow:0 0 0 0 rgba(var(--goldrgb),0)}20%,60%{box-shadow:0 0 0 3px rgba(var(--goldrgb),.85)}}
 .msgrow.flash .msg{animation:tdcflash 1.3s ease-in-out 2;border-radius:12px;}
 .olderbtn{margin:8px auto;padding:8px 14px;width:fit-content;border-radius:14px;background:rgba(var(--goldrgb),.12);border:1px solid rgba(var(--goldrgb),.4);color:var(--gold2);font-size:13px;font-weight:700;cursor:pointer;}
@@ -216,6 +236,7 @@ nav button{flex:1;background:none;border:none;color:var(--mut);padding:11px 2px 
 </div>
 <div id="v-lead" class="view"><div id="leadview"></div></div>
 <div id="v-gallery" class="view"><div id="galleryview"></div></div>
+<div id="v-notes" class="view"><div id="notesview"></div></div>
 <div id="v-split" class="view"><div id="splitview"></div></div>
 <div id="v-set" class="view"><div id="setview"></div></div>
 <div id="v-more" class="view"><div id="moreview"></div></div>
@@ -249,7 +270,8 @@ const VAPID_PUBLIC='BO3HLckvkWtHJMq71x2OLioQCtS2nSHFx0mXGGLAEoMBHEp7FRAIec06z9ug
 let ME = JSON.parse(localStorage.getItem('tdc_me')||'null');
 let ADMIN=false, pendingPhoto=null, replyTo=null, openMsg=null, stick=true, openTeam=null, teamMode=null, openResults=null;
 let openRules=null, openTast=null, tdrafts={}, newCompType='ind', newComp={name:'',pts:'',beers:''}, galFilter=null;
-let S = {participants:[],comps:[],teams:[],results:[],extra:[],msgs:[],reactions:[],plist:[],titems:[],tpicks:[],values:[],photos:[],exp:[],pmsgs:[]};
+let S = {participants:[],comps:[],teams:[],results:[],extra:[],msgs:[],reactions:[],plist:[],titems:[],tpicks:[],values:[],photos:[],exp:[],pmsgs:[],lists:[],items:[]};
+let notesReady=true, openList=null, noteDraft={list:'',item:''};
 const esc=s=>(s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 const js1=s=>(s||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
 const escA=s=>esc(s).replace(/"/g,'&quot;');
@@ -549,6 +571,7 @@ const TABS=[{v:'program',ic:'🗺️',n:'Program',d:'Etapy, mapy a fotky z ciest
  {v:'chat',ic:'💬',n:'Chat',d:'Správy, fotky a poloha'},
  {v:'gallery',ic:'🖼️',n:'Galéria',d:'Všetky fotky z výletu'},
  {v:'lead',ic:'🏆',n:'Rebríček',d:'Priebežné poradie a body'},
+ {v:'notes',ic:'📝',n:'Poznámky',d:'Zoznamy — nákup, čo zbaliť…'},
  {v:'split',ic:'💶',n:'Splitter',d:'Spoločné náklady a kto komu dlží'},
  {v:'set',ic:'⚙️',n:'Nastavenia',d:'Fotka, upozornenia a vzhľad'}];
 const NAVTABS=['program','chat','gallery'];
@@ -580,7 +603,9 @@ let msgLimit=MSGPAGE, msgMore=false, pollN=0, forceP=false;
 async function loadAll(){ try{
  // zoznam fotiek z chatu netreba každé 4 s — stačí, keď je otvorená galéria, inak občas
  pollN++; let wantP = forceP || !(S.pmsgs&&S.pmsgs.length) || curView==='gallery' || pollN%10===1; forceP=false;
- const [p,c,t,r,e,m,rx,ti,tp,vl,cf,ex,pm]=await Promise.all([
+ // kým tabuľky Poznámok neexistujú, neťukaj na ne každé 4 s — len občas, nech to po migrácii naskočí samo
+ let wantN = notesReady || pollN%15===1;
+ const [p,c,t,r,e,m,rx,ti,tp,vl,cf,ex,pm,ls,it]=await Promise.all([
   sb.from('tdc_participants').select('*').order('name'),
   sb.from('tdc_comps').select('*').order('created_at'),
   sb.from('tdc_teams').select('*'),
@@ -593,15 +618,19 @@ async function loadAll(){ try{
   sb.from('tdc_values').select('*'),
   sb.from('tdc_photos').select('*').order('created_at'),
   sb.from('tdc_expenses').select('*').order('created_at'),
-  wantP ? sb.from('tdc_messages').select('id,name,body,photo_url,created_at').not('photo_url','is',null).order('created_at') : Promise.resolve(null)]);
+  wantP ? sb.from('tdc_messages').select('id,name,body,photo_url,created_at').not('photo_url','is',null).order('created_at') : Promise.resolve(null),
+  wantN ? sb.from('tdc_lists').select('*').order('created_at') : Promise.resolve(null),
+  wantN ? sb.from('tdc_items').select('*').order('created_at') : Promise.resolve(null)]);
  let mm=(m.data||[]).slice(); msgMore=mm.length>msgLimit; if(msgMore) mm=mm.slice(0,msgLimit);
  S.plist=p.data||[]; S.participants=S.plist.map(x=>x.name); S.comps=c.data||[]; S.teams=t.data||[]; S.results=r.data||[]; S.extra=e.data||[]; S.msgs=mm.reverse(); S.reactions=rx.data||[]; S.titems=ti.data||[]; S.tpicks=tp.data||[]; S.values=vl.data||[]; S.photos=cf.data||[]; S.exp=ex.data||[]; if(pm) S.pmsgs=pm.data||[];
- let sig=JSON.stringify([S.participants,S.comps,S.teams,S.results,S.extra,S.msgs,S.reactions,S.titems,S.tpicks,S.values,S.photos,S.exp,S.pmsgs,msgMore]);
+ // tabuľky Poznámok pribudli neskôr — kým Peter nespustí migráciu, appka to len povie a nespadne
+ if(ls&&it){ notesReady=!(ls.error||it.error); S.lists=ls.data||[]; S.items=it.data||[]; }
+ let sig=JSON.stringify([S.participants,S.comps,S.teams,S.results,S.extra,S.msgs,S.reactions,S.titems,S.tpicks,S.values,S.photos,S.exp,S.pmsgs,msgMore,S.lists,S.items,notesReady]);
  if(sig!==lastSig){ lastSig=sig; renderAll(); }
  notify(); renderOnline(); }catch(err){ console.error(err); } }
 let lastSig='';
 function renderAll(){ let f=document.activeElement, typing=f&&/INPUT|SELECT|TEXTAREA/.test(f.tagName);
- if(!typing){ renderComps(); renderTeams(); renderGallery(); } renderChat(); renderLead(); renderProgram(); renderAcct(); renderMore(); renderOnline(); renderSplit(); renderSettings(); hdrVar(); }
+ if(!typing){ renderComps(); renderTeams(); renderGallery(); renderNotes(); } renderChat(); renderLead(); renderProgram(); renderAcct(); renderMore(); renderOnline(); renderSplit(); renderSettings(); hdrVar(); }
 
 // ---- admin & comps ----
 function grabComp(){ let a=document.getElementById('c_name'), b=document.getElementById('c_pts'), c=document.getElementById('c_beers');
@@ -1397,6 +1426,83 @@ function renderLead(){ let comps=S.comps, rows=computeMatrix();
  if(S.extra.length){ h+='<div class="card" style="margin-top:12px"><h3>⭐ Extra body</h3>'+S.extra.map(e=>`<div class="r"><b>${esc(e.name)}</b> +${e.points} <span style="color:var(--mut)">— ${esc(e.reason||'')}</span></div>`).join('')+'</div>'; }
  document.getElementById('leadview').innerHTML=h;
 }
+// ---- Poznámky (zoznamy) ----
+const LICONS=[[/n[áa]kup|shop|potravin/i,'🛒'],[/zbali|baton|batoh|pack/i,'🎒'],[/v[íi]n|wine|vin[áa]r/i,'🍷'],
+ [/piv|beer/i,'🍺'],[/bicyk|kolo|servis|n[áa]rad/i,'🔧'],[/jed|gril|varen|recept/i,'🍽️'],
+ [/lek[áa]r|liek|apat/i,'💊'],[/pl[áa]ž|more|beach/i,'🏖️'],[/hudb|playlist|pesnic/i,'🎵']];
+function listIcon(n){ for(const [re,ic] of LICONS) if(re.test(n||'')) return ic; return '📝'; }
+function itemsOf(lid){ return S.items.filter(i=>i.list_id===lid); }
+function grabNote(){ let a=document.getElementById('n_list'), b=document.getElementById('n_item');
+ if(a) noteDraft.list=a.value; if(b) noteDraft.item=b.value; }
+function clearNote(k){ noteDraft[k]=''; let el=document.getElementById(k==='list'?'n_list':'n_item'); if(el) el.value=''; }
+function openNoteList(id){ openList=id; noteDraft.item=''; renderNotes(); window.scrollTo(0,0); }
+function closeNoteList(){ openList=null; renderNotes(); window.scrollTo(0,0); }
+function renderNotes(){ let el=document.getElementById('notesview'); if(!el)return;
+ grabNote();
+ if(!notesReady){ el.innerHTML='<div class="soon">Poznámky ešte nie sú zapnuté — chýbajú tabuľky v databáze. Peter spustí migráciu a naskočí to samo.</div>'; return; }
+ let list=openList?S.lists.find(l=>l.id===openList):null;
+ if(openList && !list){ openList=null; }   // niekto ho medzitým zmazal
+ el.innerHTML = list ? noteDetail(list) : noteOverview();
+ let inp=document.getElementById(list?'n_item':'n_list'); if(inp) inp.value=(list?noteDraft.item:noteDraft.list)||''; }
+function noteOverview(){
+ let h='<h3 style="margin:4px 0 2px">📝 Poznámky</h3>';
+ if(!S.lists.length) h+='<div class="soon">Zatiaľ žiadny zoznam. Založ prvý — napríklad „Nákup" 🛒</div>';
+ S.lists.forEach(l=>{ let its=itemsOf(l.id), done=its.filter(i=>i.done).length, open=its.length-done;
+  let pct=its.length?Math.round(done/its.length*100):0;
+  let meta = !its.length ? 'zatiaľ prázdny'
+    : (done===its.length ? 'všetko vybavené 🎉' : `${open} ${open===1?'otvorená':(open<5?'otvorené':'otvorených')} · ${done} ${done===1?'vybavená':(done<5?'vybavené':'vybavených')}`);
+  h+=`<div class="lrow" onclick="openNoteList('${js1(l.id)}')">
+   <div class="lic">${listIcon(l.name)}</div>
+   <div class="ltx"><b>${esc(l.name)}</b><div class="lmeta">${meta}</div><div class="lbar"><i style="width:${pct}%"></i></div></div>
+   ${ME?`<span class="lx" onclick="event.stopPropagation();delList('${js1(l.id)}')">✕</span>`:''}<span class="lgo">›</span></div>`; });
+ if(ME) h+=`<div class="card"><h3>➕ Nový zoznam</h3>
+   <div class="addrow"><input id="n_list" placeholder="Názov zoznamu (napr. Nákup)" onkeydown="if(event.key==='Enter')addList()" oninput="grabNote()"><button class="addbtn" onclick="addList()">+</button></div></div>`;
+ else h+='<div class="r" style="color:var(--mut);margin-top:10px">Prihlás sa a môžeš zakladať zoznamy aj dopĺňať veci.</div>';
+ return h; }
+function noteDetail(l){ let its=itemsOf(l.id);
+ let open=its.filter(i=>!i.done).sort((a,b)=>String(a.created_at).localeCompare(String(b.created_at)));
+ let done=its.filter(i=>i.done).sort((a,b)=>String(b.done_at||b.created_at).localeCompare(String(a.done_at||a.created_at)));
+ let h=`<div class="back" onclick="closeNoteList()">‹ Späť na zoznamy</div>
+  <h3>${listIcon(l.name)} ${esc(l.name)} <span class="chip">${done.length} / ${its.length}</span></h3>`;
+ if(ME) h+=`<div class="addrow"><input id="n_item" placeholder="Pridaj vec…" onkeydown="if(event.key==='Enter')addItem()" oninput="grabNote()"><button class="addbtn" onclick="addItem()">+</button></div>`;
+ if(!its.length) h+='<div class="soon">Zoznam je prázdny. Napíš prvú vec hore.</div>';
+ h+=open.map(i=>itemRow(i)).join('');
+ if(done.length) h+=`<div class="sep">VYBAVENÉ (${done.length})</div>`+done.map(i=>itemRow(i)).join('');
+ return h; }
+function itemRow(i){ return `<div class="item${i.done?' done':''}">
+  <span class="ibox" onclick="toggleItem('${js1(i.id)}')">${i.done?'✓':''}</span>
+  <span class="itx" onclick="toggleItem('${js1(i.id)}')">${esc(i.text)}</span>
+  <span class="iwho">${i.done?'✓ '+esc(i.done_by||''):esc(i.created_by||'')}</span>
+  ${ME?`<span class="ix" onclick="delItem('${js1(i.id)}')">✕</span>`:''}</div>`; }
+async function addList(){ if(needLogin())return; grabNote();
+ let n=(noteDraft.list||'').trim(); if(!n)return;
+ let id=uid(); clearNote('list');
+ let {error}=await sb.from('tdc_lists').insert({id,name:n,created_by:ME.name});
+ if(error){ alert('Zoznam sa nepodarilo pridať: '+error.message); return; }
+ sb.functions.invoke('bright-processor',{body:{sender:ME.name,body:'pridal zoznam „'+n+'" 📝'}}).catch(()=>{});
+ await loadAll(); openNoteList(id); }
+async function delList(id){ let l=S.lists.find(x=>x.id===id); if(!l||needLogin())return;
+ let n=itemsOf(id).length;
+ if(!confirm('Zmazať zoznam „'+l.name+'"'+(n?' aj s '+n+' vecami?':'?')))return;
+ await sb.from('tdc_items').delete().eq('list_id',id);
+ await sb.from('tdc_lists').delete().eq('id',id);
+ if(openList===id) openList=null;
+ await loadAll(); }
+async function addItem(){ if(needLogin()||!openList)return; grabNote();
+ let t=(noteDraft.item||'').trim(); if(!t)return;
+ clearNote('item');
+ let {error}=await sb.from('tdc_items').insert({id:uid(),list_id:openList,text:t,done:false,created_by:ME.name});
+ if(error){ alert('Vec sa nepodarilo pridať: '+error.message); return; }
+ await loadAll();
+ let inp=document.getElementById('n_item'); if(inp) try{ inp.focus(); }catch(e){} }
+async function toggleItem(id){ if(needLogin())return; let i=S.items.find(x=>x.id===id); if(!i)return;
+ let now=!i.done;
+ i.done=now; i.done_by=now?ME.name:null; renderNotes();   // hneď, nech to nečaká na server
+ await sb.from('tdc_items').update({done:now, done_by:now?ME.name:null, done_at:now?new Date().toISOString():null}).eq('id',id);
+ await loadAll(); }
+async function delItem(id){ if(needLogin())return; let i=S.items.find(x=>x.id===id); if(!i)return;
+ if(!confirm('Zmazať „'+i.text+'"?'))return;
+ await sb.from('tdc_items').delete().eq('id',id); await loadAll(); }
 // ---- galéria ----
 let lbIdx=null, galPhotos=[];
 // galéria spája dva zdroje: fotky z chatu a fotky nahrané pri súťažiach
