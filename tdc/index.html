@@ -134,6 +134,22 @@ button[disabled]{opacity:.45;}
 .addbtn{flex:0 0 46px;width:46px;height:46px;padding:0;margin:0;border-radius:50%;border:none;background:linear-gradient(90deg,var(--gold),var(--gold3));color:var(--onacc);font-size:22px;font-weight:800;cursor:pointer;}
 @keyframes tdcflash{0%,100%{box-shadow:0 0 0 0 rgba(var(--goldrgb),0)}20%,60%{box-shadow:0 0 0 3px rgba(var(--goldrgb),.85)}}
 .msgrow.flash .msg{animation:tdcflash 1.3s ease-in-out 2;border-radius:12px;}
+/* ---- mapa trasy ---- */
+.maphint{text-align:center;font-size:12px;color:var(--gold2);background:rgba(var(--goldrgb),.1);border:1px solid rgba(var(--goldrgb),.3);border-radius:10px;padding:6px;margin-top:6px;cursor:pointer;}
+#routeview{position:fixed;inset:0;z-index:70;background:var(--bg);display:none;flex-direction:column;}
+.rvhead{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--hdr);border-bottom:1px solid rgba(var(--goldrgb),.2);}
+.rvtitle{flex:1;font-weight:800;font-size:15px;color:var(--gold2);}
+.rvx{font-size:22px;color:var(--mut);cursor:pointer;padding:0 4px;}
+#rv_map{flex:1;min-height:0;background:#111;}
+.rvbar{display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--hdr);}
+.rvstats{flex:1;font-size:13px;color:var(--txt);}
+.rvstats b{color:var(--gold2);}
+#rv_prof{background:var(--hdr);padding:0 8px 8px;}
+#rv_prof svg{display:block;width:100%;height:96px;touch-action:none;}
+#rv_note{background:var(--hdr);color:var(--mut);font-size:12px;padding:0 12px 10px;}
+.leaflet-container{background:#111;}
+.rvmk{display:flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;border:2px solid #fff;color:#fff;font:800 12px/1 'Segoe UI',sans-serif;box-shadow:0 2px 6px rgba(0,0,0,.5);}
+.rvme{width:18px;height:18px;border-radius:50%;background:#2E86DE;border:3px solid #fff;box-shadow:0 0 0 4px rgba(46,134,222,.35);}
 .pill.neg{color:#f2b8b8;border-color:rgba(242,184,184,.45);background:rgba(176,40,70,.18);}
 td.neg{color:#f2b8b8;}
 .olderbtn{margin:8px auto;padding:8px 14px;width:fit-content;border-radius:14px;background:rgba(var(--goldrgb),.12);border:1px solid rgba(var(--goldrgb),.4);color:var(--gold2);font-size:13px;font-weight:700;cursor:pointer;}
@@ -216,7 +232,7 @@ nav button{flex:1;background:none;border:none;color:var(--mut);padding:11px 2px 
 
 <div id="v-program" class="view on">
  <div class="card"><h3><span class="tag" style="background:#7A6A55;color:#fff">DEŇ 0</span> Streda · Príchod</h3><div class="r"><span class="lab">Cestou:</span> Slepá ochutnávka piva … · <span class="lab">Večer:</span> príchod, voľná večera.</div><div id="pb_stage_d0"></div></div>
- <div class="card"><h3><span class="tag" style="background:#8E44AD;color:#fff">DEŇ 1</span> Etapa 1 · Vínna cesta</h3><div class="chips"><span class="chip">37,8 km</span><span class="chip">↗ 411 m</span></div><div class="r"><span class="lab">Vinárstva:</span> Fiore · CUJ · Kabola · Kozlović · <span class="lab">Pláž:</span> Kanegra · <span class="lab">Súťaže:</span> …</div><img class="map" src="mapa_E1.jpg"><div id="pb_stage_e1"></div></div>
+ <div class="card"><h3><span class="tag" style="background:#8E44AD;color:#fff">DEŇ 1</span> Etapa 1 · Vínna cesta</h3><div class="chips"><span class="chip">37,8 km</span><span class="chip">↗ 411 m</span></div><div class="r"><span class="lab">Vinárstva:</span> Fiore · CUJ · Kabola · Kozlović · <span class="lab">Pláž:</span> Kanegra · <span class="lab">Súťaže:</span> …</div><img class="map" src="mapa_E1.jpg" onclick="openRoute('stage_e1')"><div class="maphint" onclick="openRoute('stage_e1')">🔍 Ťukni na mapu — trasa, zastávky a profil</div><div id="pb_stage_e1"></div></div>
  <div class="card"><h3><span class="tag" style="background:#2E86DE;color:#fff">DEŇ 2 · A</span> Drink cesta</h3><div class="chips"><span class="chip">31,8 km</span><span class="chip">Piran · SLO</span></div><div class="r"><span class="lab">Pláž:</span> Kanegra · <span class="lab">Súťaže:</span> Plážový volejbal …</div><img class="map" src="mapa_E2.jpg"><div id="pb_stage_e2a"></div></div>
  <div class="card"><h3><span class="tag" style="background:#C0453B;color:#fff">DEŇ 2 · B</span> Motivačná — pre odvážnych 🙂</h3><div class="chips"><span class="chip">89,3 km</span><span class="chip">↗ 766 m</span></div><div class="r"><span class="lab">Trasa:</span> Valica → Buje → Motovun → Novigrad → Valica</div><img class="map" src="mapa_E2B.jpg"><div id="pb_stage_e2b"></div></div>
  <div class="card"><h3><span class="tag" style="background:#1B9E8B;color:#fff">DEŇ 3</span> Etapa 3 · Pláž</h3><div class="chips"><span class="chip">~40 km</span><span class="chip">↗ 191 m</span></div><div class="r"><span class="lab">Súťaže:</span> Basket · Pingpong · Futbal · Beach volejbal …</div><img class="map" src="mapa_E3.jpg"><div id="pb_stage_e3"></div></div>
@@ -246,6 +262,16 @@ nav button{flex:1;background:none;border:none;color:var(--mut);padding:11px 2px 
 <div id="lightbox" class="lb" style="display:none"></div>
 <div id="rulesmodal" class="modal" style="display:none" onclick="closeRules()"></div>
 <div id="avview" style="display:none" onclick="closeAvatarView()"></div>
+<div id="routeview" style="display:none">
+ <div class="rvhead"><span class="rvtitle" id="rv_title"></span><span class="rvx" onclick="closeRoute()">✕</span></div>
+ <div id="rv_map"></div>
+ <div class="rvbar">
+  <div class="rvstats" id="rv_stats"></div>
+  <button class="btn sm ghg" id="rv_gps" onclick="toggleWhereAmI()" style="margin:0;flex:0 0 auto;width:auto;padding:8px 12px">📍 Kde som</button>
+ </div>
+ <div id="rv_prof"></div>
+ <div id="rv_note"></div>
+</div>
 <!-- orezávač profilovky žije v statickom HTML, nie v renderSettings — inak by ho polling každé 4 s prekreslil -->
 <div id="avedit" style="display:none"><div class="avpanel">
  <h3 style="margin:0 0 2px">Uprav si fotku</h3>
@@ -1463,6 +1489,102 @@ function renderLead(){ let comps=S.comps, rows=computeMatrix();
  if(S.extra.length){ h+='<div class="card" style="margin-top:12px"><h3>⭐ Extra body</h3>'+S.extra.map(e=>`<div class="r"><b>${esc(e.name)}</b> <span class="${e.points<0?'neg':''}">${(e.points>0?'+':'')+e.points}</span> <span style="color:var(--mut)">— ${esc(e.reason||'')}</span></div>`).join('')+'</div>'; }
  document.getElementById('leadview').innerHTML=h;
 }
+// ---- mapa trasy (Leaflet + routes.json, oboje sa ťahá až pri prvom otvorení) ----
+const TCOL={start:'#2E8B3E',vino:'#8E44AD',plaz:'#2E86DE',obed:'#E0912B',mesto:'#C0392B'};
+let ROUTES=null, rvMap=null, rvStage=null, rvMe=null, rvWatch=null, rvDot=null;
+function loadJs(src,check){ return new Promise((res,rej)=>{ if(check())return res();
+ let s=document.createElement('script'); s.src=src; s.onload=res; s.onerror=()=>rej(new Error(src)); document.head.appendChild(s); }); }
+function loadCss(href){ if(document.querySelector('link[href="'+href+'"]'))return;
+ let l=document.createElement('link'); l.rel='stylesheet'; l.href=href; document.head.appendChild(l); }
+async function openRoute(sid){
+ let v=document.getElementById('routeview'); if(!v)return;
+ v.style.display='flex';
+ document.getElementById('rv_title').textContent='Načítavam mapu…';
+ document.getElementById('rv_note').textContent='';
+ try{
+  loadCss('https://unpkg.com/leaflet@1.9.4/dist/leaflet.css');
+  await loadJs('https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',()=>window.L);
+  if(!ROUTES){ let r=await fetch('routes.json?v=1'); ROUTES=await r.json(); }
+  let st=(ROUTES.stages||[]).find(x=>x.id===sid); if(!st) throw new Error('trasa sa nenašla');
+  rvStage=st; drawRoute(st);
+ }catch(e){
+  // bez signálu alebo keď CDN nepustí — nechaj aspoň obrázkovú mapu
+  document.getElementById('rv_title').textContent='Mapa sa nenačítala';
+  document.getElementById('rv_note').textContent='Skús to znova, keď budeš mať signál. Obrázková mapa v Programe funguje aj bez internetu.';
+ } }
+function drawRoute(st){
+ document.getElementById('rv_title').textContent=st.name;
+ document.getElementById('rv_stats').innerHTML=`<b>${String(st.km).replace('.',',')} km</b> · <b>↗ ${st.gain} m</b> · ${st.stops.length} ${st.stops.length<5?'zastávky':'zastávok'}`;
+ if(rvMap){ rvMap.remove(); rvMap=null; }
+ rvMap=L.map('rv_map',{zoomControl:true,attributionControl:true});
+ L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+   {maxZoom:19,attribution:'© OpenStreetMap · © CARTO'}).addTo(rvMap);
+ let line=st.line.map(p=>[p[0],p[1]]);
+ L.polyline(line,{color:'#fff',weight:9,opacity:.9,lineJoin:'round'}).addTo(rvMap);   // biela obruba ako na TdF
+ L.polyline(line,{color:st.colour,weight:5,opacity:1,lineJoin:'round'}).addTo(rvMap);
+ st.stops.forEach((s,i)=>{
+  let ic=L.divIcon({className:'',html:`<div class="rvmk" style="background:${TCOL[s.t]||'#888'}">${i+1}</div>`,iconSize:[26,26],iconAnchor:[13,13]});
+  L.marker([s.la,s.lo],{icon:ic}).addTo(rvMap)
+   .bindPopup(`<b>${esc(s.n)}</b><br><a href="https://www.google.com/maps/dir/?api=1&destination=${s.la},${s.lo}" target="_blank" rel="noopener">🧭 Navigovať</a>`);
+ });
+ rvMap.fitBounds(L.latLngBounds(line),{padding:[28,28]});
+ setTimeout(()=>rvMap.invalidateSize(),120);
+ drawProfile(st);
+}
+// výškový profil ako na TdF — vlastné SVG, žiadna ďalšia knižnica
+function drawProfile(st){
+ let el=document.getElementById('rv_prof'); if(!el||!st.profile.length)return;
+ let W=600,H=96,pad=6;
+ let ds=st.profile.map(p=>p[0]), es=st.profile.map(p=>p[1]);
+ let dmax=ds[ds.length-1]||1, emin=Math.min(...es), emax=Math.max(...es);
+ let span=Math.max(40,emax-emin);
+ const X=d=>pad+(W-2*pad)*(d/dmax), Y=e=>H-14-(H-24)*((e-emin)/span);
+ let pts=st.profile.map(p=>X(p[0]).toFixed(1)+','+Y(p[1]).toFixed(1)).join(' ');
+ el.innerHTML=`<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" onpointerdown="profTouch(event)" onpointermove="profTouch(event)">
+   <polygon points="${pad},${H-14} ${pts} ${W-pad},${H-14}" fill="${st.colour}" opacity=".35"></polygon>
+   <polyline points="${pts}" fill="none" stroke="${st.colour}" stroke-width="2"></polyline>
+   <line id="rv_cur" x1="-9" y1="4" x2="-9" y2="${H-14}" stroke="#fff" stroke-width="1.5" opacity=".9"></line>
+   <text x="${pad}" y="${H-3}" fill="#B79AA6" font-size="10">0 km</text>
+   <text x="${W-pad}" y="${H-3}" fill="#B79AA6" font-size="10" text-anchor="end">${String(st.km).replace('.',',')} km</text>
+   <text x="${pad}" y="12" fill="#B79AA6" font-size="10">${Math.round(emax)} m n.m.</text>
+ </svg>`;
+}
+// ťuk do profilu ukáže, kde na trase to je
+function profTouch(ev){ if(!rvStage||!rvMap)return; if(ev.buttons===0&&ev.type==='pointermove')return;
+ let svg=ev.currentTarget, r=svg.getBoundingClientRect();
+ let f=Math.max(0,Math.min(1,(ev.clientX-r.left)/r.width));
+ let d=f*rvStage.km, i=0, best=1e9;
+ rvStage.profile.forEach((p,k)=>{ let dd=Math.abs(p[0]-d); if(dd<best){best=dd;i=k;} });
+ let frac=rvStage.profile[i][0]/(rvStage.km||1);
+ let li=Math.min(rvStage.line.length-1,Math.round(frac*(rvStage.line.length-1)));
+ let ll=rvStage.line[li];
+ let cur=document.getElementById('rv_cur'); if(cur){ let W=600,pad=6; cur.setAttribute('x1',pad+(W-2*pad)*frac); cur.setAttribute('x2',pad+(W-2*pad)*frac); }
+ if(rvDot) rvDot.setLatLng(ll); else rvDot=L.circleMarker(ll,{radius:7,color:'#fff',weight:3,fillColor:rvStage.colour,fillOpacity:1}).addTo(rvMap);
+ document.getElementById('rv_note').textContent=`${rvStage.profile[i][0].toFixed(1).replace('.',',')} km · ${rvStage.profile[i][1]} m n.m.`; }
+function toggleWhereAmI(){ if(!rvMap)return;
+ let btn=document.getElementById('rv_gps');
+ if(rvWatch!=null){ navigator.geolocation.clearWatch(rvWatch); rvWatch=null;
+  if(rvMe){ rvMap.removeLayer(rvMe); rvMe=null; } btn.textContent='📍 Kde som'; document.getElementById('rv_note').textContent=''; return; }
+ if(!navigator.geolocation){ alert('Tento prehliadač nevie určiť polohu.'); return; }
+ btn.textContent='⏳ Hľadám…';
+ rvWatch=navigator.geolocation.watchPosition(pos=>{
+   let ll=[pos.coords.latitude,pos.coords.longitude];
+   let ic=L.divIcon({className:'',html:'<div class="rvme"></div>',iconSize:[18,18],iconAnchor:[9,9]});
+   if(rvMe) rvMe.setLatLng(ll); else rvMe=L.marker(ll,{icon:ic,zIndexOffset:1000}).addTo(rvMap);
+   btn.textContent='📍 Sledujem';
+   // koľko zostáva do najbližšej ďalšej zastávky
+   let best=null; (rvStage.stops||[]).forEach(s=>{ let d=kmBetween(ll,[s.la,s.lo]); if(!best||d<best.d) best={d,n:s.n}; });
+   document.getElementById('rv_note').textContent = best ? `Najbližšia zastávka: ${best.n} · ${best.d.toFixed(1).replace('.',',')} km vzdušnou čiarou` : '';
+   rvMap.setView(ll, Math.max(rvMap.getZoom(),14));
+ }, err=>{ btn.textContent='📍 Kde som'; rvWatch=null;
+   document.getElementById('rv_note').textContent='Polohu sa nepodarilo zistiť ('+(err.message||err.code)+'). Povoľ prístup k polohe.'; },
+ {enableHighAccuracy:true,timeout:15000,maximumAge:5000}); }
+function kmBetween(a,b){ let p=Math.PI/180;
+ let x=0.5-Math.cos((b[0]-a[0])*p)/2+Math.cos(a[0]*p)*Math.cos(b[0]*p)*(1-Math.cos((b[1]-a[1])*p))/2;
+ return 12742*Math.asin(Math.sqrt(x)); }
+function closeRoute(){ let v=document.getElementById('routeview'); if(v) v.style.display='none';
+ if(rvWatch!=null){ navigator.geolocation.clearWatch(rvWatch); rvWatch=null; }
+ if(rvMap){ rvMap.remove(); rvMap=null; } rvMe=null; rvDot=null; }
 // ---- Poznámky (zoznamy) ----
 const LICONS=[[/n[áa]kup|shop|potravin/i,'🛒'],[/zbali|baton|batoh|pack/i,'🎒'],[/v[íi]n|wine|vin[áa]r/i,'🍷'],
  [/piv|beer/i,'🍺'],[/bicyk|kolo|servis|n[áa]rad/i,'🔧'],[/jed|gril|varen|recept/i,'🍽️'],
