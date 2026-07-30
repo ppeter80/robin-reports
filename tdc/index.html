@@ -1446,7 +1446,6 @@ function renderNotes(){ let el=document.getElementById('notesview'); if(!el)retu
  let inp=document.getElementById(list?'n_item':'n_list'); if(inp) inp.value=(list?noteDraft.item:noteDraft.list)||''; }
 function noteOverview(){
  let h='<h3 style="margin:4px 0 2px">📝 Poznámky</h3>';
- if(!S.lists.length) h+='<div class="soon">Zatiaľ žiadny zoznam. Založ prvý — napríklad „Nákup" 🛒</div>';
  S.lists.forEach(l=>{ let its=itemsOf(l.id), done=its.filter(i=>i.done).length, open=its.length-done;
   let pct=its.length?Math.round(done/its.length*100):0;
   let meta = !its.length ? 'zatiaľ prázdny'
