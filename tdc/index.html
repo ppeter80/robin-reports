@@ -1529,7 +1529,8 @@ async function openRoute(sid){
  } }
 function drawRoute(st){
  document.getElementById('rv_title').textContent=st.name;
- document.getElementById('rv_stats').innerHTML=`<b>${String(st.km).replace('.',',')} km</b><br><b>↗ ${st.gain} m</b> · ${st.stops.length} zast.`;
+ let nst=st.stops.filter(s=>!s.pass&&s.km>0&&s.km<st.km).length;   // len skutočné zastávky medzi štartom a cieľom
+ document.getElementById('rv_stats').innerHTML=`<b>${String(st.km).replace('.',',')} km</b><br><b>↗ ${st.gain} m</b> · ${nst} zast.`;
  if(rvMap){ rvMap.remove(); rvMap=null; }
  rvMap=L.map('rv_map',{zoomControl:true,attributionControl:true});
  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
@@ -1537,7 +1538,8 @@ function drawRoute(st){
  let line=st.line.map(p=>[p[0],p[1]]);
  L.polyline(line,{color:'#fff',weight:9,opacity:.9,lineJoin:'round'}).addTo(rvMap);   // biela obruba ako na TdF
  L.polyline(line,{color:st.colour,weight:5,opacity:1,lineJoin:'round'}).addTo(rvMap);
- st.stops.forEach((s,i)=>{
+ // prejazdné body (Buje) na mape číslo nedostanú — čísluje sa len tam, kde sa stojí
+ st.stops.filter(s=>!s.pass).forEach((s,i)=>{ s._mk=i;
   let ic=L.divIcon({className:'',html:`<div class="rvmk" style="background:${TCOL[s.t]||'#888'}">${i+1}</div>`,iconSize:[26,26],iconAnchor:[13,13]});
   L.marker([s.la,s.lo],{icon:ic}).addTo(rvMap)
    .bindPopup(`<b>${esc(s.n)}</b>${s.km!=null?`<br><span style="color:#666">${fmtKm(s.km)} km od štartu</span>`:''}<br><a href="https://www.google.com/maps/dir/?api=1&destination=${s.la},${s.lo}" target="_blank" rel="noopener">🧭 Navigovať</a>`);
@@ -1581,13 +1583,13 @@ function setAnimAt(km){ if(!rvStage||!rvMap)return;
 function fmtKm(k){ return Number(k).toFixed(1).replace('.',','); }
 const STOPEMO={start:'🚩',vino:'🍷',obed:'🍽️',plaz:'🏖️',mesto:'🏘️'};
 const HOLD_MS=3200;
-function showStopCard(s,idx){ let c=document.getElementById('rv_card'); if(!c)return;
+function showStopCard(s){ let c=document.getElementById('rv_card'); if(!c)return;
  c.innerHTML=`<div class="rvcttl">${STOPEMO[s.t]||'📍'} ${esc(s.n)}`+
    (s.min?`<span class="rvcbadge">${s.min} min</span>`:'')+`</div>`+
    (s.d?`<div class="rvctxt">${esc(s.d)}</div>`:'')+
    (s.km?`<div class="rvcmeta">${fmtKm(s.km)} km od štartu</div>`:'');
  c.classList.add('on');
- let mk=document.querySelectorAll('#rv_map .rvmk')[idx]; if(mk){ mk.classList.add('hit'); setTimeout(()=>mk.classList.remove('hit'),1100); } }
+ let mk=document.querySelectorAll('#rv_map .rvmk')[s._mk]; if(mk){ mk.classList.add('hit'); setTimeout(()=>mk.classList.remove('hit'),1100); } }
 function hideStopCard(){ let c=document.getElementById('rv_card'); if(c) c.classList.remove('on'); }
 function stepAnim(ts){ if(!rvAnim)return;
  if(!rvAnim.t0) rvAnim.t0=ts-rvAnim.done;
@@ -1601,7 +1603,7 @@ function stepAnim(ts){ if(!rvAnim)return;
  for(let k=rvPassed+1;k<stops.length;k++){
   let s=stops[k]; if(s.km==null||km<s.km) break;
   rvPassed=k; setAnimAt(s.km); rvAnim.done=s.km/total*ANIM_SEC*1000;
-  if(!s.pass){ showStopCard(s,k); rvAnim.holdStart=ts; rvAnim.holdUntil=ts+HOLD_MS;
+  if(!s.pass){ showStopCard(s); rvAnim.holdStart=ts; rvAnim.holdUntil=ts+HOLD_MS;
    rvAnim.t0=ts-rvAnim.done; rvAnim.raf=requestAnimationFrame(stepAnim); return; }
  }
  setAnimAt(km); rvAnim.done=ts-rvAnim.t0;
@@ -1619,7 +1621,7 @@ function stopAnim(reset){ if(rvAnim){ cancelAnimationFrame(rvAnim.raf); rvAnim=n
  let btn=document.getElementById('rv_play'); if(btn) btn.textContent = reset?'▶ Prehrať':'↻ Znova';
  if(reset){ rvAt=0; rvPassed=-1; hideStopCard(); if(rvGrow&&rvStage) rvGrow.setLatLngs([rvStage.line[0]]);
   if(rvHead&&rvMap){ rvMap.removeLayer(rvHead); rvHead=null; } }
- else { let last=(rvStage.stops||[])[(rvStage.stops||[]).length-1]; if(last&&!last.pass) showStopCard(last,(rvStage.stops||[]).length-1); } }
+ else { let last=(rvStage.stops||[])[(rvStage.stops||[]).length-1]; if(last&&!last.pass) showStopCard(last); } }
 // výškový profil ako na TdF — vlastné SVG, žiadna ďalšia knižnica
 function drawProfile(st){
  let el=document.getElementById('rv_prof'); if(!el||!st.profile.length)return;
