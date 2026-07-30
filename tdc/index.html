@@ -270,10 +270,10 @@ nav button{flex:1;background:none;border:none;color:var(--mut);padding:11px 2px 
 
 <div id="v-program" class="view on">
  <div class="card"><h3><span class="tag" style="background:#7A6A55;color:#fff">DEŇ 0</span> Streda · Príchod</h3><div class="r"><span class="lab">Cestou:</span> Slepá ochutnávka piva … · <span class="lab">Večer:</span> príchod, voľná večera.</div><div id="pb_stage_d0"></div></div>
- <div class="card"><h3><span class="tag" style="background:#8E44AD;color:#fff">DEŇ 1</span> Etapa 1 · Vínna cesta</h3><div class="chips"><span class="chip">37,8 km</span><span class="chip">↗ 411 m</span></div><div class="r"><span class="lab">Vinárstva:</span> Fiore · CUJ · Kabola · Kozlović · <span class="lab">Pláž:</span> Kanegra · <span class="lab">Súťaže:</span> …</div><div class="mapwrap" onclick="openRoute('stage_e1')"><img class="map" src="mapa_E1.jpg"><span class="mapplay">▶</span></div><div id="pb_stage_e1"></div></div>
- <div class="card"><h3><span class="tag" style="background:#2E86DE;color:#fff">DEŇ 2 · A</span> Drink cesta</h3><div class="chips"><span class="chip">35,4 km</span><span class="chip">↗ 300 m</span></div><div class="r"><span class="lab">Zastávky:</span> Sunset Beach Bar · Piran (obed) · Sunset Beach Bar · <span class="lab">Súťaže:</span> Plážový volejbal …</div><div class="mapwrap" onclick="openRoute('stage_e2a')"><img class="map" src="mapa_E2.jpg"><span class="mapplay">▶</span></div><div id="pb_stage_e2a"></div></div>
- <div class="card"><h3><span class="tag" style="background:#C0453B;color:#fff">DEŇ 2 · B</span> Motivačná — pre odvážnych 🙂</h3><div class="chips"><span class="chip">89,3 km</span><span class="chip">↗ 766 m</span></div><div class="r"><span class="lab">Trasa:</span> Valica → Buje → Motovun → Novigrad → Valica</div><img class="map" src="mapa_E2B.jpg"><div id="pb_stage_e2b"></div></div>
- <div class="card"><h3><span class="tag" style="background:#1B9E8B;color:#fff">DEŇ 3</span> Etapa 3 · Pláž</h3><div class="chips"><span class="chip">~40 km</span><span class="chip">↗ 191 m</span></div><div class="r"><span class="lab">Súťaže:</span> Basket · Pingpong · Futbal · Beach volejbal …</div><img class="map" src="mapa_E3.jpg"><div id="pb_stage_e3"></div></div>
+ <div class="card"><h3><span class="tag" style="background:#8E44AD;color:#fff">DEŇ 1</span> Etapa 1 · Vínna cesta</h3><div class="mapwrap" onclick="openRoute('stage_e1')"><img class="map" src="mapa_E1.jpg"><span class="mapplay">▶</span></div><div class="chips"><span class="chip">37,8 km</span><span class="chip">↗ 411 m</span></div><div class="r"><span class="lab">Vinárstva:</span> Fiore · CUJ · Kabola · Kozlović · <span class="lab">Pláž:</span> Kanegra · <span class="lab">Súťaže:</span> …</div><div id="pb_stage_e1"></div></div>
+ <div class="card"><h3><span class="tag" style="background:#2E86DE;color:#fff">DEŇ 2 · A</span> Drink cesta</h3><div class="mapwrap" onclick="openRoute('stage_e2a')"><img class="map" src="mapa_E2.jpg"><span class="mapplay">▶</span></div><div class="chips"><span class="chip">35,4 km</span><span class="chip">↗ 300 m</span></div><div class="r"><span class="lab">Zastávky:</span> Sunset Beach Bar · Piran (obed) · Sunset Beach Bar · <span class="lab">Súťaže:</span> Plážový volejbal …</div><div id="pb_stage_e2a"></div></div>
+ <div class="card"><h3><span class="tag" style="background:#C0453B;color:#fff">DEŇ 2 · B</span> Motivačná — pre odvážnych 🙂</h3><img class="map" src="mapa_E2B.jpg"><div class="chips"><span class="chip">89,3 km</span><span class="chip">↗ 766 m</span></div><div class="r"><span class="lab">Trasa:</span> Valica → Buje → Motovun → Novigrad → Valica</div><div id="pb_stage_e2b"></div></div>
+ <div class="card"><h3><span class="tag" style="background:#1B9E8B;color:#fff">DEŇ 3</span> Etapa 3 · Pláž</h3><img class="map" src="mapa_E3.jpg"><div class="chips"><span class="chip">~40 km</span><span class="chip">↗ 191 m</span></div><div class="r"><span class="lab">Súťaže:</span> Basket · Pingpong · Futbal · Beach volejbal …</div><div id="pb_stage_e3"></div></div>
 </div>
 
 <div id="v-comps" class="view"><div id="admbox"></div><div id="complist"></div></div>
@@ -1559,7 +1559,7 @@ function drawRoute(st){
  let nst=st.stops.filter(s=>!s.pass&&s.km>0&&s.km<st.km).length;   // len skutočné zastávky medzi štartom a cieľom
  document.getElementById('rv_stats').innerHTML=`<b>${String(st.km).replace('.',',')} km</b><br><b>↗ ${st.gain} m</b> · ${nst} zast.`;
  if(rvMap){ rvMap.remove(); rvMap=null; }
- rvMap=L.map('rv_map',{zoomControl:true,attributionControl:false});
+ rvMap=L.map('rv_map',{zoomControl:true,attributionControl:false,zoomSnap:.25,zoomDelta:.5});
  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
    {maxZoom:19}).addTo(rvMap);
  let line=st.line.map(p=>[p[0],p[1]]);
@@ -1571,7 +1571,9 @@ function drawRoute(st){
   L.marker([s.la,s.lo],{icon:ic}).addTo(rvMap)
    .bindPopup(`<b>${esc(s.n)}</b>${s.km!=null?`<br><span style="color:#666">${fmtKm(s.km)} km od štartu</span>`:''}<br><a href="https://www.google.com/maps/dir/?api=1&destination=${s.la},${s.lo}" target="_blank" rel="noopener">🧭 Navigovať</a>`);
  });
- rvMap.fitBounds(L.latLngBounds(line),{padding:[28,28]});
+ // okraje nechávame väčšie: hore je počítadlo, dole karta zastávky a tlačidlo
+ rvMap.fitBounds(L.latLngBounds(line),{paddingTopLeft:[30,66],paddingBottomRight:[30,124]});
+ rvMap.setZoom(Math.max(0,rvMap.getZoom()-0.5));   // ešte o kúsok von, nech je cesta v pohode vidieť
  rvMap.on('click',()=>toggleAnim());   // ťuknutie na mapu = pauza / pokračovať
  setTimeout(()=>rvMap.invalidateSize(),120);
  // rastúca čiara + jazdec pre prehrávanie trasy
@@ -1603,7 +1605,7 @@ function setAnimAt(km){ if(!rvStage||!rvMap)return;
  if(cur){ let x=pad+(W-2*pad)*frac; cur.setAttribute('x1',x); cur.setAttribute('x2',x); }
  // prejdená časť profilu sa vyfarbí rovnako ako trasa na mape
  let done=document.getElementById('rv_pdone'), pr=rvStage.profile;
- if(done&&pr&&pr.length){ let es=pr.map(p=>p[1]), emin=Math.min(...es), span=Math.max(40,Math.max(...es)-emin);
+ if(done&&pr&&pr.length){ let es=pr.map(p=>p[1]), emin=0, span=Math.max(400,Math.ceil(Math.max(...es)*1.25/50)*50);
   const X=d=>pad+(W-2*pad)*(d/(rvStage.km||1)), Y=e=>H-14-(H-24)*((e-emin)/span);
   let seg=pr.filter(p=>p[0]<=km).map(p=>X(p[0]).toFixed(1)+','+Y(p[1]).toFixed(1));
   done.setAttribute('points', seg.length>1 ? `${pad},${H-14} ${seg.join(' ')} ${X(km).toFixed(1)},${H-14}` : ''); }
@@ -1662,8 +1664,9 @@ function drawProfile(st){
  let el=document.getElementById('rv_prof'); if(!el||!st.profile.length)return;
  let W=600,H=96,pad=6;
  let ds=st.profile.map(p=>p[0]), es=st.profile.map(p=>p[1]);
- let dmax=ds[ds.length-1]||1, emin=Math.min(...es), emax=Math.max(...es);
- let span=Math.max(40,emax-emin);
+ let dmax=ds[ds.length-1]||1, emax=Math.max(...es);
+ // od nuly a s rezervou nad vrcholom — inak aj 200 m kopček vyzerá ako alpská stena
+ let emin=0, span=Math.max(400,Math.ceil(emax*1.25/50)*50);
  const X=d=>pad+(W-2*pad)*(d/dmax), Y=e=>H-14-(H-24)*((e-emin)/span);
  let pts=st.profile.map(p=>X(p[0]).toFixed(1)+','+Y(p[1]).toFixed(1)).join(' ');
  el.innerHTML=`<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" onpointerdown="profTouch(event)" onpointermove="profTouch(event)">
@@ -1673,7 +1676,8 @@ function drawProfile(st){
    <line id="rv_cur" x1="-9" y1="4" x2="-9" y2="${H-14}" stroke="#fff" stroke-width="1.5" opacity=".9"></line>
    <text x="${pad}" y="${H-3}" fill="#B79AA6" font-size="10">0 km</text>
    <text x="${W-pad}" y="${H-3}" fill="#B79AA6" font-size="10" text-anchor="end">${String(st.km).replace('.',',')} km</text>
-   <text x="${pad}" y="12" fill="#B79AA6" font-size="10">${Math.round(emax)} m n.m.</text>
+   <text x="${pad}" y="12" fill="#B79AA6" font-size="10">${span} m</text>
+   <text x="${W/2}" y="12" fill="#B79AA6" font-size="10" text-anchor="middle">najvyššie ${Math.round(emax)} m n.m.</text>
  </svg>`;
 }
 // ťuk do profilu ukáže, kde na trase to je
