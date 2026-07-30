@@ -940,6 +940,14 @@ const RULES={
   '<b>2.</b> Zapisuje sa len v okne, ktoré vyhlási organizátor.',
   '<b>3.</b> Do uzávierky sa číslo dá prepísať, po nej už ani organizátorovi.',
   '<b>4.</b> Rovnaké čísla znamenajú delené miesto a delenú slávu.'],
+ sleep:[
+  '<b>1.</b> Súťaž o to, <b>kto to zabalí prvý</b>. Poradie sa počíta podľa toho, kedy si šiel spať — <b>1. miesto je prvý v posteli</b>, teda najväčší odpadlík večera.',
+  '<b>2.</b> Preto sú tu body <b>záporné</b>: prvý dostane −5, druhý −3, tretí −2, štvrtý −1. Kto vydrží dlhšie, neprichádza o nič.',
+  '<b>3.</b> Za odchod spať sa považuje moment, keď si naposledy videný medzi živými — nie to, čo tvrdíš ráno pri raňajkách.',
+  '<b>4.</b> „Idem si len na chvíľu ľahnúť" je odchod spať. „Idem si po mikinu" a návrat do desiatich minút nie je.',
+  '<b>5.</b> Zaspatie v spoločenskej miestnosti sa počíta ako posteľ. Sedieť pri stole so zavretými očami tiež.',
+  '<b>6.</b> Kto ide spať zo zdravotných dôvodov, má odpustené — po predložení dôkazu, ktorý uzná organizátor.',
+  '<b>7.</b> <b>Večer, na ktorý to platí, vyhlási organizátor.</b> Dovtedy môžeš chodiť spať beztrestne.'],
  tba:[
   '<b>To be agreed.</b>',
   'Pravidlá dohodneme na mieste — ideálne pred treťou rundou, kým ešte vieme počítať do troch.',
@@ -950,6 +958,7 @@ function rulesKind(cp){ let n=(cp.name||'').toLowerCase().normalize('NFD').repla
  if(cp.type=='tasting'||n.includes('ochutnav')) return 'tasting';
  if(cp.type=='num'&&n.includes('piv')) return 'beers';
  if(cp.type=='num') return 'num';
+ if(n.includes('poste')||n.includes('spat')||n.includes('spanie')||n.includes('spac')) return 'sleep';
  return 'tba'; }
 function toggleRules(id){ openRules=(openRules==id?null:id); renderRules(); renderComps(); }
 function closeRules(){ openRules=null; renderRules(); renderComps(); }
