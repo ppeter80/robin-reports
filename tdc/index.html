@@ -135,7 +135,11 @@ button[disabled]{opacity:.45;}
 @keyframes tdcflash{0%,100%{box-shadow:0 0 0 0 rgba(var(--goldrgb),0)}20%,60%{box-shadow:0 0 0 3px rgba(var(--goldrgb),.85)}}
 .msgrow.flash .msg{animation:tdcflash 1.3s ease-in-out 2;border-radius:12px;}
 /* ---- mapa trasy ---- */
-.maphint{text-align:center;font-size:12px;color:var(--gold2);background:rgba(var(--goldrgb),.1);border:1px solid rgba(var(--goldrgb),.3);border-radius:10px;padding:6px;margin-top:6px;cursor:pointer;}
+.mapwrap{position:relative;cursor:pointer;line-height:0;}
+.mapplay{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:64px;height:64px;border-radius:50%;
+ background:rgba(228,178,76,.94);color:#241206;font-size:27px;line-height:1;display:flex;align-items:center;justify-content:center;
+ box-shadow:0 6px 20px rgba(0,0,0,.55);padding-left:4px;}
+.mapwrap:active .mapplay{transform:translate(-50%,-50%) scale(.94);}
 #routeview{position:fixed;inset:0;z-index:70;background:var(--bg);display:none;flex-direction:column;}
 .rvhead{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--hdr);border-bottom:1px solid rgba(var(--goldrgb),.2);}
 .rvtitle{flex:1;font-weight:800;font-size:15px;color:var(--gold2);}
@@ -157,6 +161,10 @@ button[disabled]{opacity:.45;}
  background:rgba(24,12,18,.92);border:1px solid rgba(var(--goldrgb),.5);border-radius:14px;
  padding:6px 14px;font-size:15px;font-weight:800;color:var(--gold2);white-space:nowrap;box-shadow:0 6px 18px rgba(0,0,0,.5);}
 #rv_km.on{display:block;}
+.rvpaused{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:590;display:none;
+ width:74px;height:74px;border-radius:50%;background:rgba(228,178,76,.92);color:#241206;font-size:32px;
+ align-items:center;justify-content:center;padding-left:5px;box-shadow:0 8px 24px rgba(0,0,0,.55);pointer-events:none;}
+.rvpaused.on{display:flex;}
 .rvplay{position:absolute;right:12px;bottom:12px;z-index:600;width:58px;height:58px;border-radius:50%;border:none;
  background:linear-gradient(90deg,var(--gold),var(--gold3));color:var(--onacc);font-size:24px;font-weight:800;
  cursor:pointer;box-shadow:0 6px 18px rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:0;}
@@ -261,7 +269,7 @@ nav button{flex:1;background:none;border:none;color:var(--mut);padding:11px 2px 
 
 <div id="v-program" class="view on">
  <div class="card"><h3><span class="tag" style="background:#7A6A55;color:#fff">DEŇ 0</span> Streda · Príchod</h3><div class="r"><span class="lab">Cestou:</span> Slepá ochutnávka piva … · <span class="lab">Večer:</span> príchod, voľná večera.</div><div id="pb_stage_d0"></div></div>
- <div class="card"><h3><span class="tag" style="background:#8E44AD;color:#fff">DEŇ 1</span> Etapa 1 · Vínna cesta</h3><div class="chips"><span class="chip">37,8 km</span><span class="chip">↗ 411 m</span></div><div class="r"><span class="lab">Vinárstva:</span> Fiore · CUJ · Kabola · Kozlović · <span class="lab">Pláž:</span> Kanegra · <span class="lab">Súťaže:</span> …</div><img class="map" src="mapa_E1.jpg" onclick="openRoute('stage_e1')"><div class="maphint" onclick="openRoute('stage_e1')">🔍 Ťukni na mapu — trasa, zastávky a profil</div><div id="pb_stage_e1"></div></div>
+ <div class="card"><h3><span class="tag" style="background:#8E44AD;color:#fff">DEŇ 1</span> Etapa 1 · Vínna cesta</h3><div class="chips"><span class="chip">37,8 km</span><span class="chip">↗ 411 m</span></div><div class="r"><span class="lab">Vinárstva:</span> Fiore · CUJ · Kabola · Kozlović · <span class="lab">Pláž:</span> Kanegra · <span class="lab">Súťaže:</span> …</div><div class="mapwrap" onclick="openRoute('stage_e1')"><img class="map" src="mapa_E1.jpg"><span class="mapplay">▶</span></div><div id="pb_stage_e1"></div></div>
  <div class="card"><h3><span class="tag" style="background:#2E86DE;color:#fff">DEŇ 2 · A</span> Drink cesta</h3><div class="chips"><span class="chip">31,8 km</span><span class="chip">Piran · SLO</span></div><div class="r"><span class="lab">Pláž:</span> Kanegra · <span class="lab">Súťaže:</span> Plážový volejbal …</div><img class="map" src="mapa_E2.jpg"><div id="pb_stage_e2a"></div></div>
  <div class="card"><h3><span class="tag" style="background:#C0453B;color:#fff">DEŇ 2 · B</span> Motivačná — pre odvážnych 🙂</h3><div class="chips"><span class="chip">89,3 km</span><span class="chip">↗ 766 m</span></div><div class="r"><span class="lab">Trasa:</span> Valica → Buje → Motovun → Novigrad → Valica</div><img class="map" src="mapa_E2B.jpg"><div id="pb_stage_e2b"></div></div>
  <div class="card"><h3><span class="tag" style="background:#1B9E8B;color:#fff">DEŇ 3</span> Etapa 3 · Pláž</h3><div class="chips"><span class="chip">~40 km</span><span class="chip">↗ 191 m</span></div><div class="r"><span class="lab">Súťaže:</span> Basket · Pingpong · Futbal · Beach volejbal …</div><img class="map" src="mapa_E3.jpg"><div id="pb_stage_e3"></div></div>
@@ -293,9 +301,8 @@ nav button{flex:1;background:none;border:none;color:var(--mut);padding:11px 2px 
 <div id="avview" style="display:none" onclick="closeAvatarView()"></div>
 <div id="routeview" style="display:none">
  <div class="rvhead"><span class="rvtitle" id="rv_title"></span><span class="rvx" onclick="closeRoute()">✕</span></div>
- <div id="rv_map"><div id="rv_km"></div><div id="rv_card"></div>
-  <button id="rv_play" class="rvplay" onclick="toggleAnim()" title="Prehrať">▶</button>
-  <button id="rv_attr" class="rvattr" onclick="toggleAttr()" title="Zdroje mapy">ⓘ</button>
+ <div id="rv_map"><div id="rv_km" onclick="event.stopPropagation()"></div><div id="rv_paused" class="rvpaused">▶</div><div id="rv_card" onclick="event.stopPropagation()"></div>
+  <button id="rv_attr" class="rvattr" onclick="event.stopPropagation();toggleAttr()" title="Zdroje mapy">ⓘ</button>
   <div id="rv_attrbox" class="rvattrbox">Mapové podklady © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> · dlaždice © <a href="https://carto.com/attributions" target="_blank" rel="noopener">CARTO</a> · Leaflet</div></div>
  <div class="rvbar">
   <div class="rvstats" id="rv_stats"></div>
@@ -1564,12 +1571,15 @@ function drawRoute(st){
    .bindPopup(`<b>${esc(s.n)}</b>${s.km!=null?`<br><span style="color:#666">${fmtKm(s.km)} km od štartu</span>`:''}<br><a href="https://www.google.com/maps/dir/?api=1&destination=${s.la},${s.lo}" target="_blank" rel="noopener">🧭 Navigovať</a>`);
  });
  rvMap.fitBounds(L.latLngBounds(line),{padding:[28,28]});
+ rvMap.on('click',()=>toggleAnim());   // ťuknutie na mapu = pauza / pokračovať
  setTimeout(()=>rvMap.invalidateSize(),120);
  // rastúca čiara + jazdec pre prehrávanie trasy
  rvCum=[0]; for(let i=1;i<line.length;i++) rvCum.push(rvCum[i-1]+kmBetween(line[i-1],line[i]));
  rvGrow=L.polyline([line[0]],{color:'#E4B24C',weight:6,opacity:1,lineJoin:'round'}).addTo(rvMap);   // prejdené zlatou, nech je vidieť
  rvHead=null; rvAt=0; rvPassed=-1; stopAnim(true);
  drawProfile(st);
+ document.getElementById('rv_note').textContent='Ťuknutím na mapu pozastavíš, ďalším ťuknutím pokračuješ.';
+ setTimeout(()=>{ if(!rvAnim && rvAt===0) toggleAnim(); },900);   // rozbehne sa samo
 }
 // ---- prehrávanie trasy (kreslí sa a profil ide s ňou) ----
 function posAtKm(km){ let c=rvCum, ln=rvStage.line; if(!c.length)return ln[0];
@@ -1630,7 +1640,9 @@ function stepAnim(ts){ if(!rvAnim)return;
  setAnimAt(km); rvAnim.done=ts-rvAnim.t0;
  if(km>=total){ stopAnim(); return; }
  rvAnim.raf=requestAnimationFrame(stepAnim); }
-function setPlayBtn(icon,title){ let b=document.getElementById('rv_play'); if(!b)return; b.textContent=icon; b.title=title; }
+function setPlayBtn(icon,title){ let o=document.getElementById('rv_paused'); if(!o)return;
+ if(icon==='⏸'){ o.classList.remove('on'); }                 // ide sa — ikonu schovaj
+ else { o.textContent=icon; o.title=title||''; o.classList.add('on'); } }
 function toggleAnim(){ if(!rvStage)return;
  if(rvAnim){ cancelAnimationFrame(rvAnim.raf); rvAnim=null; setPlayBtn('▶','Pokračovať'); return; }
  let total=rvCum[rvCum.length-1]||rvStage.km;
