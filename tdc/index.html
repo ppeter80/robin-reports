@@ -152,7 +152,16 @@ button[disabled]{opacity:.45;}
 .rvmk{display:flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;border:2px solid #fff;color:#fff;font:800 12px/1 'Segoe UI',sans-serif;box-shadow:0 2px 6px rgba(0,0,0,.5);}
 .rvme{width:18px;height:18px;border-radius:50%;background:#2E86DE;border:3px solid #fff;box-shadow:0 0 0 4px rgba(46,134,222,.35);}
 #rv_map{position:relative;}
-#rv_card{position:absolute;left:10px;right:10px;bottom:12px;z-index:500;background:rgba(24,12,18,.95);border:1px solid rgba(var(--goldrgb),.5);border-radius:14px;padding:12px 14px;box-shadow:0 10px 28px rgba(0,0,0,.6);display:none;}
+/* počítadlo kilometrov na stred hornej hrany mapy — na kraji ho nebolo vidieť */
+#rv_km{position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:600;display:none;
+ background:rgba(24,12,18,.92);border:1px solid rgba(var(--goldrgb),.5);border-radius:14px;
+ padding:6px 14px;font-size:15px;font-weight:800;color:var(--gold2);white-space:nowrap;box-shadow:0 6px 18px rgba(0,0,0,.5);}
+#rv_km.on{display:block;}
+.rvplay{position:absolute;right:12px;bottom:12px;z-index:600;width:58px;height:58px;border-radius:50%;border:none;
+ background:linear-gradient(90deg,var(--gold),var(--gold3));color:var(--onacc);font-size:24px;font-weight:800;
+ cursor:pointer;box-shadow:0 6px 18px rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:0;}
+.rvplay:active{transform:scale(.94);}
+#rv_card{position:absolute;left:10px;right:10px;bottom:82px;z-index:500;background:rgba(24,12,18,.95);border:1px solid rgba(var(--goldrgb),.5);border-radius:14px;padding:12px 14px;box-shadow:0 10px 28px rgba(0,0,0,.6);display:none;}
 #rv_card.on{display:block;animation:cardin .28s ease-out;}
 @keyframes cardin{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
 .rvcttl{display:flex;align-items:center;gap:8px;font-weight:800;font-size:15px;color:var(--gold2);}
@@ -276,10 +285,10 @@ nav button{flex:1;background:none;border:none;color:var(--mut);padding:11px 2px 
 <div id="avview" style="display:none" onclick="closeAvatarView()"></div>
 <div id="routeview" style="display:none">
  <div class="rvhead"><span class="rvtitle" id="rv_title"></span><span class="rvx" onclick="closeRoute()">✕</span></div>
- <div id="rv_map"><div id="rv_card"></div></div>
+ <div id="rv_map"><div id="rv_km"></div><div id="rv_card"></div>
+  <button id="rv_play" class="rvplay" onclick="toggleAnim()" title="Prehrať">▶</button></div>
  <div class="rvbar">
   <div class="rvstats" id="rv_stats"></div>
-  <button class="btn sm g" id="rv_play" onclick="toggleAnim()" style="margin:0;flex:0 0 auto;width:auto;padding:8px 12px">▶ Prehrať</button>
   <button class="btn sm ghg" id="rv_gps" onclick="toggleWhereAmI()" style="margin:0;flex:0 0 auto;width:auto;padding:8px 12px">📍 Kde som</button>
  </div>
  <div id="rv_prof"></div>
@@ -1578,7 +1587,8 @@ function setAnimAt(km){ if(!rvStage||!rvMap)return;
   let seg=pr.filter(p=>p[0]<=km).map(p=>X(p[0]).toFixed(1)+','+Y(p[1]).toFixed(1));
   done.setAttribute('points', seg.length>1 ? `${pad},${H-14} ${seg.join(' ')} ${X(km).toFixed(1)},${H-14}` : ''); }
  let el=eleAtKm(km);
- document.getElementById('rv_note').textContent=`${km.toFixed(1).replace('.',',')} km${el!=null?' · '+el+' m n.m.':''}`; }
+ let kmbox=document.getElementById('rv_km');
+ if(kmbox){ kmbox.textContent=`${km.toFixed(1).replace('.',',')} km${el!=null?' · '+el+' m n.m.':''}`; kmbox.classList.add('on'); } }
 // pri zastávke sa jazdec zastaví a vyskočí špendlík s tým, čo sa tam deje
 function fmtKm(k){ return Number(k).toFixed(1).replace('.',','); }
 const STOPEMO={start:'🚩',vino:'🍷',obed:'🍽️',plaz:'🏖️',mesto:'🏘️'};
@@ -1609,17 +1619,17 @@ function stepAnim(ts){ if(!rvAnim)return;
  setAnimAt(km); rvAnim.done=ts-rvAnim.t0;
  if(km>=total){ stopAnim(); return; }
  rvAnim.raf=requestAnimationFrame(stepAnim); }
+function setPlayBtn(icon,title){ let b=document.getElementById('rv_play'); if(!b)return; b.textContent=icon; b.title=title; }
 function toggleAnim(){ if(!rvStage)return;
- let btn=document.getElementById('rv_play');
- if(rvAnim){ cancelAnimationFrame(rvAnim.raf); rvAnim=null; btn.textContent='▶ Pokračovať'; return; }
+ if(rvAnim){ cancelAnimationFrame(rvAnim.raf); rvAnim=null; setPlayBtn('▶','Pokračovať'); return; }
  let total=rvCum[rvCum.length-1]||rvStage.km;
  if(rvAt>=total-0.01){ rvAt=0; rvPassed=-1; }               // po dojazde začni odznova
  rvAnim={raf:0,t0:0,done:rvAt/total*ANIM_SEC*1000};
- btn.textContent='⏸ Pauza';
+ setPlayBtn('⏸','Pauza');
  rvAnim.raf=requestAnimationFrame(stepAnim); }
 function stopAnim(reset){ if(rvAnim){ cancelAnimationFrame(rvAnim.raf); rvAnim=null; }
- let btn=document.getElementById('rv_play'); if(btn) btn.textContent = reset?'▶ Prehrať':'↻ Znova';
- if(reset){ rvAt=0; rvPassed=-1; hideStopCard(); if(rvGrow&&rvStage) rvGrow.setLatLngs([rvStage.line[0]]);
+ setPlayBtn(reset?'▶':'↻', reset?'Prehrať':'Znova');
+ if(reset){ rvAt=0; rvPassed=-1; hideStopCard(); let k=document.getElementById('rv_km'); if(k) k.classList.remove('on'); if(rvGrow&&rvStage) rvGrow.setLatLngs([rvStage.line[0]]);
   if(rvHead&&rvMap){ rvMap.removeLayer(rvHead); rvHead=null; } }
  else { let last=(rvStage.stops||[])[(rvStage.stops||[]).length-1]; if(last&&!last.pass) showStopCard(last); } }
 // výškový profil ako na TdF — vlastné SVG, žiadna ďalšia knižnica
@@ -1654,7 +1664,8 @@ function profTouch(ev){ if(!rvStage||!rvMap)return; if(ev.buttons===0&&ev.type==
  let ll=rvStage.line[li];
  let cur=document.getElementById('rv_cur'); if(cur){ let W=600,pad=6; cur.setAttribute('x1',pad+(W-2*pad)*frac); cur.setAttribute('x2',pad+(W-2*pad)*frac); }
  if(rvDot) rvDot.setLatLng(ll); else rvDot=L.circleMarker(ll,{radius:7,color:'#fff',weight:3,fillColor:rvStage.colour,fillOpacity:1}).addTo(rvMap);
- document.getElementById('rv_note').textContent=`${rvStage.profile[i][0].toFixed(1).replace('.',',')} km · ${rvStage.profile[i][1]} m n.m.`; }
+ let kmbox=document.getElementById('rv_km');
+ if(kmbox){ kmbox.textContent=`${rvStage.profile[i][0].toFixed(1).replace('.',',')} km · ${rvStage.profile[i][1]} m n.m.`; kmbox.classList.add('on'); } }
 function toggleWhereAmI(){ if(!rvMap)return;
  let btn=document.getElementById('rv_gps');
  if(rvWatch!=null){ navigator.geolocation.clearWatch(rvWatch); rvWatch=null;
