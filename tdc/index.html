@@ -161,6 +161,14 @@ button[disabled]{opacity:.45;}
  background:linear-gradient(90deg,var(--gold),var(--gold3));color:var(--onacc);font-size:24px;font-weight:800;
  cursor:pointer;box-shadow:0 6px 18px rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:0;}
 .rvplay:active{transform:scale(.94);}
+/* zdroje mapy sú licenčná podmienka OSM aj CARTO — nedajú sa zmazať, ale môžu byť pod ⓘ */
+.rvattr{position:absolute;left:8px;bottom:8px;z-index:600;width:22px;height:22px;border-radius:50%;border:none;
+ background:rgba(0,0,0,.35);color:rgba(255,255,255,.75);font-size:13px;line-height:1;cursor:pointer;padding:0;}
+.rvattrbox{position:absolute;left:8px;bottom:36px;z-index:600;display:none;max-width:78%;
+ background:rgba(24,12,18,.94);border:1px solid rgba(var(--goldrgb),.35);border-radius:10px;
+ padding:7px 10px;font-size:11px;color:var(--mut);line-height:1.35;}
+.rvattrbox.on{display:block;} .rvattrbox a{color:var(--gold2);}
+.leaflet-control-attribution{display:none!important;}
 #rv_card{position:absolute;left:10px;right:10px;bottom:82px;z-index:500;background:rgba(24,12,18,.95);border:1px solid rgba(var(--goldrgb),.5);border-radius:14px;padding:12px 14px;box-shadow:0 10px 28px rgba(0,0,0,.6);display:none;}
 #rv_card.on{display:block;animation:cardin .28s ease-out;}
 @keyframes cardin{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
@@ -286,7 +294,9 @@ nav button{flex:1;background:none;border:none;color:var(--mut);padding:11px 2px 
 <div id="routeview" style="display:none">
  <div class="rvhead"><span class="rvtitle" id="rv_title"></span><span class="rvx" onclick="closeRoute()">✕</span></div>
  <div id="rv_map"><div id="rv_km"></div><div id="rv_card"></div>
-  <button id="rv_play" class="rvplay" onclick="toggleAnim()" title="Prehrať">▶</button></div>
+  <button id="rv_play" class="rvplay" onclick="toggleAnim()" title="Prehrať">▶</button>
+  <button id="rv_attr" class="rvattr" onclick="toggleAttr()" title="Zdroje mapy">ⓘ</button>
+  <div id="rv_attrbox" class="rvattrbox">Mapové podklady © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> · dlaždice © <a href="https://carto.com/attributions" target="_blank" rel="noopener">CARTO</a> · Leaflet</div></div>
  <div class="rvbar">
   <div class="rvstats" id="rv_stats"></div>
   <button class="btn sm ghg" id="rv_gps" onclick="toggleWhereAmI()" style="margin:0;flex:0 0 auto;width:auto;padding:8px 12px">📍 Kde som</button>
@@ -1541,9 +1551,9 @@ function drawRoute(st){
  let nst=st.stops.filter(s=>!s.pass&&s.km>0&&s.km<st.km).length;   // len skutočné zastávky medzi štartom a cieľom
  document.getElementById('rv_stats').innerHTML=`<b>${String(st.km).replace('.',',')} km</b><br><b>↗ ${st.gain} m</b> · ${nst} zast.`;
  if(rvMap){ rvMap.remove(); rvMap=null; }
- rvMap=L.map('rv_map',{zoomControl:true,attributionControl:true});
+ rvMap=L.map('rv_map',{zoomControl:true,attributionControl:false});
  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-   {maxZoom:19,attribution:'© OpenStreetMap · © CARTO'}).addTo(rvMap);
+   {maxZoom:19}).addTo(rvMap);
  let line=st.line.map(p=>[p[0],p[1]]);
  L.polyline(line,{color:'#fff',weight:9,opacity:.9,lineJoin:'round'}).addTo(rvMap);   // biela obruba ako na TdF
  L.polyline(line,{color:st.colour,weight:5,opacity:1,lineJoin:'round'}).addTo(rvMap);
@@ -1600,6 +1610,7 @@ function showStopCard(s){ let c=document.getElementById('rv_card'); if(!c)return
    (s.km?`<div class="rvcmeta">${fmtKm(s.km)} km od štartu</div>`:'');
  c.classList.add('on');
  let mk=document.querySelectorAll('#rv_map .rvmk')[s._mk]; if(mk){ mk.classList.add('hit'); setTimeout(()=>mk.classList.remove('hit'),1100); } }
+function toggleAttr(){ let b=document.getElementById('rv_attrbox'); if(b) b.classList.toggle('on'); }
 function hideStopCard(){ let c=document.getElementById('rv_card'); if(c) c.classList.remove('on'); }
 function stepAnim(ts){ if(!rvAnim)return;
  if(!rvAnim.t0) rvAnim.t0=ts-rvAnim.done;
