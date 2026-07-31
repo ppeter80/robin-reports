@@ -1303,7 +1303,11 @@ function renderTeams(){ let c=S.comps.filter(x=>x.type=='team');
   h+=`</div>`; });
  document.getElementById('teamsview').innerHTML=h;
 }
+// porovnávame bez diakritiky, veľkosti písmen a zdvojených medzier — „Orli" a „orli " je ten istý tím
+const teamKey=s=>(s||'').trim().toLowerCase().replace(/\s+/g,' ').normalize('NFD').replace(/[̀-ͯ]/g,'');
 async function createTeam(cid){ let el=document.getElementById('newteam_'+cid); let n=(el&&el.value||'').trim(); if(!n){alert('Zadaj názov tímu');return;}
+ let dup=S.teams.find(t=>t.comp_id==cid && teamKey(t.name)===teamKey(n));
+ if(dup){ alert('Tím „'+dup.name+'" v tejto súťaži už je. Zvoľ iný názov.'); return; }
  await sb.from('tdc_teams').insert({id:uid(),comp_id:cid,name:n,members:[]});
  sb.functions.invoke('bright-processor',{body:{sender:ME.name,body:'založil tím „'+n+'" 👥'}}).catch(()=>{});
  loadAll(); }
