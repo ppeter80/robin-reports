@@ -624,7 +624,7 @@ function pushCard(){ let h='<div class="card"><h3>🔔 Upozornenia</h3>';
  return h+'</div>'; }
 function renderSettings(){ let el=document.getElementById('setview'); if(!el)return;
  let cur=themeId(), curf=fontId();
- el.innerHTML=avatarCard()+pushCard()+
+ el.innerHTML=avatarCard()+installCard()+pushCard()+
   '<div class="card"><h3>🎨 Farba apky</h3>'+
   '<div class="thlist">'+THEMES.map(t=>`<div class="throw${t.id===cur?' on':''}" onclick="setTheme('${t.id}')">
     <span class="thsw"><i style="background:${t.v.bg}"></i><i style="background:${t.v.card}"></i><i style="background:${t.v.wine}"></i><i style="background:${t.v.gold}"></i></span>
@@ -1349,6 +1349,27 @@ function fmtTime(iso){ if(!iso)return''; let d=new Date(iso); if(isNaN(d))return
  let today=new Date().toDateString()==d.toDateString();
  return today? t : d.toLocaleDateString('sk-SK',{day:'numeric',month:'numeric'})+'. '+t; }
 function urlB64ToUint8(s){ let pad='='.repeat((4-s.length%4)%4); let base=(s+pad).replace(/-/g,'+').replace(/_/g,'/'); let raw=atob(base); let arr=new Uint8Array(raw.length); for(let i=0;i<raw.length;i++)arr[i]=raw.charCodeAt(i); return arr; }
+// Android/Chrome ponúkne inštaláciu cez túto udalosť — odchytíme ju a spustíme na tlačidlo
+let installPrompt=null;
+window.addEventListener('beforeinstallprompt',e=>{ e.preventDefault(); installPrompt=e; renderSettings(); });
+window.addEventListener('appinstalled',()=>{ installPrompt=null; renderSettings(); });
+function isStandalone(){ return window.matchMedia('(display-mode: standalone)').matches || navigator.standalone===true; }
+function isIOS(){ return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream; }
+async function doInstall(){ if(!installPrompt)return;
+ installPrompt.prompt();
+ try{ await installPrompt.userChoice; }catch(e){}
+ installPrompt=null; renderSettings(); }
+function installCard(){
+ let h='<div class="card"><h3>📲 Appka na plochu</h3>';
+ if(isStandalone()) return h+'<div class="r">✅ Appku máš nainštalovanú — práve v nej si.</div></div>';
+ if(installPrompt) return h+'<div class="r" style="color:var(--mut)">Nainštaluje sa jedným ťuknutím, žiadny obchod s aplikáciami.</div>'+
+   '<button class="btn sm g" onclick="doInstall()">📲 Inštalovať</button></div>';
+ if(isIOS()) return h+'<div class="r" style="color:var(--mut)">Na iPhone Apple automatickú inštaláciu nedovolí, ide to na dve ťuknutia:</div>'+
+   '<div class="r"><b>1.</b> Dole v Safari ťukni na <b>Zdieľať</b> (štvorec so šípkou hore)</div>'+
+   '<div class="r"><b>2.</b> Vyber <b>Pridať na plochu</b></div>'+
+   '<div class="r" style="color:var(--mut);font-size:12px;margin-top:6px">Potom appku otváraj z ikony — inak nechodia upozornenia.</div></div>';
+ return h+'<div class="r" style="color:var(--mut)">V tomto prehliadači inštaláciu neponúka. Skús ju otvoriť v Chrome (Android) alebo v Safari (iPhone) a nájdeš ju v ponuke prehliadača ako „Pridať na plochu".</div></div>';
+}
 function pushOff(){ return localStorage.getItem('tdc_push_off')==='1'; }
 function pushSupported(){ return ('serviceWorker' in navigator) && ('PushManager' in window) && !!window.Notification; }
 let pushOn=null;   // null = ešte nezistené; renderSettings kreslí z tejto premennej, lebo sám je synchrónny
