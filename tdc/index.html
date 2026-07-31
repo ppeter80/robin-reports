@@ -521,7 +521,7 @@ function applyFont(id){ let f=FONTS.find(x=>x.id===id)||FONTS[0], r=document.doc
 function setFont(id){ if(!FONTS.some(x=>x.id===id))return;
  localStorage.setItem('tdc_font',id); applyFont(id); renderSettings(); hdrVar(); }
 function themeId(){ let t=localStorage.getItem('tdc_theme');
- return THEMES.some(x=>x.id===t) ? t : 'wine'; }
+ return THEMES.some(x=>x.id===t) ? t : 'polnoc'; }   // kto si farbu nezvolil, dostane Polnoc
 let wallSrc=null;   // tapeta v chate je data-URI, premenná sa doň nedá dať — prefarbujem ju ručne
 function applyWall(hex){ let el=document.getElementById('v-chat'); if(!el)return;
  if(wallSrc===null){ let s=getComputedStyle(el).backgroundImage||'';
