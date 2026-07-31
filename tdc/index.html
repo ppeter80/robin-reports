@@ -171,6 +171,9 @@ button[disabled]{opacity:.45;}
  cursor:pointer;box-shadow:0 6px 18px rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:0;}
 .rvplay:active{transform:scale(.94);}
 /* zdroje mapy sú licenčná podmienka OSM aj CARTO — nedajú sa zmazať, ale môžu byť pod ⓘ */
+.rvsnd{position:absolute;right:12px;top:10px;z-index:600;width:36px;height:36px;border-radius:50%;border:none;
+ background:rgba(24,12,18,.85);border:1px solid rgba(var(--goldrgb),.45);color:var(--gold2);font-size:16px;cursor:pointer;padding:0;display:none;}
+.rvsnd.on{display:block;}
 .rvattr{position:absolute;left:8px;bottom:8px;z-index:600;width:22px;height:22px;border-radius:50%;border:none;
  background:rgba(0,0,0,.35);color:rgba(255,255,255,.75);font-size:13px;line-height:1;cursor:pointer;padding:0;}
 .rvattrbox{position:absolute;left:8px;bottom:36px;z-index:600;display:none;max-width:78%;
@@ -303,6 +306,7 @@ nav button{flex:1;background:none;border:none;color:var(--mut);padding:11px 2px 
 <div id="routeview" style="display:none">
  <div class="rvhead"><span class="rvtitle" id="rv_title"></span><span class="rvx" onclick="closeRoute()">✕</span></div>
  <div id="rv_map"><div id="rv_km" onclick="event.stopPropagation()"></div><div id="rv_paused" class="rvpaused">▶</div><div id="rv_card" onclick="event.stopPropagation()"></div>
+  <button id="rv_snd" class="rvsnd" onclick="event.stopPropagation();toggleSound()" title="Stlmiť">🔊</button>
   <button id="rv_attr" class="rvattr" onclick="event.stopPropagation();toggleAttr()" title="Zdroje mapy">ⓘ</button>
   <div id="rv_attrbox" class="rvattrbox">Mapové podklady © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> · dlaždice © <a href="https://carto.com/attributions" target="_blank" rel="noopener">CARTO</a> · Leaflet</div></div>
  <div class="rvbar">
@@ -1533,6 +1537,7 @@ function renderLead(){ let comps=S.comps, rows=computeMatrix();
 const TCOL={start:'#2E8B3E',vino:'#8E44AD',plaz:'#2E86DE',obed:'#E0912B',mesto:'#C0392B'};
 let ROUTES=null, rvMap=null, rvStage=null, rvMe=null, rvWatch=null, rvDot=null;
 let rvCum=[], rvGrow=null, rvHead=null, rvAnim=null, rvAt=0, rvPassed=-1;
+let rvAudio=null, rvMuted=false;
 const ANIM_SEC=26;   // celá etapa sa prejde asi za pol minúty
 function loadJs(src,check){ return new Promise((res,rej)=>{ if(check())return res();
  let s=document.createElement('script'); s.src=src; s.onload=res; s.onerror=()=>rej(new Error(src)); document.head.appendChild(s); }); }
@@ -1580,10 +1585,31 @@ function drawRoute(st){
  rvCum=[0]; for(let i=1;i<line.length;i++) rvCum.push(rvCum[i-1]+kmBetween(line[i-1],line[i]));
  rvGrow=L.polyline([line[0]],{color:'#E4B24C',weight:6,opacity:1,lineJoin:'round'}).addTo(rvMap);   // prejdené zlatou, nech je vidieť
  rvHead=null; rvAt=0; rvPassed=-1; stopAnim(true);
+ setupNarration(st);
  drawProfile(st);
  document.getElementById('rv_note').textContent='Ťuknutím na mapu pozastavíš, ďalším ťuknutím pokračuješ.';
  setTimeout(()=>{ if(!rvAnim && rvAt===0) toggleAnim(); },900);   // rozbehne sa samo
 }
+// ---- hovorený komentár: keď je, je pánom času a jazdec ide podľa neho ----
+function setupNarration(st){
+ if(rvAudio){ try{ rvAudio.pause(); }catch(e){} rvAudio=null; }
+ let btn=document.getElementById('rv_snd');
+ if(!st.narr){ if(btn) btn.classList.remove('on'); return; }
+ rvAudio=new Audio(st.narr.file); rvAudio.preload='auto'; rvAudio.muted=rvMuted;
+ rvAudio.addEventListener('ended',()=>{ if(rvAnim) stopAnim(); });
+ if(btn){ btn.classList.add('on'); btn.textContent=rvMuted?'🔇':'🔊'; } }
+function toggleSound(){ rvMuted=!rvMuted;
+ if(rvAudio) rvAudio.muted=rvMuted;
+ let b=document.getElementById('rv_snd'); if(b) b.textContent=rvMuted?'🔇':'🔊'; }
+// z časových značiek dopočítame, kde má byť jazdec v danej sekunde nahrávky
+function kmAtTime(t){ let c=rvStage.narr.cues, total=rvCum[rvCum.length-1]||rvStage.km;
+ if(!c.length) return 0;
+ if(t<=c[0][0]) return c[0][1];
+ for(let i=0;i<c.length-1;i++){ let [t0,k0]=c[i], [t1,k1]=c[i+1];
+  if(t<t1){ let f=(t-t0)/Math.max(.001,t1-t0); return k0+(k1-k0)*f; } }
+ let [tl,kl]=c[c.length-1], dur=rvStage.narr.dur||tl+1;
+ let f=Math.min(1,(t-tl)/Math.max(.001,dur-tl));
+ return kl+(total-kl)*f; }
 // ---- prehrávanie trasy (kreslí sa a profil ide s ňou) ----
 function posAtKm(km){ let c=rvCum, ln=rvStage.line; if(!c.length)return ln[0];
  km=Math.max(0,Math.min(c[c.length-1],km));
@@ -1639,12 +1665,15 @@ function stepAnim(ts){ if(!rvAnim)return;
  if(rvAnim.holdUntil){ if(ts<rvAnim.holdUntil){ rvAnim.raf=requestAnimationFrame(stepAnim); return; }
   rvAnim.t0+=ts-rvAnim.holdStart; rvAnim.holdUntil=0; hideStopCard(); }
  let total=rvCum[rvCum.length-1]||rvStage.km;
- let km=total*((ts-rvAnim.t0)/1000)/ANIM_SEC;
+ let km = (rvAudio && rvStage.narr) ? kmAtTime(rvAudio.currentTime)
+                                    : total*((ts-rvAnim.t0)/1000)/ANIM_SEC;
  // došli sme k ďalšej zastávke? zastav presne na nej a ukáž špendlík
  let stops=rvStage.stops||[];
  for(let k=rvPassed+1;k<stops.length;k++){
   let s=stops[k]; if(s.km==null||km<s.km) break;
-  rvPassed=k; setAnimAt(s.km); rvAnim.done=s.km/total*ANIM_SEC*1000;
+  rvPassed=k;
+  if(rvAudio && rvStage.narr){ if(!s.pass) showStopCard(s); continue; }   // hlas rozpráva, nestojíme
+  setAnimAt(s.km); rvAnim.done=s.km/total*ANIM_SEC*1000;
   if(!s.pass){ showStopCard(s); rvAnim.holdStart=ts; rvAnim.holdUntil=ts+holdFor(s);
    rvAnim.t0=ts-rvAnim.done; rvAnim.raf=requestAnimationFrame(stepAnim); return; }
  }
@@ -1656,13 +1685,17 @@ function setPlayBtn(icon,title){ let o=document.getElementById('rv_paused'), m=d
  if(icon==='⏸'){ o.classList.remove('on'); if(m) m.classList.remove('paused'); }   // ide sa — ikonu schovaj
  else { o.textContent=icon; o.title=title||''; o.classList.add('on'); if(m) m.classList.add('paused'); } }
 function toggleAnim(){ if(!rvStage)return;
- if(rvAnim){ cancelAnimationFrame(rvAnim.raf); rvAnim=null; setPlayBtn('▶','Pokračovať'); return; }
+ if(rvAnim){ cancelAnimationFrame(rvAnim.raf); rvAnim=null;
+  if(rvAudio) try{ rvAudio.pause(); }catch(e){}
+  setPlayBtn('▶','Pokračovať'); return; }
  let total=rvCum[rvCum.length-1]||rvStage.km;
- if(rvAt>=total-0.01){ rvAt=0; rvPassed=-1; }               // po dojazde začni odznova
+ if(rvAt>=total-0.01){ rvAt=0; rvPassed=-1; if(rvAudio) try{ rvAudio.currentTime=0; }catch(e){} }   // po dojazde odznova
  rvAnim={raf:0,t0:0,done:rvAt/total*ANIM_SEC*1000};
+ if(rvAudio){ try{ rvAudio.play().catch(()=>{}); }catch(e){} }
  setPlayBtn('⏸','Pauza');
  rvAnim.raf=requestAnimationFrame(stepAnim); }
 function stopAnim(reset){ if(rvAnim){ cancelAnimationFrame(rvAnim.raf); rvAnim=null; }
+ if(rvAudio){ try{ rvAudio.pause(); if(reset) rvAudio.currentTime=0; }catch(e){} }
  setPlayBtn(reset?'▶':'↻', reset?'Prehrať':'Znova');
  if(reset){ rvAt=0; rvPassed=-1; hideStopCard(); let k=document.getElementById('rv_km'); if(k) k.classList.remove('on'); if(rvGrow&&rvStage) rvGrow.setLatLngs([rvStage.line[0]]);
   if(rvHead&&rvMap){ rvMap.removeLayer(rvHead); rvHead=null; } }
@@ -1725,6 +1758,7 @@ function kmBetween(a,b){ let p=Math.PI/180;
  let x=0.5-Math.cos((b[0]-a[0])*p)/2+Math.cos(a[0]*p)*Math.cos(b[0]*p)*(1-Math.cos((b[1]-a[1])*p))/2;
  return 12742*Math.asin(Math.sqrt(x)); }
 function closeRoute(){ let v=document.getElementById('routeview'); if(v) v.style.display='none';
+ if(rvAudio){ try{ rvAudio.pause(); }catch(e){} rvAudio=null; }
  if(rvWatch!=null){ navigator.geolocation.clearWatch(rvWatch); rvWatch=null; }
  if(rvMap){ rvMap.remove(); rvMap=null; } rvMe=null; rvDot=null; }
 // ---- Poznámky (zoznamy) ----
