@@ -1120,11 +1120,16 @@ async function saveWindow(cid){ let o=document.getElementById('op_'+cid), d=docu
  await loadAll();
  alert(!from&&!to ? 'Okno zrušené — zapisovať sa dá kedykoľvek ✅'
    : 'Zapisovanie: '+(from?fmtDeadline(from):'hneď')+' → '+(to?fmtDeadline(to):'bez konca')+' ✅'); }
+function wholeOnly(cp){ return rulesKind(cp)==='beers'; }   // pivá sa rátajú na kusy, nie na desatiny
 async function saveVal(cid){ if(!ME)return; let el=document.getElementById('nv_'+cid); if(!el)return;
+ let cp=S.comps.find(x=>x.id==cid)||{};
  let raw=el.value.trim().replace(',','.');
  if(!raw){ alert('Zadaj číslo.'); return; }
  let v=parseFloat(raw);
  if(isNaN(v)||v<0||v>20){ alert('Zadaj platné číslo (0–20).'); return; }
+ if(wholeOnly(cp)){
+  if(!/^\d+$/.test(raw)){ alert('Počet pív je celé číslo — napr. 7, nie 7,5.'); return; }
+  v=parseInt(raw,10); }
  let {error}=await sb.from('tdc_values').upsert({id:uid(),comp_id:cid,person:ME.name,val:v},{onConflict:'comp_id,person'});
  if(error){ alert(rlsMsg(error)); await loadAll(); return; }
  await loadAll(); }
@@ -1144,7 +1149,7 @@ function numBlock(cp){
   h+=`<div class="r" style="font-size:12px;color:${st=='closed'?'#c66':(st=='before'?'var(--mut)':'#E4B24C')}">${esc(txt)}</div>`;
  }
  if(ME && !closed){
-  h+=`<div class="admrow"><input id="nv_${cp.id}" inputmode="decimal" placeholder="Tvoje číslo (napr. 1,25)" value="${escA(fmtVal(mine))}" onkeydown="if(event.key==='Enter'){event.preventDefault();saveVal('${js1(cp.id)}');}"><button class="btn sm g" style="flex:0 0 96px" onclick="saveVal('${js1(cp.id)}')">${mine?'Uložiť':'Zapísať'}</button></div>`;
+  h+=`<div class="admrow"><input id="nv_${cp.id}" inputmode="${wholeOnly(cp)?'numeric':'decimal'}"${wholeOnly(cp)?' step="1" min="0"':''} placeholder="${wholeOnly(cp)?'Počet pív (celé číslo)':'Tvoje číslo (napr. 1,25)'}" value="${escA(fmtVal(mine))}" onkeydown="if(event.key==='Enter'){event.preventDefault();saveVal('${js1(cp.id)}');}"><button class="btn sm g" style="flex:0 0 96px" onclick="saveVal('${js1(cp.id)}')">${mine?'Uložiť':'Zapísať'}</button></div>`;
   if(mine) h+=`<div class="r" style="font-size:11px;color:var(--mut)">Svoje číslo môžeš meniť do uzávierky · <a class="lab" style="cursor:pointer" onclick="delVal('${js1(cp.id)}')">zmazať</a></div>`;
  }
  if(ME && closed && !mine) h+=`<div class="r" style="font-size:12px;color:var(--mut)">${st=='before'?'Zapisovanie sa ešte neotvorilo.':'Uzávierka prešla — svoje číslo si už nezapíšeš.'}</div>`;
