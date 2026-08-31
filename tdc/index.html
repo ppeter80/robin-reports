@@ -336,9 +336,13 @@ nav button{flex:1;background:none;border:none;color:var(--mut);padding:11px 2px 
 <script>
 const SB_URL='https://lultodbmyhawlpfgfhmg.supabase.co';
 const SB_KEY='sb_publishable_c5ke1M0NDYzff_s7miJAHg_tFNM-Cn3';
-const JOIN_PIN='2026', ADMIN_PIN='palo50';
+const JOIN_PIN='8012', ADMIN_PIN='palo50';
+// zmena PINu sama o sebe nikoho neodhlási — prihlásenie visí v localStorage.
+// Zvýš AUTH_V a všetkým telefónom vyskočí prihlasovacie okno.
+const AUTH_V='2';
 const sb = supabase.createClient(SB_URL, SB_KEY);
 const VAPID_PUBLIC='BO3HLckvkWtHJMq71x2OLioQCtS2nSHFx0mXGGLAEoMBHEp7FRAIec06z9ug4QkUDmrZAU59cbTf_p8cnDEhbRI';
+if(localStorage.getItem('tdc_auth_v')!==AUTH_V){ localStorage.removeItem('tdc_me'); localStorage.removeItem('tdc_lastSeen'); }
 let ME = JSON.parse(localStorage.getItem('tdc_me')||'null');
 let ADMIN=false, pendingPhoto=null, replyTo=null, openMsg=null, stick=true, openTeam=null, teamMode=null, openResults=null;
 let openRules=null, openTast=null, tdrafts={}, newCompType='ind', newComp={name:'',pts:'',beers:''}, galFilter=null;
@@ -354,7 +358,7 @@ function rid(){ return Math.random().toString(36).slice(2,10)+Math.random().toSt
 async function doJoin(){ let n=document.getElementById('g-name').value.trim(), p=document.getElementById('g-pin').value.trim();
  if(!n){alert('Zadaj meno');return;} if(p!==JOIN_PIN){alert('Nesprávny PIN');return;}
  await sb.from('tdc_participants').upsert({name:n},{onConflict:'name'});
- ME={name:n}; localStorage.setItem('tdc_me',JSON.stringify(ME)); boot(); }
+ ME={name:n}; localStorage.setItem('tdc_me',JSON.stringify(ME)); localStorage.setItem('tdc_auth_v',AUTH_V); boot(); }
 function logout(){ localStorage.removeItem('tdc_me'); ME=null; ADMIN=false; acctOpen=false;
  renderAcct(); renderAll(); }
 function openGate(){ document.getElementById('gate').style.display='flex';
