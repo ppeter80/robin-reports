@@ -1192,9 +1192,14 @@ async function delBeer(cid,idx){ let key=loadKey(cid)||[], items=tItems(cid), nm
  key.splice(idx,1); saveKey(cid,key); await loadAll(); }
 function saveKey(cid,arr){ localStorage.setItem('tdc_key_'+cid,JSON.stringify(arr)); }
 function loadKey(cid){ try{ return JSON.parse(localStorage.getItem('tdc_key_'+cid)||'null'); }catch(e){ return null; } }
-function tItems(cid){ return S.titems.filter(i=>i.comp_id==cid); }
+// num===0 = matúca možnosť: je v ponuke na tipovanie, ale nie je fľašou
+const DECOY=0;
+function tAll(cid){ return S.titems.filter(i=>i.comp_id==cid); }
+function tItems(cid){ return tAll(cid).filter(i=>i.num!==DECOY); }      // len fľaše
 function tRevealed(cp){ let it=tItems(cp.id); return it.length>0 && it.every(i=>i.num!=null); }
-function tNames(cid){ return tItems(cid).map(i=>i.name).sort((a,b)=>a.localeCompare(b,'sk')); }
+function tNames(cid){ return tAll(cid).map(i=>i.name).sort((a,b)=>a.localeCompare(b,'sk')); }   // ponuka = fľaše + matúce
+function tBottleNames(cid){ return tItems(cid).map(i=>i.name).sort((a,b)=>a.localeCompare(b,'sk')); }
+function tDecoys(cid){ return tAll(cid).filter(i=>i.num===DECOY).length; }
 function tTruth(cid){ let m={}; tItems(cid).forEach(i=>{ if(i.num!=null) m[i.num]=i.name; }); return m; }
 function tPickOf(cid,person,num){ let p=S.tpicks.find(x=>x.comp_id==cid&&x.person==person&&x.num==num); return p?(p.pick||''):''; }
 function tDraft(cid,num){ let d=tdrafts[cid]; if(d && d[num]!=null) return d[num]; return ME?tPickOf(cid,ME.name,num):''; }
@@ -1209,13 +1214,13 @@ function tastingBlock(cp){
  let tipped=new Set(S.tpicks.filter(p=>p.comp_id==cp.id).map(p=>p.person)).size;
  let h='';
  if(!rev){
-  h+= n ? `<div class="r" style="font-size:12px;color:var(--mut)">${n} fliaš · tipovalo ${tipped} ${tipped==1?'človek':(tipped<5?'ľudia':'ľudí')} · výsledky zatiaľ skryté</div>`
+  h+= n ? `<div class="r" style="font-size:12px;color:var(--mut)">${n} fliaš${tDecoys(cp.id)?' · na výber '+names.length+' pív':''} · tipovalo ${tipped} ${tipped==1?'človek':(tipped<5?'ľudia':'ľudí')} · výsledky zatiaľ skryté</div>`
         : `<div class="r" style="font-size:12px;color:var(--mut)">Organizátor ešte nepridal pivá.</div>`;
   if(ME && n){
    let mine=S.tpicks.filter(p=>p.comp_id==cp.id&&p.person==ME.name).length;
    h+=`<button class="btn sm g" onclick="toggleTast('${js1(cp.id)}')">🍺 ${mine?'Upraviť moje tipy ('+mine+')':'Tipovať'} ${open?'▲':'▼'}</button>`;
    if(open){
-    h+='<div class="resform"><div class="r" style="font-size:11px;color:var(--mut)">Pri každej fľaši vyber pivo. Nevyplnené = neochutnal/netipujem. To isté pivo môžeš dať aj viackrát.</div>';
+    h+=`<div class="resform"><div class="r" style="font-size:11px;color:var(--mut)">Pri každej fľaši vyber pivo. ${tDecoys(cp.id)?'V ponuke je <b>'+names.length+'</b> pív, ale fliaš je len <b>'+n+'</b> — nie každé pivo v zozname sa naozaj leje. ':''}Nevyplnené = neochutnal/netipujem. To isté pivo môžeš dať aj viackrát.</div>`;
     for(let k=1;k<=n;k++){ let cur=tDraft(cp.id,k);
      h+=`<div class="resrow"><span>Fľaša <b>${k}</b></span><select id="tp_${cp.id}_${k}" style="flex:2;width:auto;margin-top:0;padding:7px" onchange="setDraft('${js1(cp.id)}',${k},this.value)"><option value="">—</option>`+
         names.map(nm=>`<option value="${esc(nm)}"${nm===cur?' selected':''}>${esc(nm)}</option>`).join('')+`</select></div>`; }
@@ -1226,7 +1231,7 @@ function tastingBlock(cp){
    let key=loadKey(cp.id)||[], ok=(key.length===n||!n), anyTips=S.tpicks.some(p=>p.comp_id==cp.id);
    h+='<hr style="border-color:rgba(228,178,76,.2);margin:12px 0"><div class="r" style="font-size:12px"><b>ADMIN</b></div>';
    if(n && !ok) h+=`<div class="hint">⚠️ Kľúč v tomto zariadení nesedí (${key.length} vs ${n} pív) — súťaž si zakladal inde alebo bol vymazaný. Vlož poradie fliaš, jedno pivo na riadok, riadok 1 = fľaša 1:</div>
-     <textarea id="tk_${cp.id}" rows="4" placeholder="Poradie fliaš…" style="resize:vertical">${esc(names.join('\n'))}</textarea>
+     <textarea id="tk_${cp.id}" rows="4" placeholder="Poradie fliaš…" style="resize:vertical">${esc(tBottleNames(cp.id).join('\n'))}</textarea>
      <button class="btn sm" onclick="restoreKey('${js1(cp.id)}')">Načítať kľúč</button>`;
    if(ok && n) h+=`<div class="hint">🔖 Označenie fliaš (vidíš len ty na tomto telefóne):<br>${key.map((b,i)=>(i+1)+' = '+esc(b)).join('<br>')}<br><br>Odfoť/zapíš si to — kľúč nie je v databáze.</div>`;
    if(ok) h+=`<div class="admrow"><input id="nb_${cp.id}" placeholder="Ďalšie pivo = fľaša ${n+1}" onkeydown="if(event.key==='Enter'){event.preventDefault();addBeer('${js1(cp.id)}');}"><button class="btn sm g" style="flex:0 0 96px" onclick="addBeer('${js1(cp.id)}')">➕ Pridať</button></div>`;
