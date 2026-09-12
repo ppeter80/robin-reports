@@ -43,6 +43,9 @@ window.WW_I18N = {
     solo_hint: 'Zatiaľ si tu sám/sama – pozvi kamarátov a vznikne skupina. Dovtedy si výzvy vyberáš z knižnice.',
     pick_for_week: 'Vybrať výzvy na tento týždeň',
     no_items: 'nič',
+    login_sub: 'Zdravšie návyky spolu s ľuďmi, na ktorých ti záleží.', login_google: 'Pokračovať s Googlom', login_or: 'alebo e-mailom (bez hesla)', login_email_ph: 'tvoj@email.sk', login_magic: 'Poslať prihlasovací link', login_sent: 'Link je na ceste – pozri e-mail a klikni naň.',
+    consent_intro: 'Weekwell si ukladá, čo zapíšeš o svojom životnom štýle (napr. váha, spánok, alkohol). Sú to citlivé údaje – preto potrebujeme tvoj výslovný súhlas. Vidíš ich len ty; skupine sa zdieľa iba to, čo sám zapneš.', consent_age: 'Mám aspoň 16 rokov.', err_profile: 'Profil sa nepodarilo načítať – skús obnoviť stránku.',
+    sign_out: 'Odhlásiť sa', join_code: 'Mám kód pozvánky', join: 'Pripojiť sa', pause_hint: 'Počas pauzy sa nerátaš do skupinového % ani do rebríčka, streak sa zmrazí. Návrat kedykoľvek.', simulate: 'Simulovať výber',
   },
   en: {
     app: 'Weekwell',
@@ -87,6 +90,9 @@ window.WW_I18N = {
     solo_hint: "You're on your own for now – invite friends to form a group. Until then, pick challenges from the library.",
     pick_for_week: 'Pick challenges for this week',
     no_items: 'nothing',
+    login_sub: 'Healthier habits together with people you care about.', login_google: 'Continue with Google', login_or: 'or by e-mail (no password)', login_email_ph: 'you@email.com', login_magic: 'Send me a sign-in link', login_sent: 'Link is on its way – check your e-mail and tap it.',
+    consent_intro: 'Weekwell stores what you log about your lifestyle (e.g. weight, sleep, alcohol). This is sensitive data, so we need your explicit consent. Only you can see it; the group sees only what you choose to share.', consent_age: 'I am at least 16 years old.', err_profile: 'Could not load your profile – try reloading.',
+    sign_out: 'Sign out', join_code: 'I have an invite code', join: 'Join', pause_hint: "While paused you don't count toward the group % or the leaderboard and your streak is frozen. Come back any time.", simulate: 'Simulate selection',
   },
 };
 window.t = function (key, vars) {

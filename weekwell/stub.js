@@ -1,7 +1,9 @@
-// Weekwell — stub store (iterácia 0). Rovnaké API ako budúci Supabase store; dáta v localStorage.
-// Vzorová skupina: 4 členovia, bežiaci týždeň s 3 výzvami, návrhy na budúci týždeň, aktivita.
+// Weekwell — stub store (iterácia 0/1). Rovnaké async API ako store-supabase.js; dáta v localStorage.
+// API: init() → state; potom akcie (všetky async, po nich je WW_STORE.state aktuálny): setLog, clearLog, addProposal, removeProposal,
+// toggleVote, veto, toggleKudos, addComment, createInvite, joinGroup, setPause, addGoal, setGoalShare, setMetricEntry, updateProfile,
+// exportJSON, deleteAccount, simulateSelection (len stub), reset (len stub).
 (function () {
-  const KEY = 'ww_stub_v1';
+  const KEY = 'ww_stub_v2';
   const LIB = [
     ['movement','Hýb sa 30 min denne','Move 30 min a day','binary_daily',5,'days','medium'],
     ['movement','3 tréningy za týždeň','3 workouts this week','count_weekly',3,'sessions','medium'],
@@ -46,54 +48,62 @@
   ].map((r, i) => ({ id: 'lib' + (i + 1), category: r[0], title_sk: r[1], title_en: r[2], type: r[3], target: r[4], unit: r[5], difficulty: r[6], proof: 'optional', source: 'library' }));
 
   function monday(d) { const x = new Date(d); const day = (x.getDay() + 6) % 7; x.setDate(x.getDate() - day); x.setHours(0, 0, 0, 0); return x; }
-  function iso(d) { return d.toISOString().slice(0, 10); }
+  function iso(d) { const z = new Date(d.getTime() - d.getTimezoneOffset() * 60000); return z.toISOString().slice(0, 10); }
+  const uid = () => 'x' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 
   function seed() {
     const ws = monday(new Date());
     const dates = [...Array(7)].map((_, i) => { const d = new Date(ws); d.setDate(ws.getDate() + i); return iso(d); });
-    const me = { id: 'u1', name: 'Peter', avatar: '🧔' };
-    const members = [me, { id: 'u2', name: 'Miša', avatar: '👩' }, { id: 'u3', name: 'Tomáš', avatar: '🧑' }, { id: 'u4', name: 'Zuza', avatar: '👱‍♀️' }];
-    const lib = LIB;
+    const members = [{ id: 'u1', name: 'Peter', avatar: '🧔' }, { id: 'u2', name: 'Miša', avatar: '👩' }, { id: 'u3', name: 'Tomáš', avatar: '🧑' }, { id: 'u4', name: 'Zuza', avatar: '👱‍♀️' }];
+    const lib = LIB; const T = (id) => lib.find((x) => x.id === id);
     const cur = { id: 'c1', week_start: iso(ws), status: 'running', dates, challenges: [
-      { id: 'cc1', tpl: lib.find(x => x.id === 'lib16'), slot: 1, source: 'vote_majority', votes: 3 },
-      { id: 'cc2', tpl: lib.find(x => x.id === 'lib3'), slot: 2, source: 'vote_rank', votes: 2 },
-      { id: 'cc3', tpl: lib.find(x => x.id === 'lib20'), slot: 3, source: 'library', votes: 0 },
-    ] };
-    const logs = {}; // key user|cc|date -> {done, value}
-    const todayIdx = Math.min((new Date().getDay() + 6) % 7, 6);
-    members.forEach(m => {
-      for (let i = 0; i < todayIdx; i++) {
-        const d = dates[i];
-        if (Math.random() < (m.id === 'u1' ? 0.75 : 0.6)) logs[m.id + '|cc1|' + d] = { done: true, src: 'self' };
-        if (Math.random() < 0.5) logs[m.id + '|cc2|' + d] = { value: +(2 + Math.random() * 2).toFixed(1), src: Math.random() < 0.5 ? 'proof' : 'self' };
-        if (Math.random() < 0.6) logs[m.id + '|cc3|' + d] = { done: true, src: 'self' };
-      }
-    });
+      { id: 'cc1', tpl: T('lib16'), slot: 1, source: 'vote_majority', votes: 3 }, { id: 'cc2', tpl: T('lib3'), slot: 2, source: 'vote_rank', votes: 2 }, { id: 'cc3', tpl: T('lib20'), slot: 3, source: 'library', votes: 0 } ] };
+    const logs = {}; const todayIdx = Math.min((new Date().getDay() + 6) % 7, 6);
+    members.forEach((m) => { for (let i = 0; i < todayIdx; i++) { const d = dates[i];
+      if (Math.random() < (m.id === 'u1' ? 0.75 : 0.6)) logs[m.id + '|cc1|' + d] = { done: true, src: 'self' };
+      if (Math.random() < 0.5) logs[m.id + '|cc2|' + d] = { value: +(2 + Math.random() * 2).toFixed(1), src: Math.random() < 0.5 ? 'proof' : 'self' };
+      if (Math.random() < 0.6) logs[m.id + '|cc3|' + d] = { done: true, src: 'self' }; } });
     const next = { id: 'c2', status: 'proposing', proposals: [
-      { id: 'p1', tpl: lib.find(x => x.id === 'lib10'), authors: ['u2'], votes: ['u3'], vetoed: false },
-      { id: 'p2', tpl: lib.find(x => x.id === 'lib31'), authors: ['u3', 'u4'], votes: ['u2'], vetoed: false },
-      { id: 'p3', tpl: lib.find(x => x.id === 'lib25'), authors: ['u4'], votes: [], vetoed: false },
-      { id: 'p4', tpl: lib.find(x => x.id === 'lib2'), authors: ['u1'], votes: ['u2', 'u3'], vetoed: false },
-      { id: 'p5', tpl: { id: 'cust1', category: 'lifestyle', title_sk: 'Ranná prechádzka so psom', title_en: 'Morning dog walk', type: 'binary_daily', target: 5, unit: 'days', difficulty: 'easy', proof: 'optional', source: 'custom' }, authors: ['u2'], votes: [], vetoed: false },
-    ], vetoes: {} /* by|against -> proposalId */ };
+      { id: 'p1', tpl: T('lib10'), authors: ['u2'], votes: ['u3'], vetoed: false }, { id: 'p2', tpl: T('lib31'), authors: ['u3', 'u4'], votes: ['u2'], vetoed: false },
+      { id: 'p3', tpl: T('lib25'), authors: ['u4'], votes: [], vetoed: false }, { id: 'p4', tpl: T('lib2'), authors: ['u1'], votes: ['u2', 'u3'], vetoed: false },
+      { id: 'p5', tpl: { id: 'cust1', category: 'lifestyle', title_sk: 'Ranná prechádzka so psom', title_en: 'Morning dog walk', type: 'binary_daily', target: 5, unit: 'days', difficulty: 'easy', proof: 'optional', source: 'custom' }, authors: ['u2'], votes: [], vetoed: false } ], vetoes: {} };
     const events = [
       { id: 'e1', user: 'u2', type: 'done', title: cur.challenges[0].tpl.title_sk, ts: Date.now() - 3600e3 * 5, kudos: { '👏': ['u3'] }, comments: [{ user: 'u3', text: 'Ide ti to!', ts: Date.now() - 3600e3 * 4 }] },
-      { id: 'e2', user: 'u3', type: 'done', title: cur.challenges[1].tpl.title_sk, ts: Date.now() - 3600e3 * 26, kudos: { '🔥': ['u1', 'u2'] }, comments: [] , proof: 'strava'},
-      { id: 'e3', user: 'u4', type: 'pause', ts: Date.now() - 3600e3 * 50, kudos: {}, comments: [] },
-      { id: 'e4', user: null, type: 'selected', ts: Date.now() - 3600e3 * 80, kudos: {}, comments: [] },
-    ];
+      { id: 'e2', user: 'u3', type: 'done', title: cur.challenges[1].tpl.title_sk, ts: Date.now() - 3600e3 * 26, kudos: { '🔥': ['u1', 'u2'] }, comments: [], proof: 'strava' },
+      { id: 'e3', user: 'u4', type: 'pause', ts: Date.now() - 3600e3 * 50, kudos: {}, comments: [] }, { id: 'e4', user: null, type: 'selected', ts: Date.now() - 3600e3 * 80, kudos: {}, comments: [] } ];
     const goals = [
       { id: 'g1', metric: 'weight', target: 84, share: false, entries: [...Array(8)].map((_, i) => ({ date: iso(new Date(ws.getTime() - (7 - i) * 7 * 864e5)), value: +(88.5 - i * 0.45 + (Math.random() - 0.5)).toFixed(1) })) },
-      { id: 'g2', metric: 'run_km', target: 20, share: true, entries: [...Array(8)].map((_, i) => ({ date: iso(new Date(ws.getTime() - (7 - i) * 7 * 864e5)), value: +(8 + i * 1.2 + Math.random() * 2).toFixed(1) })) },
-    ];
+      { id: 'g2', metric: 'run_km', target: 20, share: true, entries: [...Array(8)].map((_, i) => ({ date: iso(new Date(ws.getTime() - (7 - i) * 7 * 864e5)), value: +(8 + i * 1.2 + Math.random() * 2).toFixed(1) })) } ];
     const results = { u1: { streak: 3, extra: 1, hist: [100, 100, 100, 67, 100] }, u2: { streak: 1, extra: 2, hist: [100, 50, 100, 100, 83] }, u3: { streak: 0, extra: 0, hist: [67, 33, 100, 0, 50] }, u4: { streak: 0, extra: 1, hist: [100, 100, 0, 0, 0] } };
     return { me: 'u1', lang: 'sk', consent: true, group: { id: 'g1', name: 'Chalani & Zuza', emoji: '🚴', admin: 'u1', slots: 3, tz: 'Europe/Bratislava', members, paused: ['u4'] }, lib, cur, next, logs, events, goals, results, profile: { checkinTime: '20:30', notif: { checkin: true, reminder: true, social: true, proposals: true } } };
   }
 
   let S = null;
-  function load() { try { const raw = localStorage.getItem(KEY); if (raw) { S = JSON.parse(raw); if (S.cur && S.cur.week_start === iso(monday(new Date()))) return S; } } catch (e) {} S = seed(); save(); return S; }
-  function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }
-  function reset() { localStorage.removeItem(KEY); S = seed(); save(); return S; }
-
-  window.WW_STORE = { load, save, reset, get: () => S, LIB, monday, iso };
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} };
+  const me = () => S.group.members.find((m) => m.id === S.me);
+  const ST = {
+    LIB, monday, iso, get state() { return S; },
+    async init() { try { const raw = localStorage.getItem(KEY); if (raw) { S = JSON.parse(raw); if (S.cur && S.cur.week_start === iso(monday(new Date()))) return S; } } catch (e) {} S = seed(); save(); return S; },
+    async reset() { localStorage.removeItem(KEY); S = seed(); save(); return S; },
+    async setLog(cc, date, patch) { const k = S.me + '|' + cc + '|' + date; S.logs[k] = { ...(S.logs[k] || {}), ...patch }; save(); },
+    async clearLog(cc, date) { delete S.logs[S.me + '|' + cc + '|' + date]; save(); },
+    async addProposal(tpl) { const ex = S.next.proposals.find((p) => p.tpl.id === tpl.id); if (ex) { if (!ex.authors.includes(S.me)) ex.authors.push(S.me); } else S.next.proposals.push({ id: uid(), tpl, authors: [S.me], votes: [], vetoed: false }); save(); },
+    async removeProposal(pid) { S.next.proposals = S.next.proposals.filter((p) => p.id !== pid); save(); },
+    async toggleVote(pid) { const p = S.next.proposals.find((x) => x.id === pid); const i = p.votes.indexOf(S.me); if (i >= 0) p.votes.splice(i, 1); else p.votes.push(S.me); save(); },
+    async veto(pid, against) { const p = S.next.proposals.find((x) => x.id === pid); S.next.vetoes[S.me + '|' + against] = pid; p.vetoed = true; save(); },
+    async toggleKudos(eid, k) { const ev = S.events.find((x) => x.id === eid); ev.kudos[k] = ev.kudos[k] || []; const i = ev.kudos[k].indexOf(S.me); if (i >= 0) ev.kudos[k].splice(i, 1); else ev.kudos[k].push(S.me); save(); },
+    async addComment(eid, text) { S.events.find((x) => x.id === eid).comments.push({ user: S.me, text, ts: Date.now() }); save(); },
+    async createInvite() { return 'WW-' + S.group.id.toUpperCase() + '7K'; },
+    async joinGroup() { return S.group.id; },
+    async setPause(weeks) { const i = S.group.paused.indexOf(S.me); if (!weeks) { if (i >= 0) S.group.paused.splice(i, 1); } else if (i < 0) { S.group.paused.push(S.me); S.events.unshift({ id: uid(), user: S.me, type: 'pause', ts: Date.now(), kudos: {}, comments: [] }); } save(); },
+    async addGoal(g) { S.goals.push({ id: uid(), metric: g.metric, target: g.target, share: false, entries: g.start != null ? [{ date: iso(new Date()), value: g.start }] : [] }); save(); },
+    async setGoalShare(id, v) { S.goals.find((x) => x.id === id).share = v; save(); },
+    async setMetricEntry(id, date, value) { const g = S.goals.find((x) => x.id === id); g.entries = g.entries.filter((x) => x.date !== date); if (value != null) g.entries.push({ date, value }); g.entries.sort((a, b) => (a.date < b.date ? -1 : 1)); save(); },
+    async updateProfile(p) { if (p.name) me().name = p.name; if (p.lang) S.lang = p.lang; if (p.checkinTime) S.profile.checkinTime = p.checkinTime; if (p.notif) Object.assign(S.profile.notif, p.notif); save(); },
+    async exportJSON() { return JSON.stringify(S, null, 2); },
+    async deleteAccount() { localStorage.removeItem(KEY); },
+    async simulateSelection(fn) { S.next.simulated = fn(S); save(); },
+    async signOut() {},
+  };
+  window.WW_STORE = ST;
 })();

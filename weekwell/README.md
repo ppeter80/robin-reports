@@ -9,8 +9,10 @@ Social-accountability appka pre malú uzavretú skupinu: každý týždeň si sk
 | `index.html` | shell, 5 tabov, PWA meta, načítanie skriptov |
 | `config.js` | **všetky ⚙ parametre** (sloty, časy, limity, metriky, kudos) – jediné miesto s číslami |
 | `i18n.js` | **všetky texty** SK/EN – `t('key', {vars})`; do `app.js` sa text nepíše |
-| `stub.js` | stub store (iterácia 0): vzorová skupina, knižnica 40 výziev, dáta v `localStorage` (`ww_stub_v1`) |
-| `app.js` | UI + logika: výpočet % (spec 3.1), engine výberu (spec 4.3, demo tlačidlo „Simulovať výber“), check-in, hlasovanie/veto, kudos, komentáre, ciele + grafy, profil |
+| `stub.js` | stub store: vzorová skupina, knižnica 40 výziev, dáta v `localStorage` (`ww_stub_v2`); **rovnaké async API ako Supabase store** |
+| `store-supabase.js` | Supabase store (iterácia 1): číta/zapisuje tabuľky `ww_*`, RPC (`ww_create_invite`, `ww_join_group`, `ww_set_pause`, `ww_delete_me`), bucket `ww-proofs`; skladá stav v tvare stubu |
+| `auth.js` | prihlásenie Google + e-mail magic link (Supabase Auth), onboarding so súhlasom (GDPR), pripojenie cez `?j=KÓD` |
+| `app.js` | UI + logika: výpočet % (spec 3.1), engine výberu (spec 4.3 – klientske demo pre stub, naostro `ww_select_challenges` v SQL), check-in, hlasovanie/veto, kudos, komentáre, ciele + grafy, profil; všetky zápisy cez `WW_STORE.*` |
 | `styles.css` | true-black, mobile-first |
 | `manifest.json`, `sw.js`, `icon-*.png` | PWA (sw je zámerne bez cache) |
 | `supabase/schema.sql` | schéma pre iteráciu 1 (Supabase, RLS, cron) |

@@ -1,17 +1,17 @@
 // Weekwell — konfigurácia (⚙ parametre zo spec v0.3 kap. 14). Jediné miesto, kde sú čísla.
 window.WW_CONFIG = {
-  version: '0.1.0-it0',
-  stub: true,                       // true = in-memory/localStorage stub store (iterácia 0); false = Supabase
-  supabaseUrl: '',                  // doplní sa po založení projektu
-  supabaseKey: '',                  // publishable key
+  version: '0.2.0-it1',
+  stub: true,                       // true = stub store (vzorové dáta); false = Supabase (po Petrových 3 krokoch)
+  supabaseUrl: 'https://lultodbmyhawlpfgfhmg.supabase.co',           // projekt tipovačky (zdieľaný, tabuľky ww_*)
+  supabaseKey: 'sb_publishable_c5ke1M0NDYzff_s7miJAHg_tFNM-Cn3',     // publishable key – verejný, RLS chráni dáta
   slots: { default: 3, min: 2, max: 4 },
   categoryMaxPerCycle: 2,
-  schedule: {                       // pásmo skupiny
-    proposalsClose: { dow: 5, time: '18:00' },   // piatok
-    votingClose:    { dow: 0, time: '17:00' },   // nedeľa
+  schedule: {                       // pásmo skupiny; serverová logika v ww_tick() (supabase/ww_schema.sql)
+    proposalsClose: { dow: 5, time: '18:00' },
+    votingClose:    { dow: 0, time: '17:00' },
     selectionAt:    { dow: 0, time: '18:00' },
     cycleClose:     { dow: 0, time: '24:00' },
-    reportAt:       { dow: 1, time: '07:00' },   // pondelok
+    reportAt:       { dow: 1, time: '07:00' },
   },
   checkin: { defaultTime: '20:30', reminderDelayMin: 60 },
   streakPointsEveryNCycles: 2,
