@@ -110,6 +110,13 @@
       else await q(sb.from('ww_proposals').insert({ cycle_id: S.next.id, template_id: tplId, authors: [S.me] }));
       await reload();
     },
+    async updateProposal(pid, tpl) {
+      const p = S.next.proposals.find((x) => x.id === pid); const cur = p && p.tpl;
+      const fields = { title_sk: tpl.title_sk, title_en: tpl.title_en || tpl.title_sk, category: tpl.category, type: tpl.type, target: tpl.target, unit: tpl.unit, min_days: tpl.min_days || null, proof: tpl.proof || 'optional' }; if (tpl.description !== undefined) fields.description = tpl.description;
+      if (cur && cur.source === 'custom') { await q(sb.from('ww_challenge_templates').update(fields).eq('id', cur.id)); }
+      else { const row = await q(sb.from('ww_challenge_templates').insert({ ...fields, group_id: S.group.id, created_by: S.me }).select().single()); await q(sb.from('ww_proposals').update({ template_id: row.id }).eq('id', pid)); }
+      await reload();
+    },
     async removeProposal(pid) { const p = S.next.proposals.find((x) => x.id === pid); if (p.authors.length > 1) await q(sb.from('ww_proposals').update({ authors: p.authors.filter((a) => a !== S.me) }).eq('id', pid)); else await q(sb.from('ww_proposals').delete().eq('id', pid)); await reload(); },
     async toggleVote(pid) { const p = S.next.proposals.find((x) => x.id === pid); if (p.votes.includes(S.me)) await q(sb.from('ww_votes').delete().eq('cycle_id', S.next.id).eq('proposal_id', pid).eq('user_id', S.me)); else await q(sb.from('ww_votes').insert({ cycle_id: S.next.id, proposal_id: pid, user_id: S.me })); await reload(); },
     async veto(pid, against) { await q(sb.from('ww_vetoes').insert({ cycle_id: S.next.id, proposal_id: pid, by_user: S.me, against_user: against })); await reload(); },

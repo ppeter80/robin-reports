@@ -95,7 +95,7 @@
     const pRow = (p, mineFlag) => {
       const authors = p.authors.map((a) => member(a).name).join(', '); const voted = p.votes.includes(S.me); const vetoedByMe = Object.values(myVetoes).includes(p.id);
       const canVeto = !p.vetoed && !mineFlag && !p.authors.some((a) => myVetoes[S.me + '|' + a]) && ph !== 'selected';
-      const ctr = mineFlag ? `<button class="mini danger" data-delp="${p.id}">${t('delete')}</button>` : p.vetoed ? `<span class="pill bad">${t('vetoed')}</span>` : `<button class="mini ${voted ? 'primary' : ''}" data-vote="${p.id}" ${ph === 'selected' ? 'disabled' : ''}>${voted ? t('voted') : t('vote')}</button> <button class="mini ghost" data-veto="${p.id}" ${canVeto ? '' : 'disabled'}>${vetoedByMe ? '⛔' : t('veto')}</button>`;
+      const ctr = mineFlag ? `<button class="mini ghost" data-editp="${p.id}" ${ph === 'selected' ? 'disabled' : ''}>✏️</button> <button class="mini danger" data-delp="${p.id}">${t('delete')}</button>` : p.vetoed ? `<span class="pill bad">${t('vetoed')}</span>` : `<button class="mini ${voted ? 'primary' : ''}" data-vote="${p.id}" ${ph === 'selected' ? 'disabled' : ''}>${voted ? t('voted') : t('vote')}</button> <button class="mini ghost" data-veto="${p.id}" ${canVeto ? '' : 'disabled'}>${vetoedByMe ? '⛔' : t('veto')}</button>`;
       return `<div class="item" style="${p.vetoed ? 'opacity:.5' : ''}"><div class="ic">${CAT_ICON[(p.tpl || {}).category] || '🎯'}</div><div class="grow"><div class="t">${esc(tplTitle(p.tpl))}</div>${tplDesc(p.tpl)}<div class="s">${tplLine(p.tpl)} · ${esc(authors)} · ${p.votes.length} ${t('votes')}${p.tpl && p.tpl.source === 'custom' ? ` · <span class="pill">${t('custom').toLowerCase()}</span>` : ''}</div></div><div>${ctr}</div></div>`;
     };
     const vetoInfo = Object.keys(myVetoes).filter((k) => k.startsWith(S.me + '|')).map((k) => t('veto_used', { name: member(k.split('|')[1]).name })).join(' · ');
@@ -268,7 +268,7 @@
 
   document.addEventListener('click', (e) => {
     if (!S) return;
-    const el = e.target.closest('[data-tab],[data-d],[data-chk],[data-proof],[data-propose],[data-vote],[data-veto],[data-delp],[data-sim],[data-lb],[data-kudos],[data-csend],[data-invite],[data-join],[data-pause],[data-addgoal],[data-lang],[data-export],[data-delacc],[data-reset],[data-signout],[data-view],[data-member],[data-storybtn],[data-photobtn],[data-delphoto],[data-avatar-btn],[data-editgoal],[data-delgoal],[data-catchup],[data-theme],[data-rpropose],[data-rvote],[data-rrevoke],[data-chatsend],[data-gsettings]');
+    const el = e.target.closest('[data-tab],[data-d],[data-chk],[data-proof],[data-propose],[data-vote],[data-veto],[data-delp],[data-sim],[data-lb],[data-kudos],[data-csend],[data-invite],[data-join],[data-pause],[data-addgoal],[data-lang],[data-export],[data-delacc],[data-reset],[data-signout],[data-view],[data-member],[data-storybtn],[data-photobtn],[data-delphoto],[data-avatar-btn],[data-editgoal],[data-delgoal],[data-catchup],[data-theme],[data-rpropose],[data-rvote],[data-rrevoke],[data-chatsend],[data-gsettings],[data-editp]');
     if (!el) return; const d = el.dataset;
     if (d.gsettings) { groupSheet(); return; }
     if (d.view) { viewer(d.view, d.cap); return; }
@@ -292,29 +292,8 @@
       return;
     }
     if (d.propose === 'lib') { const sh = sheet(`<div class="h2">${t('from_library')}</div><input data-libq placeholder="🔍" class="mb"><div data-liblist>${libList('')}</div>`); sh.addEventListener('input', (ev) => { if (ev.target.matches('[data-libq]')) sh.querySelector('[data-liblist]').innerHTML = libList(ev.target.value); }); sh.addEventListener('click', (ev) => { const b = ev.target.closest('[data-pick]'); if (!b) return; const tp = S.lib.find((x) => x.id === b.dataset.pick); sh.remove(); act(() => ST.addProposal(tp)); }); return; }
-    if (d.propose === 'custom') {
-      const sh = sheet(`<div class="h2">${t('custom')}</div>
-        <label>${t('title')}</label><input data-c="title" maxlength="60" placeholder="${t('custom_title_ph')}">
-        <label>${t('description')}</label><input data-c="desc" maxlength="200" placeholder="${t('custom_desc_ph')}">
-        <div class="grid2"><div><label>${t('category')}</label><select data-c="category">${C.categories.map((c) => `<option value="${c}">${t('cat_' + c)}</option>`).join('')}</select></div><div><label>${t('type')}</label><select data-c="type"><option value="binary_daily">${t('type_binary_daily')}</option><option value="count_weekly">${t('type_count_weekly')}</option><option value="count_daily">${t('type_count_daily')}</option><option value="once">${t('type_once')}</option></select></div></div>
-        <div data-cwrap="binary_daily"><label>${t('days_per_week')}</label><select data-c="days">${[1, 2, 3, 4, 5, 6, 7].map((n) => `<option value="${n}" ${n === 5 ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
-        <div data-cwrap="count" hidden><div class="grid2"><div><label>${t('target')}</label><input type="number" inputmode="decimal" data-c="target" placeholder="10"></div><div><label>${t('unit')}</label><input data-c="unit" placeholder="${t('unit_ph')}"></div></div><div data-cwrap="count_daily" hidden><label>${t('min_days')}</label><select data-c="min_days">${[1, 2, 3, 4, 5, 6, 7].map((n) => `<option value="${n}" ${n === 5 ? 'selected' : ''}>${n}</option>`).join('')}</select></div></div>
-        <label class="row mt"><input type="checkbox" style="width:auto" data-c="proof"> <span>${t('proof_required')}</span></label>
-        <div class="row mt"><button class="primary" data-csave="1">${t('save')}</button><button data-cx="1">${t('cancel')}</button></div>`);
-      const sync = () => { const ty = sh.querySelector('[data-c="type"]').value; sh.querySelector('[data-cwrap="binary_daily"]').hidden = ty !== 'binary_daily'; sh.querySelector('[data-cwrap="count"]').hidden = !(ty === 'count_weekly' || ty === 'count_daily'); sh.querySelector('[data-cwrap="count_daily"]').hidden = ty !== 'count_daily'; };
-      sh.addEventListener('change', (ev) => { if (ev.target.matches('[data-c="type"]')) sync(); });
-      sh.addEventListener('click', (ev) => {
-        if (ev.target.closest('[data-cx]')) { sh.remove(); return; } const btn = ev.target.closest('[data-csave]'); if (!btn || btn.disabled) return;
-        const g = (k) => { const el = sh.querySelector(`[data-c="${k}"]`); return el ? (el.type === 'checkbox' ? el.checked : el.value) : ''; };
-        const title = String(g('title')).trim(); if (!title) return; const ty = g('type');
-        const tpl = { id: C.stub ? 'cust' + Date.now() : null, category: g('category'), title_sk: title, title_en: title, description: String(g('desc')).trim().slice(0, 200) || null, type: ty, proof: g('proof') ? 'required' : 'optional', source: 'custom' };
-        if (ty === 'binary_daily') { tpl.target = +g('days') || 5; tpl.unit = 'days'; }
-        else if (ty === 'once') { tpl.target = 1; tpl.unit = '—'; }
-        else { tpl.target = +g('target'); if (!tpl.target) return; tpl.unit = String(g('unit')).trim() || '×'; if (ty === 'count_daily') tpl.min_days = +g('min_days') || 5; }
-        btn.disabled = true; sh.remove(); act(() => ST.addProposal(tpl));
-      });
-      return;
-    }
+    if (d.propose === 'custom') { challengeForm(null); return; }
+    if (d.editp) { const p = S.next.proposals.find((x) => x.id === d.editp); if (p) challengeForm(p); return; }
     if (d.vote) return act(() => ST.toggleVote(d.vote));
     if (d.veto) { const p = S.next.proposals.find((x) => x.id === d.veto); const against = p.authors.find((a) => a !== S.me) || p.authors[0]; if (!confirm(t('veto_confirm', { title: tplTitle(p.tpl), name: member(against).name }) + '\n\n' + t('veto_ethics'))) return; return act(() => ST.veto(d.veto, against)); }
     if (d.delp) return act(() => ST.removeProposal(d.delp));
@@ -336,6 +315,30 @@
     if (d.reset) { act(async () => { await ST.reset(); location.reload(); }); return; }
     if (d.signout) { act(async () => { await ST.signOut(); location.reload(); }); return; }
   });
+  function challengeForm(prop) {
+    const tp = prop ? prop.tpl : null; const v0 = (k, d) => (tp && tp[k] != null ? tp[k] : d);
+    const sh = sheet(`<div class="h2">${prop ? t('edit_challenge') : t('custom')}</div>
+      <label>${t('title')}</label><input data-c="title" maxlength="60" placeholder="${t('custom_title_ph')}" value="${esc(v0('title_sk', ''))}">
+      <label>${t('description')}</label><input data-c="desc" maxlength="200" placeholder="${t('custom_desc_ph')}" value="${esc(v0('description', '') || '')}">
+      <div class="grid2"><div><label>${t('category')}</label><select data-c="category">${C.categories.map((c) => `<option value="${c}" ${v0('category', 'movement') === c ? 'selected' : ''}>${t('cat_' + c)}</option>`).join('')}</select></div><div><label>${t('type')}</label><select data-c="type">${['binary_daily', 'count_weekly', 'count_daily', 'once'].map((k) => `<option value="${k}" ${v0('type', 'binary_daily') === k ? 'selected' : ''}>${t('type_' + k)}</option>`).join('')}</select></div></div>
+      <div data-cwrap="binary_daily"><label>${t('days_per_week')}</label><select data-c="days">${[1, 2, 3, 4, 5, 6, 7].map((n) => `<option value="${n}" ${(tp && tp.type === 'binary_daily' ? tp.target : 5) === n ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
+      <div data-cwrap="count" hidden><div class="grid2"><div><label>${t('target')}</label><input type="number" inputmode="decimal" data-c="target" placeholder="10" value="${tp && tp.type !== 'binary_daily' && tp.type !== 'once' ? tp.target : ''}"></div><div><label>${t('unit')}</label><input data-c="unit" placeholder="${t('unit_ph')}" value="${esc(tp && tp.type !== 'binary_daily' && tp.type !== 'once' ? tp.unit : '')}"></div></div><div data-cwrap="count_daily" hidden><label>${t('min_days')}</label><select data-c="min_days">${[1, 2, 3, 4, 5, 6, 7].map((n) => `<option value="${n}" ${(v0('min_days', 5)) === n ? 'selected' : ''}>${n}</option>`).join('')}</select></div></div>
+      <label class="row mt"><input type="checkbox" style="width:auto" data-c="proof" ${v0('proof', 'optional') === 'required' ? 'checked' : ''}> <span>${t('proof_required')}</span></label>
+      <div class="row mt"><button class="primary" data-csave="1">${t('save')}</button><button data-cx="1">${t('cancel')}</button></div>`);
+    const sync = () => { const ty = sh.querySelector('[data-c="type"]').value; sh.querySelector('[data-cwrap="binary_daily"]').hidden = ty !== 'binary_daily'; sh.querySelector('[data-cwrap="count"]').hidden = !(ty === 'count_weekly' || ty === 'count_daily'); sh.querySelector('[data-cwrap="count_daily"]').hidden = ty !== 'count_daily'; };
+    sync(); sh.addEventListener('change', (ev) => { if (ev.target.matches('[data-c="type"]')) sync(); });
+    sh.addEventListener('click', (ev) => {
+      if (ev.target.closest('[data-cx]')) { sh.remove(); return; } const btn = ev.target.closest('[data-csave]'); if (!btn || btn.disabled) return;
+      const g = (k) => { const el = sh.querySelector(`[data-c="${k}"]`); return el ? (el.type === 'checkbox' ? el.checked : el.value) : ''; };
+      const title = String(g('title')).trim(); if (!title) return; const ty = g('type');
+      const tpl = { id: prop ? null : (C.stub ? 'cust' + Date.now() : null), category: g('category'), title_sk: title, title_en: title, description: String(g('desc')).trim().slice(0, 200) || null, type: ty, proof: g('proof') ? 'required' : 'optional', source: 'custom' };
+      if (ty === 'binary_daily') { tpl.target = +g('days') || 5; tpl.unit = 'days'; }
+      else if (ty === 'once') { tpl.target = 1; tpl.unit = '—'; }
+      else { tpl.target = +g('target'); if (!tpl.target) return; tpl.unit = String(g('unit')).trim() || '×'; if (ty === 'count_daily') tpl.min_days = +g('min_days') || 5; }
+      btn.disabled = true; sh.remove();
+      act(() => prop ? ST.updateProposal(prop.id, tpl) : ST.addProposal(tpl));
+    });
+  }
   function libList(qs) { const ql = qs.toLowerCase(); return S.lib.filter((tp) => !ql || tplTitle(tp).toLowerCase().includes(ql) || t('cat_' + tp.category).toLowerCase().includes(ql)).map((tp) => `<div class="libitem"><div class="cat">${CAT_ICON[tp.category]}</div><div class="grow"><div>${esc(tplTitle(tp))}</div><div class="small">${tplLine(tp)}</div></div><button class="mini" data-pick="${tp.id}">${t('add')}</button></div>`).join(''); }
   // #13 – kruhový cropper: drag prstom/myšou, zoom posuvníkom → štvorcový JPEG (out px)
   function cropSheet(file, out) {

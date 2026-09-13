@@ -90,6 +90,7 @@
     async setLog(cc, date, patch) { const k = S.me + '|' + cc + '|' + date; S.logs[k] = { ...(S.logs[k] || {}), ...patch }; save(); },
     async clearLog(cc, date) { delete S.logs[S.me + '|' + cc + '|' + date]; save(); },
     async addProposal(tpl) { const ex = S.next.proposals.find((p) => p.tpl.id === tpl.id); if (ex) { if (!ex.authors.includes(S.me)) ex.authors.push(S.me); } else S.next.proposals.push({ id: uid(), tpl, authors: [S.me], votes: [], vetoed: false }); save(); },
+    async updateProposal(pid, tpl) { const p = S.next.proposals.find((x) => x.id === pid); p.tpl = { ...p.tpl, ...tpl, id: p.tpl.source === 'custom' ? p.tpl.id : 'cust' + Date.now(), source: 'custom' }; save(); },
     async removeProposal(pid) { S.next.proposals = S.next.proposals.filter((p) => p.id !== pid); save(); },
     async toggleVote(pid) { const p = S.next.proposals.find((x) => x.id === pid); const i = p.votes.indexOf(S.me); if (i >= 0) p.votes.splice(i, 1); else p.votes.push(S.me); save(); },
     async veto(pid, against) { const p = S.next.proposals.find((x) => x.id === pid); S.next.vetoes[S.me + '|' + against] = pid; p.vetoed = true; save(); },
