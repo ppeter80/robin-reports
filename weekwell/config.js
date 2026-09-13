@@ -1,6 +1,6 @@
 // Weekwell — konfigurácia (⚙ parametre zo spec v0.3 kap. 14). Jediné miesto, kde sú čísla.
 window.WW_CONFIG = {
-  version: '0.3.0-profil',
+  version: '0.3.1-ciele',
   stub: false,                      // false = Supabase naostro (od 2026-09-13); true = vzorové dáta
   supabaseUrl: 'https://chekxmexwigvbqclrrin.supabase.co',           // projekt TipLab (zdieľaný, tabuľky ww_*) – Peter tam spustil SQL 2026-09-13
   supabaseKey: 'sb_publishable_73CPQ3p9-Eu_0k2KMGpMag_9kybj503',     // publishable key – verejný, RLS chráni dáta
@@ -25,6 +25,15 @@ window.WW_CONFIG = {
   library: { noRepeatCycles: 2 },
   kudos: ['👏', '🔥', '💪', '❤️', '😂'],
   categories: ['movement', 'nutrition', 'alcohol', 'sleep', 'mental', 'lifestyle'],
+  goalCategories: {                 // #8 – kategórie cieľov; metriky predvolené + 'custom' (vlastná)
+    movement: ['steps', 'run_km', 'time_5k', 'workouts'],
+    body:     ['weight', 'resting_hr', 'waist_cm'],
+    sleep:    ['sleep_h'],
+    alcohol:  ['af_days'],
+    nutrition:['water_l', 'veg_days'],
+    mental:   ['meditation_min', 'pages'],
+    other:    [],
+  },
   metrics: {
     weight:  { unit: 'kg',     dir: 'down', interval: 'weekly' },
     steps:   { unit: 'steps',  dir: 'up',   interval: 'daily' },
@@ -32,5 +41,11 @@ window.WW_CONFIG = {
     time_5k: { unit: 'min',    dir: 'down', interval: 'free' },
     af_days: { unit: 'days',   dir: 'up',   interval: 'daily' },
     sleep_h: { unit: 'h',      dir: 'up',   interval: 'daily' },
+    workouts:{ unit: 'sessions', dir: 'up', interval: 'free' },
+    waist_cm:{ unit: 'cm',     dir: 'down', interval: 'weekly' },
+    water_l: { unit: 'l',      dir: 'up',   interval: 'daily' },
+    veg_days:{ unit: 'days',   dir: 'up',   interval: 'daily' },
+    meditation_min: { unit: 'min', dir: 'up', interval: 'daily' },
+    pages:   { unit: 'pages',  dir: 'up',   interval: 'daily' },
   },
 };

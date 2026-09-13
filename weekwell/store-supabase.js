@@ -59,7 +59,7 @@
     // ciele
     const goalRows = await q(sb.from('ww_goals').select('*').eq('user_id', uid).eq('status', 'active').order('created_at'));
     const entries = goalRows.length ? await q(sb.from('ww_metric_entries').select('*').eq('user_id', uid).order('date')) : [];
-    const goals = goalRows.map((g) => ({ id: g.id, metric: g.metric, target: +g.target, share: g.share_progress, entries: entries.filter((e) => e.metric === g.metric).map((e) => ({ date: e.date, value: +e.value })) }));
+    const goals = goalRows.map((g) => ({ id: g.id, metric: g.metric, category: g.category || null, label: g.label || null, unit: g.unit || null, dir: g.direction, interval: g.interval, target: +g.target, share: g.share_progress, entries: entries.filter((e) => e.metric === g.metric).map((e) => ({ date: e.date, value: +e.value })) }));
     // výsledky (história uzavretých cyklov)
     const cycRows = await q(sb.from('ww_cycles').select('id,week_start').eq('group_id', group.id).eq('status', 'closed').order('week_start'));
     const resRows = cycRows.length ? await q(sb.from('ww_cycle_results').select('*').in('cycle_id', cycRows.map((c) => c.id))) : [];
@@ -99,7 +99,16 @@
     async createInvite() { return q(sb.rpc('ww_create_invite')); },
     async joinGroup(code) { const gid = await q(sb.rpc('ww_join_group', { p_code: code })); await reload(); return gid; },
     async setPause(weeks) { await q(sb.rpc('ww_set_pause', { p_weeks: weeks || 0 })); await reload(); },
-    async addGoal(g) { const m = C.metrics[g.metric]; await q(sb.from('ww_goals').insert({ user_id: S.me, metric: g.metric, direction: m.dir, target: g.target, start_value: g.start ?? null, interval: m.interval })); if (g.start != null) await q(sb.from('ww_metric_entries').upsert({ user_id: S.me, metric: g.metric, date: iso(new Date()), value: g.start }, { onConflict: 'user_id,metric,date' })); await reload(); },
+    async addGoal(g) {
+      const m = C.metrics[g.metric] || { dir: g.dir || 'up', interval: g.interval || 'free', unit: g.unit || '' };
+      const ex = S.goals.find((x) => x.metric === g.metric);           // #7: jeden aktívny cieľ na metriku → upraviť
+      if (ex) { await this.updateGoal(ex.id, { target: g.target, category: g.category, label: g.label, unit: g.unit, interval: g.interval }); return 'updated'; }
+      await q(sb.from('ww_goals').insert({ user_id: S.me, metric: g.metric, direction: g.dir || m.dir, target: g.target, start_value: g.start ?? null, interval: g.interval || m.interval, category: g.category || null, label: g.label || null, unit: g.unit || null }));
+      if (g.start != null) await q(sb.from('ww_metric_entries').upsert({ user_id: S.me, metric: g.metric, date: iso(new Date()), value: g.start }, { onConflict: 'user_id,metric,date' }));
+      await reload(); return 'added';
+    },
+    async updateGoal(id, p) { const row = {}; ['target', 'category', 'label', 'unit', 'interval', 'direction'].forEach((k) => { if (p[k] != null && p[k] !== '') row[k] = p[k]; }); if (p.dir) row.direction = p.dir; if (p.share != null) row.share_progress = p.share; await q(sb.from('ww_goals').update(row).eq('id', id)); await reload(); },
+    async deleteGoal(id) { await q(sb.from('ww_goals').update({ status: 'archived', archived_at: new Date().toISOString() }).eq('id', id)); await reload(); },
     async setGoalShare(id, v) { await q(sb.from('ww_goals').update({ share_progress: v }).eq('id', id)); S.goals.find((x) => x.id === id).share = v; },
     async setMetricEntry(id, date, value) { const g = S.goals.find((x) => x.id === id); if (value == null) await q(sb.from('ww_metric_entries').delete().eq('user_id', S.me).eq('metric', g.metric).eq('date', date)); else await q(sb.from('ww_metric_entries').upsert({ user_id: S.me, metric: g.metric, date, value }, { onConflict: 'user_id,metric,date' })); await reload(); },
     async updateProfile(p) { const row = {}; if (p.name) row.name = p.name; if (p.lang) row.locale = p.lang; if (p.checkinTime) row.checkin_time = p.checkinTime; if (p.notif) row.notif_prefs = { ...S.profile.notif, ...p.notif }; if (p.consent) row.consent_at = new Date().toISOString(); if (p.location != null) row.location = p.location; if (p.bio != null) row.bio = p.bio; if (p.stats) row.stats = { ...S.profile.stats, ...p.stats }; if (p.share) row.share_fields = { ...S.profile.share, ...p.share }; if (p.avatar_url !== undefined) row.avatar_url = p.avatar_url; await q(sb.from('ww_users').update(row).eq('id', S.me)); await reload(); },
