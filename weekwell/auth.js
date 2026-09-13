@@ -21,7 +21,10 @@
       <label class="row" style="margin:10px 0"><input type="checkbox" style="width:auto" data-age> <span class="small">${t('consent_age')}</span></label>
       <button class="primary mt" style="width:100%" data-go="1" disabled>${t('continue')}</button></div>`;
   }
+  const base = () => location.href.split('#')[0].split('?')[0];
+  const pendingJoin = () => { const j = new URLSearchParams(location.search).get('j'); if (j) { try { localStorage.setItem('ww_join', j); } catch (_) {} return j; } try { return localStorage.getItem('ww_join'); } catch (_) { return null; } };
   async function start() {
+    pendingJoin();   // kód pozvánky prežije OAuth/magic-link presmerovanie (v localStorage)
     if (C.stub) { await WW_STORE.init(); return { store: WW_STORE }; }
     if (!window.supabase) throw new Error('supabase-js not loaded');
     // lock: v Safari/PWA vie navigator.locks zablokovať getSession() natrvalo → bez zámku (jedna karta, jeden používateľ)
@@ -36,8 +39,8 @@
       await new Promise((resolve) => {
         if (!document.querySelector('[data-google]')) screen(loginHtml(''));
         document.querySelector('#main').addEventListener('click', async (e) => {
-          if (e.target.closest('[data-google]')) { await sb.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: location.href.split('#')[0].split('?')[0] } }); }
-          if (e.target.closest('[data-magic]')) { const em = document.querySelector('[data-email]').value.trim(); if (!em) return; const { error } = await sb.auth.signInWithOtp({ email: em, options: { emailRedirectTo: location.href.split('#')[0].split('?')[0] } }); screen(loginHtml(error ? error.message : t('login_sent'))); }
+          if (e.target.closest('[data-google]')) { const j = pendingJoin(); await sb.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: base() + (j ? '?j=' + encodeURIComponent(j) : '') } }); }
+          if (e.target.closest('[data-magic]')) { const em = document.querySelector('[data-email]').value.trim(); if (!em) return; const j = pendingJoin(); const { error } = await sb.auth.signInWithOtp({ email: em, options: { emailRedirectTo: base() + (j ? '?j=' + encodeURIComponent(j) : '') } }); screen(loginHtml(error ? error.message : t('login_sent'))); }
         });
         sb.auth.onAuthStateChange((_e, s) => { if (s) { session = s; resolve(); } });
       });
@@ -46,8 +49,8 @@
     let state; for (let i = 0; i < 6; i++) { try { state = await store.init(sb, session.user); break; } catch (err) { window.WW_LAST_ERR = err && (err.message || err.code || err); await new Promise((r) => setTimeout(r, 800)); } } // trigger môže chvíľu trvať
     if (!state) { screen(`<div class="card">${t('err_profile')}<div class="muted small mt">${esc(String(window.WW_LAST_ERR || ''))}</div><button class="mt" onclick="location.reload()">↻</button></div>`); throw new Error('profile'); }
     // pripojenie cez invite link ?j=KÓD
-    const j = new URLSearchParams(location.search).get('j');
-    if (j) { try { await store.joinGroup(j); } catch (err) { console.warn(err); } history.replaceState(null, '', location.pathname + location.hash); }
+    const j = pendingJoin();
+    if (j) { try { await store.joinGroup(j); } catch (err) { console.warn('join', err); window.WW_JOIN_ERR = err && (err.message || err); } try { localStorage.removeItem('ww_join'); } catch (_) {} history.replaceState(null, '', location.pathname + location.hash); }
     if (!state.consent) {
       await new Promise((resolve) => {
         screen(consentHtml(state.group.members.find((m) => m.id === state.me).name));
