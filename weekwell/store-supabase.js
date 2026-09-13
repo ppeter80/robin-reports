@@ -29,6 +29,12 @@
       const ph = await q(sb.from('ww_photos').select('*').eq('group_id', group.id).order('created_at', { ascending: false }).limit(120));
       if (ph.length) { const { data: signed } = await sb.storage.from('ww-photos').createSignedUrls(ph.map((p) => p.path), 6 * 3600); photos = ph.map((p, i) => ({ id: p.id, user: p.user_id, url: (signed && signed[i] && signed[i].signedUrl) || '', caption: p.caption || '', kind: p.kind, ts: new Date(p.created_at).getTime(), expires: p.expires_at ? new Date(p.expires_at).getTime() : null })); }
     } catch (e) { console.warn('photos', e); }
+    // zdieľané ciele členov (share_progress) + ich merania (fix11)
+    try {
+      const sg = await q(sb.from('ww_goals').select('*').eq('share_progress', true).eq('status', 'active').in('user_id', members.map((m) => m.id)));
+      const se = sg.length ? await q(sb.from('ww_metric_entries').select('user_id,metric,date,value').in('user_id', [...new Set(sg.map((g) => g.user_id))]).order('date')) : [];
+      members.forEach((m) => { m.goals = sg.filter((g) => g.user_id === m.id).map((g) => ({ id: g.id, metric: g.metric, category: g.category || null, label: g.label || null, unit: g.unit || null, dir: g.direction, interval: g.interval, target: +g.target, share: true, entries: se.filter((e) => e.user_id === m.id && e.metric === g.metric).map((e) => ({ date: e.date, value: +e.value })) })); });
+    } catch (e) { console.warn('shared goals', e); }
     members.forEach((m) => { m.story = photos.find((p) => p.kind === 'story' && p.user === m.id && (!p.expires || p.expires > Date.now())) || null; });
     const paused = mems.filter((m) => m.status === 'paused').map((m) => m.user_id);
     const ws = iso(monday(new Date())); const dates = [...Array(7)].map((_, i) => { const d = new Date(monday(new Date())); d.setDate(d.getDate() + i); return iso(d); });
