@@ -26,7 +26,7 @@ button.ghost{background:transparent}
 button.mini{padding:5px 9px;font-size:12px;border-radius:8px}
 button.danger{border-color:#7a2b2b;color:var(--bad)}
 button:disabled{opacity:.45;cursor:default}
-input,select,textarea{font:inherit;background:var(--card2);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:9px 10px;width:100%}
+input,select,textarea{font:inherit;font-size:16px;background:var(--card2);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:9px 10px;width:100%}   /* 16px = iOS Safari nezoomuje pri fokuse (inak sa spodná lišta ‚odtrhne') */
 input[type=number]{-moz-appearance:textfield}
 input[type=date]::-webkit-date-and-time-value{text-align:left}
 label{font-size:12px;color:var(--muted);display:block;margin:8px 0 4px}
@@ -131,3 +131,4 @@ input[type=range]{accent-color:var(--acc)}
 .pstats b{display:block;font-size:18px}
 .pstats span{font-size:11px;color:var(--muted)}
 [data-ccinfo]{cursor:pointer}
+nav.tabs{transform:translateZ(0)}
