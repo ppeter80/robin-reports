@@ -1,6 +1,6 @@
 // Weekwell — konfigurácia (⚙ parametre zo spec v0.3 kap. 14). Jediné miesto, kde sú čísla.
 window.WW_CONFIG = {
-  version: '0.3.2-odznaky',
+  version: '0.4.0-skupina',
   stub: false,                      // false = Supabase naostro (od 2026-09-13); true = vzorové dáta
   supabaseUrl: 'https://chekxmexwigvbqclrrin.supabase.co',           // projekt TipLab (zdieľaný, tabuľky ww_*) – Peter tam spustil SQL 2026-09-13
   supabaseKey: 'sb_publishable_73CPQ3p9-Eu_0k2KMGpMag_9kybj503',     // publishable key – verejný, RLS chráni dáta
@@ -25,6 +25,12 @@ window.WW_CONFIG = {
   library: { noRepeatCycles: 2 },
   kudos: ['👏', '🔥', '💪', '❤️', '😂'],
   categories: ['movement', 'nutrition', 'alcohol', 'sleep', 'mental', 'lifestyle'],
+  themes: {                         // #11 – farebné témy (CSS premenné)
+    green:  { bg: '#000000', card: '#111214', card2: '#191b1f', line: '#26282d', text: '#f3f4f6', muted: '#9aa0a6', acc: '#34d399', acc2: '#0f8f6a', dark: true },
+    blue:   { bg: '#05070d', card: '#0f1420', card2: '#161d2e', line: '#232c40', text: '#eef2ff', muted: '#98a2c0', acc: '#60a5fa', acc2: '#1d4ed8', dark: true },
+    orange: { bg: '#0a0705', card: '#171210', card2: '#211a16', line: '#33281f', text: '#fff5ee', muted: '#b3a094', acc: '#fb923c', acc2: '#c2410c', dark: true },
+    light:  { bg: '#f6f7f9', card: '#ffffff', card2: '#eef1f5', line: '#d9dee6', text: '#111827', muted: '#5b6472', acc: '#059669', acc2: '#047857', dark: false },
+  },
   goalCategories: {                 // #8 – kategórie cieľov; metriky predvolené + 'custom' (vlastná)
     movement: ['steps', 'run_km', 'time_5k', 'workouts'],
     body:     ['weight', 'resting_hr', 'waist_cm'],

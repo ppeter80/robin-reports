@@ -17,6 +17,10 @@
   const STATS = [['height_cm', 'cm'], ['weight_kg', 'kg'], ['birth_year', ''], ['resting_hr', 'bpm'], ['steps_avg', ''], ['sleep_avg', 'h']];
   function av(m, size) { size = size || 28; const ring = m.story ? 'story' : ''; const inner = m.avatar_url ? `<img src="${esc(m.avatar_url)}" alt="">` : `<span>${m.avatar && !String(m.avatar).startsWith('<') ? m.avatar : '👤'}</span>`; return `<span class="av ${ring}" style="width:${size}px;height:${size}px;font-size:${Math.round(size * 0.6)}px" data-member="${m.id}">${inner}</span>`; }
   const memberFull = (id) => S.group.members.find((m) => m.id === id) || { id, name: '?', avatar: '👤', stats: {}, share: {} };
+  function applyTheme(name) { const th = C.themes[name] || C.themes.green; const r = document.documentElement.style; r.setProperty('--bg', th.bg); r.setProperty('--card', th.card); r.setProperty('--card2', th.card2); r.setProperty('--line', th.line); r.setProperty('--text', th.text); r.setProperty('--muted', th.muted); r.setProperty('--acc', th.acc); r.setProperty('--acc2', th.acc2); document.body.classList.toggle('light', !th.dark); const m = document.querySelector('meta[name=theme-color]'); if (m) m.setAttribute('content', th.bg); try { localStorage.setItem('ww_theme', name); } catch (_) {} }
+  try { applyTheme(localStorage.getItem('ww_theme') || 'green'); } catch (_) {}
+  const MENU = [['chat', '💬'], ['rules', '📜'], ['progress', '📈'], ['profile', '👤']];
+  function renderMenu() { const mi = $('#menuin'); if (!mi) return; mi.innerHTML = MENU.map(([k, ic]) => `<a href="#${k}" data-tab="${k}" class="${WW_STATE.tab === k ? 'on' : ''}"><span>${ic}</span>${t('tab_' + k)}</a>`).join(''); }
   let toastT = null;
   function toast(msg) { let el = $('.toast'); if (!el) { el = document.createElement('div'); el.className = 'toast'; document.body.appendChild(el); } el.textContent = msg; clearTimeout(toastT); toastT = setTimeout(() => el.remove(), 1800); }
   async function act(fn) { try { await fn(); } catch (e) { console.error(e); toast('⚠️ ' + (e.message || e)); } S = ST.state; render(); }
@@ -115,7 +119,7 @@
     const rows = [...S.group.members].sort((a, b) => val(b) - val(a) || (R(b.id).badges || 0) - (R(a.id).badges || 0)).map((m, i) => `<tr class="${m.id === S.me ? 'me' : ''}"><td>${i + 1}</td><td>${av(m, 26)} ${esc(m.name)} ${m.id === S.group.admin ? `<span class="pill">${t('admin')}</span>` : ''} ${S.group.paused.includes(m.id) ? `<span class="pill warn">${t('paused')}</span>` : ''}</td><td class="small muted">🏅 ${R(m.id).badges || 0} · ${t('streak')} ${R(m.id).streak}</td><td class="pct">${P(val(m))}</td></tr>`).join('');
     const hl = Math.max(0, ...S.group.members.map((m) => R(m.id).hist.length));
     const ghist = [...Array(hl)].map((_, i) => { const a = avg(S.group.members.map((m) => R(m.id).hist[i] || 0)); return `<div style="flex:1;text-align:center"><div style="height:${a * 0.5}px;background:#0f8f6a;border-radius:3px 3px 0 0;margin:0 2px"></div><div class="muted" style="font-size:10px">${Math.round(a)}</div></div>`; }).join('');
-    const evTxt = (e) => e.type === 'badges' ? t('ev_badges', { name: member(e.user).name, n: e.n || 0, s: e.n || 0 }) : e.type === 'caught_up' ? t('ev_caught_up', { name: member(e.user).name, n: e.n || 0 }) : e.type === 'done' ? t('ev_done', { name: member(e.user).name, title: e.title || '' }) : e.type === 'photo' ? t('ev_photo', { name: member(e.user).name }) + (e.title ? ' – ' + e.title : '') : e.type === 'story' ? t('ev_story', { name: member(e.user).name }) + (e.title ? ' – ' + e.title : '') : e.type === 'pause' ? t('ev_pause', { name: member(e.user).name }) : e.type === 'selected' ? t('ev_selected') : e.type === 'extra' ? t('ev_extra', { name: member(e.user).name }) : e.type === 'join' ? t('ev_join', { name: member(e.user).name }) : e.type;
+    const evTxt = (e) => e.type === 'rule_proposed' ? t('ev_rule_proposed', { name: member(e.user).name, t: e.title || '' }) : e.type === 'rule_accepted' ? t('ev_rule_accepted', { t: e.title || '' }) : e.type === 'rule_rejected' ? t('ev_rule_rejected', { t: e.title || '' }) : e.type === 'badges' ? t('ev_badges', { name: member(e.user).name, n: e.n || 0, s: e.n || 0 }) : e.type === 'caught_up' ? t('ev_caught_up', { name: member(e.user).name, n: e.n || 0 }) : e.type === 'done' ? t('ev_done', { name: member(e.user).name, title: e.title || '' }) : e.type === 'photo' ? t('ev_photo', { name: member(e.user).name }) + (e.title ? ' – ' + e.title : '') : e.type === 'story' ? t('ev_story', { name: member(e.user).name }) + (e.title ? ' – ' + e.title : '') : e.type === 'pause' ? t('ev_pause', { name: member(e.user).name }) : e.type === 'selected' ? t('ev_selected') : e.type === 'extra' ? t('ev_extra', { name: member(e.user).name }) : e.type === 'join' ? t('ev_join', { name: member(e.user).name }) : e.type;
     const evs = [...S.events].sort((a, b) => b.ts - a.ts).map((e) => `<div class="ev"><div class="row"><div class="ic" style="font-size:20px">${e.type === 'badges' || e.type === 'caught_up' ? badgeSvg(e.n || 0, 30) : e.user ? av(memberFull(e.user), 30) : '🎲'}</div><div class="grow"><div>${esc(evTxt(e))} ${e.proof ? `<span class="pill acc">${t('src_proof')}</span>` : ''}</div><div class="muted small">${new Date(e.ts).toLocaleString(WW_STATE.lang === 'en' ? 'en-GB' : 'sk-SK', { weekday: 'short', hour: '2-digit', minute: '2-digit' })}</div></div></div>${e.photo ? `<img class="evphoto" src="${esc(e.photo)}" alt="" data-view="${esc(e.photo)}">` : ''}
       <div class="k">${C.kudos.map((k) => `<button class="${(e.kudos[k] || []).includes(S.me) ? 'on' : ''}" data-kudos="${e.id}" data-k="${k}">${k}${(e.kudos[k] || []).length ? ' ' + e.kudos[k].length : ''}</button>`).join('')}</div>
       ${e.comments.length ? `<div class="c">${e.comments.map((c) => `<div><b>${esc(member(c.user).name)}</b> ${esc(c.text)}</div>`).join('')}</div>` : ''}
@@ -173,6 +177,27 @@
     });
   }
 
+  // ---------- PRAVIDLÁ ----------
+  function viewRules() {
+    const others = (byId) => S.group.members.filter((m) => m.id !== byId && !S.group.paused.includes(m.id)).length;
+    const need = (r) => Math.floor(others(r.by) / 2) + 1;
+    const open = S.rules.filter((r) => r.status === 'proposed'); const active = S.rules.filter((r) => r.status === 'active' && r.kind === 'add'); const hist = S.rules.filter((r) => ['rejected', 'revoked'].includes(r.status));
+    const when = (ts) => new Date(ts).toLocaleDateString(WW_STATE.lang === 'en' ? 'en-GB' : 'sk-SK');
+    const openRow = (r) => { const mine = r.by === S.me; const my = r.yes.includes(S.me) ? 'y' : r.no.includes(S.me) ? 'n' : ''; return `<div class="rule"><div class="txt">${r.kind === 'revoke' ? '🗑 ' : ''}${esc(r.text)}</div><div class="meta">${t('rule_by', { name: member(r.by).name })} · ${when(r.ts)} · ${t('rule_votes', { y: r.yes.length, n: r.no.length, k: need(r) })}</div>${mine ? `<div class="muted small mt">${t('own_proposal')}</div>` : `<div class="row mt"><button class="mini ${my === 'y' ? 'primary' : ''}" data-rvote="${r.id}" data-v="1">${t('rule_yes')}</button><button class="mini ${my === 'n' ? 'danger' : ''}" data-rvote="${r.id}" data-v="0">${t('rule_no')}</button></div>`}</div>`; };
+    const activeRow = (r) => `<div class="rule"><div class="txt">✅ ${esc(r.text)}</div><div class="meta">${t('rule_by', { name: member(r.by).name })} · ${t('rule_since')} ${when(r.decided || r.ts)} ${S.rules.some((x) => x.kind === 'revoke' && x.target === r.id && x.status === 'proposed') ? '' : `· <a href="#" data-rrevoke="${r.id}">${t('rule_revoke')}</a>`}</div></div>`;
+    const histRow = (r) => `<div class="rule" style="opacity:.6"><div class="txt">${esc(r.text)}</div><div class="meta">${t('rule_' + r.status)} · ${when(r.decided || r.ts)}</div></div>`;
+    return `
+      <div class="card"><h3>${t('rules')}</h3><div class="muted small">${t('rules_hint')}</div><div class="row mt"><input data-ruletext placeholder="${t('rule_ph')}" maxlength="300"><button class="primary" data-rpropose="1">➕</button></div></div>
+      <div class="card"><h3>${t('rules_open')} (${open.length})</h3>${open.map(openRow).join('') || `<div class="muted small">${t('no_items')}</div>`}</div>
+      <div class="card"><h3>${t('rules_active')} (${active.length})</h3>${active.map(activeRow).join('') || `<div class="muted small">${t('rules_none')}</div>`}</div>
+      ${hist.length ? `<div class="card"><h3>${t('rule_history')}</h3>${hist.map(histRow).join('')}</div>` : ''}`;
+  }
+  // ---------- CHAT ----------
+  function viewChat() {
+    const msgs = S.messages.map((m) => `<div class="msg ${m.user === S.me ? 'me' : ''}"><div class="who">${esc(member(m.user).name)}</div>${esc(m.text)}<div class="when">${new Date(m.ts).toLocaleString(WW_STATE.lang === 'en' ? 'en-GB' : 'sk-SK', { weekday: 'short', hour: '2-digit', minute: '2-digit' })}</div></div>`).join('');
+    setTimeout(() => { const el = $('#chatend'); if (el) el.scrollIntoView(); }, 0);
+    return `<div class="card"><h3>${t('chat')} · ${esc(S.group.emoji)} ${esc(S.group.name)}</h3><div class="chat">${msgs || `<div class="muted small">${t('chat_empty')}</div>`}<div id="chatend"></div></div></div><div class="chatin row"><input data-chatin placeholder="${t('chat_ph')}" maxlength="500" autocomplete="off"><button class="primary" data-chatsend="1">${t('send')}</button></div>`;
+  }
   // ---------- PROFIL ----------
   function statRow(k, u, val, share, editable) {
     const lab = t('st_' + k);
@@ -195,6 +220,7 @@
       <div class="card"><h3>${t('my_data')}</h3><div class="muted small mb">${t('my_data_hint')}</div>${STATS.map(([k, u]) => statRow(k, u, st[k], sh[k], true)).join('')}</div>
       <div class="card"><div class="row between"><h3 style="margin:0">${t('my_photos')}</h3><button class="mini primary" data-photobtn="1">➕ ${t('add_photo')}</button><input type="file" accept="image/*" data-photofile hidden></div><div class="mt">${gallery(S.me, true)}</div></div>
       <div class="card"><h3>${t('language')} · ${t('checkin_time')}</h3><div class="row"><div class="seg">${['sk', 'en'].map((l) => `<button class="${WW_STATE.lang === l ? 'on' : ''}" data-lang="${l}">${l.toUpperCase()}</button>`).join('')}</div><input type="time" data-cktime="1" value="${S.profile.checkinTime}" style="width:auto"></div></div>
+      <div class="card"><h3>${t('theme')}</h3><div class="themes">${Object.keys(C.themes).map((k) => `<div class="theme ${(S.theme || localStorage.getItem('ww_theme') || 'green') === k ? 'on' : ''}" data-theme="${k}" title="${t('theme_' + k)}" style="background:linear-gradient(135deg,${C.themes[k].acc},${C.themes[k].bg})"></div>`).join('')}</div></div>
       <div class="card"><h3>${t('notifications')}</h3>${[['checkin', 'notif_checkin'], ['reminder', 'notif_reminder'], ['social', 'notif_social'], ['proposals', 'notif_proposals']].map(([k, lab]) => `<label class="row" style="margin:6px 0"><input type="checkbox" style="width:auto" data-notif="${k}" ${n[k] ? 'checked' : ''}> <span>${t(lab)}</span></label>`).join('')}<div class="muted small mt">${t('install_ios')}<br>${t('install_android')}</div></div>
       <div class="card"><h3>${t('privacy')}</h3><div class="row"><button data-export="1">${t('export')}</button><button class="danger" data-delacc="1">${t('delete_account')}</button></div></div>
       <div class="card"><h3>${t('about')}</h3><div class="muted small">Weekwell ${C.version} · ${C.stub ? 'stub store' : 'Supabase'} · ${new Date().getFullYear()}</div><div class="row mt">${C.stub ? `<button class="mini" data-reset="1">${t('reset_stub')}</button>` : `<button class="mini" data-signout="1">${t('sign_out')}</button>`}</div></div>`;
@@ -214,9 +240,9 @@
 
   // ---------- render + events ----------
   function render() {
-    if (!S) return; const tab = WW_STATE.tab; const v = { home: viewHome, challenges: viewChallenges, group: viewGroup, progress: viewProgress, profile: viewProfile }[tab] || viewHome;
+    if (!S) return; const tab = WW_STATE.tab; const v = { home: viewHome, challenges: viewChallenges, group: viewGroup, progress: viewProgress, profile: viewProfile, rules: viewRules, chat: viewChat }[tab] || viewHome;
     $('#main').innerHTML = (C.stub ? `<div class="banner">${t('stub_banner')}</div>` : '') + v();
-    document.querySelectorAll('nav.tabs a').forEach((a) => { a.classList.toggle('on', a.dataset.tab === tab); a.querySelector('em').textContent = t('tab_' + a.dataset.tab); });
+    document.querySelectorAll('nav.tabs a').forEach((a) => { a.classList.toggle('on', a.dataset.tab === tab); a.querySelector('em').textContent = t('tab_' + a.dataset.tab); }); renderMenu(); const mb = $('#menubtn'); if (mb) mb.classList.toggle('primary', MENU.some(([k]) => k === tab));
     $('#sub').innerHTML = `${av(memberFull(S.me), 22)} ${esc(me().name)} · ${P(memberPct(S.me))}`;
   }
   function go(tab) { WW_STATE.tab = tab; location.hash = tab; render(); window.scrollTo(0, 0); }
@@ -224,9 +250,14 @@
 
   document.addEventListener('click', (e) => {
     if (!S) return;
-    const el = e.target.closest('[data-tab],[data-d],[data-chk],[data-proof],[data-propose],[data-vote],[data-veto],[data-delp],[data-sim],[data-lb],[data-kudos],[data-csend],[data-invite],[data-join],[data-pause],[data-addgoal],[data-lang],[data-export],[data-delacc],[data-reset],[data-signout],[data-view],[data-member],[data-storybtn],[data-photobtn],[data-delphoto],[data-avatar-btn],[data-editgoal],[data-delgoal],[data-catchup]');
+    const el = e.target.closest('[data-tab],[data-d],[data-chk],[data-proof],[data-propose],[data-vote],[data-veto],[data-delp],[data-sim],[data-lb],[data-kudos],[data-csend],[data-invite],[data-join],[data-pause],[data-addgoal],[data-lang],[data-export],[data-delacc],[data-reset],[data-signout],[data-view],[data-member],[data-storybtn],[data-photobtn],[data-delphoto],[data-avatar-btn],[data-editgoal],[data-delgoal],[data-catchup],[data-theme],[data-rpropose],[data-rvote],[data-rrevoke],[data-chatsend]');
     if (!el) return; const d = el.dataset;
     if (d.view) { viewer(d.view, d.cap); return; }
+    if (d.theme) { applyTheme(d.theme); return act(() => ST.setTheme(d.theme)); }
+    if (d.rpropose) { const inp = $('[data-ruletext]'); const txt = (inp.value || '').trim(); if (!txt) return; el.disabled = true; return act(() => ST.proposeRule(txt.slice(0, 300), 'add', null)); }
+    if (d.rvote) { return act(async () => { const st = await ST.voteRule(d.rvote, d.v === '1'); if (st === 'active') toast('✅'); }); }
+    if (d.rrevoke) { e.preventDefault(); const r = S.rules.find((x) => x.id === d.rrevoke); if (!r || !confirm(t('rule_revoke_text', { t: r.text }))) return; return act(() => ST.proposeRule(t('rule_revoke_text', { t: r.text }), 'revoke', r.id)); }
+    if (d.chatsend) { const inp = $('[data-chatin]'); const txt = (inp.value || '').trim(); if (!txt) return; inp.value = ''; return act(() => ST.sendMessage(txt.slice(0, 500))); }
     if (d.member && !e.target.closest('input')) { memberSheet(d.member); return; }
     if (d.storybtn) { pickAndUpload('[data-storyfile]', async (blob) => { const cap = prompt(t('caption_ph')) || ''; await ST.addPhoto(blob, cap.slice(0, 200), 'story'); toast('✔ ' + t('story')); }); return; }
     if (d.photobtn) { pickAndUpload('[data-photofile]', async (blob) => { const cap = prompt(t('caption_ph')) || ''; const cur = (S.results[S.me] || {}).streak || 0; let out = blob; if (cur > 0 && confirm(t('badge_on_photo') + ' (' + cur + ')?')) out = await stampBadge(blob, cur); await ST.addPhoto(out, cap.slice(0, 200), 'photo'); toast('✔'); }); return; }
@@ -281,9 +312,11 @@
     if (d.cktime) return act(() => ST.updateProfile({ checkinTime: el.value }));
     if (d.notif) return act(() => ST.updateProfile({ notif: { [d.notif]: el.checked } }));
   });
+  document.addEventListener('click', (e) => { const mb = e.target.closest('#menubtn'); const menu = $('#menu'); if (!menu) return; if (mb) { renderMenu(); menu.hidden = !menu.hidden; return; } if (!menu.hidden && (e.target === menu || e.target.closest('#menuin a'))) menu.hidden = true; });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.matches('[data-chatin]')) { e.preventDefault(); const b = $('[data-chatsend]'); if (b) b.click(); } });
   window.addEventListener('hashchange', () => { WW_STATE.tab = location.hash.replace('#', '') || 'home'; render(); });
 
   // ---------- boot ----------
-  WW_AUTH.start().then(({ store }) => { ST = store; S = ST.state; WW_STATE.lang = S.lang || WW_STATE.lang; render(); })
+  WW_AUTH.start().then(({ store }) => { ST = store; S = ST.state; WW_STATE.lang = S.lang || WW_STATE.lang; if (S.theme) applyTheme(S.theme); render(); })
     .catch((err) => { console.error(err); $('#main').innerHTML = `<div class="card">⚠️ ${esc(err.message || err)}</div>`; });
 })();

@@ -55,7 +55,7 @@
     const evIds = evRows.map((e) => e.id);
     const reacts = evIds.length ? await q(sb.from('ww_reactions').select('*').in('event_id', evIds)) : [];
     const comms = evIds.length ? await q(sb.from('ww_comments').select('*').in('event_id', evIds).is('deleted_at', null).order('created_at')) : [];
-    const events = evRows.map((e) => { const kudos = {}; reacts.filter((r) => r.event_id === e.id).forEach((r) => { (kudos[r.emoji] = kudos[r.emoji] || []).push(r.from_user); }); const ph = (e.type === 'photo' || e.type === 'story') ? photos.find((p) => p.id === e.ref_id) : null; return { id: e.id, user: e.user_id, type: e.type, n: e.payload && (e.payload.n || e.payload.badges), title: e.payload && (e.payload.title || e.payload.caption), proof: e.payload && e.payload.proof, photo: ph ? ph.url : null, ts: new Date(e.created_at).getTime(), kudos, comments: comms.filter((c) => c.event_id === e.id).map((c) => ({ user: c.user_id, text: c.text, ts: new Date(c.created_at).getTime() })) }; });
+    const events = evRows.map((e) => { const kudos = {}; reacts.filter((r) => r.event_id === e.id).forEach((r) => { (kudos[r.emoji] = kudos[r.emoji] || []).push(r.from_user); }); const ph = (e.type === 'photo' || e.type === 'story') ? photos.find((p) => p.id === e.ref_id) : null; return { id: e.id, user: e.user_id, type: e.type, n: e.payload && (e.payload.n || e.payload.badges), title: e.payload && (e.payload.title || e.payload.caption || e.payload.text), proof: e.payload && e.payload.proof, photo: ph ? ph.url : null, ts: new Date(e.created_at).getTime(), kudos, comments: comms.filter((c) => c.event_id === e.id).map((c) => ({ user: c.user_id, text: c.text, ts: new Date(c.created_at).getTime() })) }; });
     // ciele
     const goalRows = await q(sb.from('ww_goals').select('*').eq('user_id', uid).eq('status', 'active').order('created_at'));
     const entries = goalRows.length ? await q(sb.from('ww_metric_entries').select('*').eq('user_id', uid).order('date')) : [];
@@ -74,7 +74,16 @@
       const started = prevRow && cus.find((x) => x.from_cycle_id === prevRow.id);
       catchup = { available: !!(isPrevWeek && prevRes && !prevRes.is_100 && !prevRes.caught_up && !prevRes.paused && !started), active: !!(started && started.status === 'pending'), from_week: prevRow ? prevRow.week_start : null };
     } catch (e) { console.warn('catchup', e); }
-    S = { me: uid, lang: meRow.locale || 'sk', consent: !!meRow.consent_at, group: { id: group.id, name: group.name, emoji: group.emoji || '💪', admin: group.admin_id, slots: group.slots, tz: group.tz, members, paused }, lib, cur, next, logs, events, goals, results, catchup, profile: { checkinTime: (meRow.checkin_time || '20:30').slice(0, 5), notif: meRow.notif_prefs || {}, avatar_url: meRow.avatar_url || null, location: meRow.location || '', bio: meRow.bio || '', stats: meRow.stats || {}, share: meRow.share_fields || {} }, photos };
+    // pravidlá + chat (fix6)
+    let rules = [], messages = [];
+    try {
+      const rr = await q(sb.from('ww_rules').select('*').eq('group_id', group.id).order('created_at', { ascending: false }).limit(100));
+      const rv = rr.length ? await q(sb.from('ww_rule_votes').select('*').in('rule_id', rr.map((r) => r.id))) : [];
+      rules = rr.map((r) => ({ id: r.id, text: r.text, by: r.proposed_by, kind: r.kind, target: r.target_rule_id, status: r.status, ts: new Date(r.created_at).getTime(), decided: r.decided_at ? new Date(r.decided_at).getTime() : null, yes: rv.filter((v) => v.rule_id === r.id && v.vote).map((v) => v.user_id), no: rv.filter((v) => v.rule_id === r.id && !v.vote).map((v) => v.user_id) }));
+      const mr = await q(sb.from('ww_messages').select('*').eq('group_id', group.id).order('created_at', { ascending: false }).limit(200));
+      messages = mr.reverse().map((m) => ({ id: m.id, user: m.user_id, text: m.text, ts: new Date(m.created_at).getTime() }));
+    } catch (e) { console.warn('rules/chat', e); }
+    S = { me: uid, lang: meRow.locale || 'sk', rules, messages, theme: (meRow.notif_prefs || {}).theme || null, consent: !!meRow.consent_at, group: { id: group.id, name: group.name, emoji: group.emoji || '💪', admin: group.admin_id, slots: group.slots, tz: group.tz, members, paused }, lib, cur, next, logs, events, goals, results, catchup, profile: { checkinTime: (meRow.checkin_time || '20:30').slice(0, 5), notif: meRow.notif_prefs || {}, avatar_url: meRow.avatar_url || null, location: meRow.location || '', bio: meRow.bio || '', stats: meRow.stats || {}, share: meRow.share_fields || {} }, photos };
     return S;
   }
   async function reload() { return load(); }
@@ -118,6 +127,10 @@
       await reload(); return 'added';
     },
     async updateGoal(id, p) { const row = {}; ['target', 'category', 'label', 'unit', 'interval', 'direction'].forEach((k) => { if (p[k] != null && p[k] !== '') row[k] = p[k]; }); if (p.dir) row.direction = p.dir; if (p.share != null) row.share_progress = p.share; await q(sb.from('ww_goals').update(row).eq('id', id)); await reload(); },
+    async proposeRule(text, kind, target) { await q(sb.rpc('ww_propose_rule', { p_text: text, p_kind: kind || 'add', p_target: target || null })); await reload(); },
+    async voteRule(id, v) { const st = await q(sb.rpc('ww_vote_rule', { p_rule: id, p_vote: v })); await reload(); return st; },
+    async sendMessage(text) { await q(sb.from('ww_messages').insert({ group_id: S.group.id, user_id: S.me, text })); await reload(); },
+    async setTheme(name) { await q(sb.from('ww_users').update({ notif_prefs: { ...S.profile.notif, theme: name } }).eq('id', S.me)); S.theme = name; },
     async startCatchup() { const n = await q(sb.rpc('ww_start_catchup')); await reload(); return n; },
     async deleteGoal(id) { await q(sb.from('ww_goals').update({ status: 'archived', archived_at: new Date().toISOString() }).eq('id', id)); await reload(); },
     async setGoalShare(id, v) { await q(sb.from('ww_goals').update({ share_progress: v }).eq('id', id)); S.goals.find((x) => x.id === id).share = v; },
