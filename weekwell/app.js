@@ -226,7 +226,10 @@
   }
   // ---------- CHAT ----------
   function viewChat() {
-    const msgs = S.messages.map((m) => `<div class="msg ${m.user === S.me ? 'me' : ''}"><div class="who">${esc(member(m.user).name)}</div>${esc(m.text)}<div class="when">${new Date(m.ts).toLocaleString(WW_STATE.lang === 'en' ? 'en-GB' : 'sk-SK', { weekday: 'short', hour: '2-digit', minute: '2-digit' })}</div></div>`).join('');
+    const PAL = ['#60a5fa', '#f472b6', '#fbbf24', '#a78bfa', '#34d399', '#fb923c', '#22d3ee', '#f87171', '#a3e635', '#e879f9'];
+    const colorOf = (uid) => { const idx = S.group.members.findIndex((m) => m.id === uid); return PAL[(idx >= 0 ? idx : 0) % PAL.length]; };
+    const isRobin = (m) => /^(📣|🤖)\s*Robin/.test(m.text);
+    const msgs = S.messages.map((m) => { if (isRobin(m)) return `<div class="msg robin"><div class="who">🤖 Robin</div>${esc(m.text.replace(/^(📣|🤖)\s*Robin:?\s*/, ''))}<div class="when">${new Date(m.ts).toLocaleString(WW_STATE.lang === 'en' ? 'en-GB' : 'sk-SK', { weekday: 'short', hour: '2-digit', minute: '2-digit' })}</div></div>`; const mine = m.user === S.me; return `<div class="msg ${mine ? 'me' : ''}"><div class="who" style="color:${mine ? 'rgba(255,255,255,.85)' : colorOf(m.user)}">${esc(member(m.user).name)}</div>${esc(m.text)}<div class="when">${new Date(m.ts).toLocaleString(WW_STATE.lang === 'en' ? 'en-GB' : 'sk-SK', { weekday: 'short', hour: '2-digit', minute: '2-digit' })}</div></div>`; }).join('');
     setTimeout(() => { const el = $('#chatend'); if (el) el.scrollIntoView(); }, 0);
     return `<div class="card"><h3>${t('chat')} · ${esc(S.group.emoji)} ${esc(S.group.name)}</h3><div class="chat">${msgs || `<div class="muted small">${t('chat_empty')}</div>`}<div id="chatend"></div></div></div><div class="chatin row"><input data-chatin placeholder="${t('chat_ph')}" maxlength="500" autocomplete="off"><button class="primary" data-chatsend="1">${t('send')}</button></div>`;
   }
