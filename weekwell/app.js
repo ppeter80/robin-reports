@@ -313,6 +313,7 @@
     if (d.notif) return act(() => ST.updateProfile({ notif: { [d.notif]: el.checked } }));
   });
   document.addEventListener('click', (e) => { const mb = e.target.closest('#menubtn'); const menu = $('#menu'); if (!menu) return; if (mb) { renderMenu(); menu.hidden = !menu.hidden; return; } if (!menu.hidden && (e.target === menu || e.target.closest('#menuin a'))) menu.hidden = true; });
+  document.addEventListener('click', (e) => { if (e.target.closest('header.top .logo')) { const u = location.pathname + '?r=' + Date.now() + location.hash; location.replace(u); } });
   document.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.matches('[data-chatin]')) { e.preventDefault(); const b = $('[data-chatsend]'); if (b) b.click(); } });
   window.addEventListener('hashchange', () => { WW_STATE.tab = location.hash.replace('#', '') || 'home'; render(); });
 

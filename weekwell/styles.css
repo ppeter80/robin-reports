@@ -121,3 +121,5 @@ textarea{font:inherit;background:var(--card2);color:var(--text);border:1px solid
 .theme{width:44px;height:44px;border-radius:50%;border:3px solid var(--line);cursor:pointer}
 .theme.on{border-color:var(--text)}
 body.light .msg.me{color:#fff}
+header.top .logo{cursor:pointer;user-select:none}
+header.top .logo:active{opacity:.6}
