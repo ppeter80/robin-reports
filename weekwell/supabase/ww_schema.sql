@@ -86,12 +86,12 @@ drop trigger if exists ww_on_auth_user_created on auth.users;
 create trigger ww_on_auth_user_created after insert on auth.users for each row execute function ww_handle_new_user();
 
 -- pozvánka: vytvoriť kód (admin) / pripojiť sa (opustí svoju solo skupinu, ak je v nej sám)
-create or replace function ww_create_invite() returns text language plpgsql security definer set search_path = public as $$
+create or replace function ww_create_invite() returns text language plpgsql security definer set search_path = public, extensions as $$
 declare g uuid; c text;
 begin
   select group_id into g from ww_memberships where user_id = auth.uid() and status <> 'left';
   if g is null then raise exception 'no group'; end if;
-  c := upper(substr(encode(gen_random_bytes(6), 'hex'), 1, 6));
+  c := upper(substr(encode(extensions.gen_random_bytes(6), 'hex'), 1, 6));
   insert into ww_invites (code, group_id, created_by, expires_at) values (c, g, auth.uid(), now() + interval '7 days');
   return c;
 end $$;
@@ -145,12 +145,12 @@ $$ select coalesce(avg(ww_challenge_pct(p_user, cc.id)), 0) from ww_cycle_challe
 
 -- ---------- engine výberu (spec 4.3) ----------
 create or replace function ww_select_challenges(p_cycle uuid) returns void language plpgsql security definer set search_path = public as $$
-declare c record; m int; n_slots int; catmax int; slot int := 0; r record; cnt jsonb := '{}'; prev uuid; used uuid[] := '{}';
+declare c record; m int; n_slots int; catmax int; slot int := 0; r record; cnt jsonb := '{}'; prev uuid; used uuid[] := '{}'; allowed text[];
 begin
   select * into c from ww_cycles where id = p_cycle;
   if c.status not in ('proposing','voting') then return; end if;
   select count(*) into m from ww_memberships where group_id = c.group_id and status = 'active';
-  select g.slots into n_slots from ww_groups g where g.id = c.group_id;
+  select g.slots, g.allowed_categories into n_slots, allowed from ww_groups g where g.id = c.group_id;
   catmax := ww_cfg('category_max_per_cycle', 2);
   delete from ww_cycle_challenges where cycle_id = p_cycle;
   -- kandidáti v poradí: väčšina (podľa hlasov) → ostatní s hlasmi → prenos z minulého cyklu → bez hlasov (náhodne) → knižnica (náhodne, nie v posledných 2 cykloch)
@@ -167,7 +167,7 @@ begin
       union all select cc.template_id, ct.category, 0, 'carry_over', 3, cc.slot_no from ww_cycle_challenges cc join ww_challenge_templates ct on ct.id = cc.template_id where cc.cycle_id = prev
       union all select template_id, category, 0, 'random_pool', 4, random() from pool where votes = 0
       union all select ct.id, ct.category, 0, 'library', 5, random() from ww_challenge_templates ct
-        where ct.group_id is null and ct.is_active and ct.category = any ((select allowed_categories from ww_groups where id = c.group_id))
+        where ct.group_id is null and ct.is_active and ct.category = any (allowed)
           and not exists (select 1 from ww_cycle_challenges cc2 join ww_cycles cy on cy.id = cc2.cycle_id where cy.group_id = c.group_id and cc2.template_id = ct.id and cy.week_start >= c.week_start - 7 * ww_cfg('library_no_repeat_cycles', 2))
     )
     select * from cand order by tier, votes desc, rnd
@@ -269,9 +269,9 @@ create policy ww_proposals_read on ww_proposals for select using (cycle_id in (s
 create policy ww_proposals_insert on ww_proposals for insert with check (auth.uid() = any (authors) and cycle_id in (select id from ww_cycles where status in ('proposing','voting') and group_id in (select ww_my_group_ids())));
 create policy ww_proposals_update on ww_proposals for update using (cycle_id in (select id from ww_cycles where group_id in (select ww_my_group_ids())));
 create policy ww_proposals_delete on ww_proposals for delete using (auth.uid() = any (authors));
-create policy ww_votes_own on ww_votes for all using (user_id = auth.uid()) with check (user_id = auth.uid() and cycle_id in (select id from ww_cycles where status in ('proposing','voting')));
+create policy ww_votes_own on ww_votes for all using (user_id = auth.uid()) with check (user_id = auth.uid() and cycle_id in (select id from ww_cycles where status in ('proposing','voting')) and not exists (select 1 from ww_proposals p where p.id = proposal_id and auth.uid() = any (p.authors)));
 create policy ww_votes_read on ww_votes for select using (cycle_id in (select id from ww_cycles where status in ('selected','running','closed') and group_id in (select ww_my_group_ids())));
-create policy ww_vetoes_own on ww_vetoes for all using (by_user = auth.uid()) with check (by_user = auth.uid() and against_user <> auth.uid());
+create policy ww_vetoes_own on ww_vetoes for all using (by_user = auth.uid()) with check (by_user = auth.uid() and against_user <> auth.uid() and cycle_id in (select id from ww_cycles where status in ('proposing','voting')) and exists (select 1 from ww_proposals p where p.id = proposal_id and against_user = any (p.authors) and not (auth.uid() = any (p.authors))));
 create policy ww_cc_read on ww_cycle_challenges for select using (cycle_id in (select id from ww_cycles where group_id in (select ww_my_group_ids())));
 create policy ww_logs_read on ww_logs for select using (user_id = auth.uid() or cycle_challenge_id in (select cc.id from ww_cycle_challenges cc join ww_cycles cy on cy.id = cc.cycle_id where cy.group_id in (select ww_my_group_ids())));
 create policy ww_logs_write on ww_logs for insert with check (user_id = auth.uid() and cycle_challenge_id in (select cc.id from ww_cycle_challenges cc join ww_cycles cy on cy.id = cc.cycle_id where cy.status = 'running' and date between cy.week_start and cy.week_start + 6 and date <= (now() at time zone (select tz from ww_groups where id = cy.group_id))::date));
