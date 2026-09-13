@@ -89,7 +89,17 @@
       const mr = await q(sb.from('ww_messages').select('*').eq('group_id', group.id).order('created_at', { ascending: false }).limit(200));
       messages = mr.reverse().map((m) => ({ id: m.id, user: m.user_id, text: m.text, ts: new Date(m.created_at).getTime() }));
     } catch (e) { console.warn('rules/chat', e); }
-    S = { me: uid, lang: meRow.locale || 'sk', rules, messages, theme: (meRow.notif_prefs || {}).theme || null, consent: !!meRow.consent_at, group: { id: group.id, name: group.name, emoji: group.emoji || '💪', avatar_url: group.avatar_url || null, admin: group.admin_id, slots: group.slots, tz: group.tz, members, paused }, lib, cur, next, logs, events, goals, results, catchup, profile: { checkinTime: (meRow.checkin_time || '20:30').slice(0, 5), notif: meRow.notif_prefs || {}, avatar_url: meRow.avatar_url || null, location: meRow.location || '', bio: meRow.bio || '', stats: meRow.stats || {}, share: meRow.share_fields || {} }, photos };
+    // história uzavretých cyklov: vybrané výzvy + návrhy (posledných 8)
+    let history = [];
+    try {
+      const hc = cycRows.slice(-8);
+      if (hc.length) {
+        const hcc = await q(sb.from('ww_cycle_challenges').select('*').in('cycle_id', hc.map((c) => c.id)).is('for_user', null).order('slot_no'));
+        const hp = await q(sb.from('ww_proposals').select('*').in('cycle_id', hc.map((c) => c.id)).is('removed_by', null));
+        history = hc.map((c) => ({ id: c.id, week_start: c.week_start, challenges: hcc.filter((x) => x.cycle_id === c.id).map((x) => ({ id: x.id, tpl: tplById[x.template_id], source: x.source, votes: x.votes_at_selection })), proposals: hp.filter((x) => x.cycle_id === c.id).map((x) => ({ id: x.id, tpl: tplById[x.template_id], authors: x.authors })), results: resRows.filter((r) => r.cycle_id === c.id).map((r) => ({ user: r.user_id, pct: +r.pct })) })).reverse();
+      }
+    } catch (e) { console.warn('history', e); }
+    S = { me: uid, lang: meRow.locale || 'sk', rules, messages, history, theme: (meRow.notif_prefs || {}).theme || null, consent: !!meRow.consent_at, group: { id: group.id, name: group.name, emoji: group.emoji || '💪', avatar_url: group.avatar_url || null, admin: group.admin_id, slots: group.slots, tz: group.tz, members, paused }, lib, cur, next, logs, events, goals, results, catchup, profile: { checkinTime: (meRow.checkin_time || '20:30').slice(0, 5), notif: meRow.notif_prefs || {}, avatar_url: meRow.avatar_url || null, location: meRow.location || '', bio: meRow.bio || '', stats: meRow.stats || {}, share: meRow.share_fields || {} }, photos };
     return S;
   }
   async function reload() { return load(); }

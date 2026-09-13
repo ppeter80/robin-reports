@@ -101,8 +101,22 @@
 
   // ---------- VÝZVY ----------
   function viewChallenges() {
+    const sub = WW_STATE.chTab || 'fill';
+    const seg = `<div class="seg mb" style="width:100%;display:flex"><button class="${sub === 'fill' ? 'on' : ''}" style="flex:1" data-chtab="fill">${t('fulfil')}</button><button class="${sub === 'props' ? 'on' : ''}" style="flex:1" data-chtab="props">${t('proposals')}</button></div>`;
+    return seg + (sub === 'fill' ? viewFill() : viewProposals());
+  }
+  function memberRow(m, cc) {
+    const pct = challengePct(m.id, cc); const dots = S.cur.dates.map((d) => { const l = S.logs[m.id + '|' + cc.id + '|' + d]; return `<span style="display:inline-block;width:9px;height:9px;border-radius:5px;margin-right:2px;background:${l && (l.done || l.value) ? 'var(--acc)' : 'var(--line)'}"></span>`; }).join('');
+    return `<div class="row" style="padding:6px 0;border-top:1px solid var(--line)" data-member="${m.id}">${av(m, 26)}<div class="grow"><div class="row between small"><span>${esc(m.name)}${S.group.paused.includes(m.id) ? ` <span class="pill warn">${t('paused')}</span>` : ''}</span><b>${P(pct)}</b></div><div class="bar"><i style="width:${pct * 100}%"></i></div><div style="margin-top:3px">${dots}</div></div></div>`;
+  }
+  function viewFill() {
+    const members = S.group.members.filter((m) => !S.group.paused.includes(m.id)).sort((a, b) => memberPct(b.id) - memberPct(a.id));
+    const cards = S.cur.challenges.map((cc) => `<div class="card"><div class="row" data-ccinfo="${cc.id}" style="cursor:pointer"><div class="ic" style="font-size:22px">${CAT_ICON[(cc.tpl || {}).category] || '🎯'}</div><div class="grow"><div class="t" style="font-weight:700">${esc(tplTitle(cc.tpl))} <span class="muted">›</span></div><div class="s muted">${cc.catchup ? `<span class="pill warn">${t('catchup_item')}</span> ` : ''}${(cc.tpl || {}).type === 'binary_daily' ? `${cc.tpl.target} ${t('days')}` : (cc.tpl || {}).type === 'once' ? t('type_once') : `${(cc.tpl || {}).target} ${esc((cc.tpl || {}).unit || '')}`}</div></div></div>${cc.catchup ? '' : members.map((m) => memberRow(m, cc)).join('')}</div>`).join('');
+    const top = `<div class="card"><div class="row"><div>${ring(groupPct(), t('group_pct'))}</div><div class="grow"><div style="font-weight:800">${t('this_week')} · ${S.cur.week_start}</div><div class="muted small">${S.cur.challenges.length} ${t('challenges_n')} · ${members.length} ${t('members').toLowerCase()}</div>${members.map((m) => `<div class="row between small" style="margin-top:3px"><span class="row" style="gap:6px" data-member="${m.id}">${av(m, 20)} ${esc(m.name)}</span><span class="grow" style="margin:0 8px"><div class="bar" style="margin:0"><i style="width:${memberPct(m.id) * 100}%"></i></div></span><b>${P(memberPct(m.id))}</b></div>`).join('')}</div></div></div>`;
+    return top + (cards || `<div class="card muted small">${S.cur.status === 'running' ? t('no_items') : t('cur_open_hint')}</div>`);
+  }
+  function viewProposals() {
     const ph = phase();
-    const thisWeek = S.cur.challenges.map((cc) => { const dots = S.cur.dates.map((d) => { const l = S.logs[S.me + '|' + cc.id + '|' + d]; return `<span style="display:inline-block;width:10px;height:10px;border-radius:5px;margin-right:3px;background:${l && (l.done || l.value) ? '#34d399' : '#26282d'}"></span>`; }).join(''); return `<div class="item"><div class="ic">${CAT_ICON[(cc.tpl || {}).category] || '🎯'}</div><div class="grow" data-ccinfo="${cc.id}"><div class="t">${esc(tplTitle(cc.tpl))} <span class="muted">›</span></div><div class="s">${cc.catchup ? `<span class="pill warn">${t('catchup_item')}</span>` : `<span class="pill acc">${t(SRC_T[cc.source] || 'library')}${cc.votes ? ' ' + cc.votes : ''}</span>`}</div><div class="mt">${dots}</div></div><div class="pct" style="font-weight:800">${P(challengePct(S.me, cc))}</div></div>`; }).join('') || `<div class="muted small">${t('no_items')}</div>`;
     const myP = S.next.proposals.filter((p) => p.authors.includes(S.me)); const othP = S.next.proposals.filter((p) => !p.authors.includes(S.me)); const myVetoes = S.next.vetoes || {};
     const pRow = (p, mineFlag) => {
       const authors = p.authors.map((a) => member(a).name).join(', '); const voted = p.votes.includes(S.me); const vetoedByMe = Object.values(myVetoes).includes(p.id);
@@ -112,17 +126,19 @@
     };
     const vetoInfo = Object.keys(myVetoes).filter((k) => k.startsWith(S.me + '|')).map((k) => t('veto_used', { name: member(k.split('|')[1]).name })).join(' · ');
     const sim = S.next.simulated ? `<div class="card"><h3>${t('selected_source')}</h3>${S.next.simulated.map((o) => `<div class="item"><div class="ic">${CAT_ICON[(o.tpl || {}).category] || '🎯'}</div><div class="grow"><div class="t">${t('slot')} ${o.slot}: ${esc(tplTitle(o.tpl))}</div><div class="s"><span class="pill acc">${t(SRC_T[o.source] || 'library')}${o.votes ? ' · ' + o.votes + ' ' + t('votes') : ''}</span></div></div></div>`).join('')}</div>` : '';
-    const rc = (S.results[S.me] || {}).cycles || []; const hist = rc.slice().reverse().map((c) => `<div class="row between small" style="padding:6px 0;border-top:1px solid var(--line)"><span>${c.week_start}</span><span class="grow"><div class="bar"><i style="width:${c.pct}%"></i></div></span><b>${Math.round(c.pct)} %</b>${c.badges ? `<span>${badgeSvg(c.badges, 22)}</span>` : c.caught_up ? '<span class="pill acc">↩︎</span>' : ''}</div>`).join('') || `<div class="muted small">${t('no_items')}</div>`;
+    const inPool = (tpl) => S.next.proposals.some((p) => p.tpl && tpl && (p.tpl.id === tpl.id || String(p.tpl.title_sk).toLowerCase() === String(tpl.title_sk).toLowerCase()));
+    const again = (tpl) => (tpl ? `<button class="mini ${inPool(tpl) ? 'ghost' : ''}" data-again="${esc(tpl.id)}" ${inPool(tpl) || ph === 'selected' ? 'disabled' : ''}>${inPool(tpl) ? '✔' : '↻ ' + t('propose_again')}</button>` : '');
+    const hist = (S.history || []).map((h) => `<div class="card"><h3>${t('week')} ${h.week_start}</h3>${h.challenges.map((cc) => `<div class="row" style="padding:6px 0;border-top:1px solid var(--line)"><div class="ic">${CAT_ICON[(cc.tpl || {}).category] || '🎯'}</div><div class="grow"><div>${esc(tplTitle(cc.tpl))}</div><div class="muted small">${t(SRC_T[cc.source] || 'library')}${cc.votes ? ' · ' + cc.votes + ' ' + t('votes') : ''} · ${(h.results || []).map((r) => `${esc(member(r.user).name.split(' ')[0])} ${Math.round(r.pct)} %`).join(' · ')}</div></div>${again(cc.tpl)}</div>`).join('')}${h.proposals.filter((pp) => !h.challenges.some((cc) => cc.tpl && pp.tpl && cc.tpl.id === pp.tpl.id)).map((pp) => `<div class="row" style="padding:6px 0;border-top:1px solid var(--line);opacity:.75"><div class="ic">${CAT_ICON[(pp.tpl || {}).category] || '🎯'}</div><div class="grow"><div>${esc(tplTitle(pp.tpl))}</div><div class="muted small">${t('not_selected')} · ${pp.authors.map((a) => member(a).name.split(' ')[0]).join(', ')}</div></div>${again(pp.tpl)}</div>`).join('')}</div>`).join('');
     return `
-      <div class="card"><h3>${t('this_week')}</h3>${thisWeek}</div>
-      <div class="card"><h3>${t('next_week')} <span class="pill ${ph === 'voting' ? 'acc' : ''}" style="text-transform:none">${ph === 'proposing' ? t('phase_proposing') : ph === 'voting' ? t('phase_voting') : t('phase_selected')}</span></h3>
+      <div class="card"><h3>${t('next_week')} · ${S.next.week_start || ''} <span class="pill ${ph === 'voting' ? 'acc' : ''}" style="text-transform:none">${ph === 'selected' ? t('phase_selected') : t('phase_voting')}</span></h3>
         <div class="row mt"><button class="primary" data-propose="lib">${t('from_library')}</button><button data-propose="custom">${t('custom')}</button></div>
         <div class="mt small muted">${t('my_proposals')} (${myP.length})</div>${myP.map((p) => pRow(p, true)).join('') || `<div class="muted small">${t('no_items')}</div>`}
         <div class="mt small muted">${t('others_proposals')} (${othP.length})</div>${othP.map((p) => pRow(p, false)).join('') || `<div class="muted small">${t('no_items')}</div>`}
         <div class="muted small mt">${t('veto_ethics')}${vetoInfo ? '<br>' + esc(vetoInfo) : ''}</div>
         ${C.stub ? `<button class="mini mt" data-sim="1">🎲 ${t('simulate')} (${t('slot')}y: ${S.group.slots})</button>` : ''}</div>
       ${sim}
-      <div class="card"><h3>${t('history')}</h3>${hist}</div>`;
+      <div class="muted small" style="margin:8px 4px 4px;text-transform:uppercase;letter-spacing:.4px">${t('history')}</div>
+      ${hist || `<div class="card muted small">${t('history_soon_w')}</div>`}`;
   }
 
   // ---------- SKUPINA ----------
@@ -291,11 +307,13 @@
 
   document.addEventListener('click', (e) => {
     if (!S) return;
-    const el = e.target.closest('[data-tab],[data-d],[data-chk],[data-proof],[data-propose],[data-vote],[data-veto],[data-delp],[data-sim],[data-lb],[data-kudos],[data-csend],[data-invite],[data-join],[data-pause],[data-addgoal],[data-lang],[data-export],[data-delacc],[data-reset],[data-signout],[data-view],[data-member],[data-storybtn],[data-photobtn],[data-delphoto],[data-avatar-btn],[data-editgoal],[data-delgoal],[data-catchup],[data-theme],[data-rpropose],[data-rvote],[data-rrevoke],[data-chatsend],[data-gsettings],[data-editp],[data-pushon],[data-ccinfo],[data-delphotoev],[data-selectnow],[data-reopen]');
+    const el = e.target.closest('[data-tab],[data-d],[data-chk],[data-proof],[data-propose],[data-vote],[data-veto],[data-delp],[data-sim],[data-lb],[data-kudos],[data-csend],[data-invite],[data-join],[data-pause],[data-addgoal],[data-lang],[data-export],[data-delacc],[data-reset],[data-signout],[data-view],[data-member],[data-storybtn],[data-photobtn],[data-delphoto],[data-avatar-btn],[data-editgoal],[data-delgoal],[data-catchup],[data-theme],[data-rpropose],[data-rvote],[data-rrevoke],[data-chatsend],[data-gsettings],[data-editp],[data-pushon],[data-ccinfo],[data-delphotoev],[data-selectnow],[data-reopen],[data-chtab],[data-again]');
     if (!el) return; const d = el.dataset;
     if (d.gsettings) { groupSheet(); return; }
     if (d.view) { viewer(d.view, d.cap); return; }
     if (d.ccinfo) { if (e.target.closest('button,input,.chk')) return; if (d.ccinfo.startsWith('p:')) { const pp = S.next.proposals.find((x) => x.id === d.ccinfo.slice(2)); if (pp) challengeSheet({ tpl: pp.tpl, votes: pp.votes.length }, `<div class="muted small mt">${t('rule_by', { name: pp.authors.map((a) => member(a).name).join(', ') })}</div><div class="small mt">🗳 ${pp.votes.length ? pp.votes.map((v) => esc(member(v).name)).join(', ') : t('no_votes_yet')}</div>`); } else { const cc = S.cur.challenges.find((x) => x.id === d.ccinfo) || (S.next.simulated || []).find((x) => x.id === d.ccinfo); if (cc) challengeSheet(cc); } return; }
+    if (d.chtab) { WW_STATE.chTab = d.chtab; render(); return; }
+    if (d.again) { const tpl = S.lib.find((x) => x.id === d.again) || (S.history || []).flatMap((h) => [...h.challenges, ...h.proposals]).map((x) => x.tpl).find((x) => x && x.id === d.again); if (!tpl) return; el.disabled = true; return act(() => ST.addProposal(tpl)); }
     if (d.selectnow) { if (confirm(t('select_now') + '?')) act(() => ST.selectNow()); return; }
     if (d.reopen) { if (confirm(t('reopen_confirm'))) act(() => ST.reopenCurrent()); return; }
     if (d.pushon) { act(() => enablePush()); return; }
