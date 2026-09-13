@@ -11,9 +11,14 @@
 
   async function load() {
     const uid = U.id;
-    const meRow = await q(sb.from('ww_users').select('*').eq('id', uid).maybeSingle());
-    if (!meRow) throw new Error('no_profile');
-    const mem = await q(sb.from('ww_memberships').select('*').eq('user_id', uid).neq('status', 'left').maybeSingle());
+    let meRow = await q(sb.from('ww_users').select('*').eq('id', uid).maybeSingle());
+    let mem = meRow ? await q(sb.from('ww_memberships').select('*').eq('user_id', uid).neq('status', 'left').maybeSingle()) : null;
+    if (!meRow || !mem) { // používateľ existoval v projekte pred Weekwellom (trigger sa nespustil) → vytvoriť profil + solo skupinu
+      await q(sb.rpc('ww_ensure_profile'));
+      meRow = await q(sb.from('ww_users').select('*').eq('id', uid).maybeSingle());
+      mem = await q(sb.from('ww_memberships').select('*').eq('user_id', uid).neq('status', 'left').maybeSingle());
+      if (!meRow || !mem) throw new Error('no_profile');
+    }
     const group = await q(sb.from('ww_groups').select('*').eq('id', mem.group_id).single());
     const mems = await q(sb.from('ww_memberships').select('*').eq('group_id', group.id).neq('status', 'left'));
     const users = await q(sb.from('ww_users').select('*').in('id', mems.map((m) => m.user_id)));

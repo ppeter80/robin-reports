@@ -43,8 +43,8 @@
       });
     }
     const store = window.WW_STORE_SUPABASE; window.WW_STORE = store;
-    let state; for (let i = 0; i < 6; i++) { try { state = await store.init(sb, session.user); break; } catch (err) { await new Promise((r) => setTimeout(r, 800)); } } // trigger môže chvíľu trvať
-    if (!state) { screen(`<div class="card">${t('err_profile')}</div>`); throw new Error('profile'); }
+    let state; for (let i = 0; i < 6; i++) { try { state = await store.init(sb, session.user); break; } catch (err) { window.WW_LAST_ERR = err && (err.message || err.code || err); await new Promise((r) => setTimeout(r, 800)); } } // trigger môže chvíľu trvať
+    if (!state) { screen(`<div class="card">${t('err_profile')}<div class="muted small mt">${esc(String(window.WW_LAST_ERR || ''))}</div><button class="mt" onclick="location.reload()">↻</button></div>`); throw new Error('profile'); }
     // pripojenie cez invite link ?j=KÓD
     const j = new URLSearchParams(location.search).get('j');
     if (j) { try { await store.joinGroup(j); } catch (err) { console.warn(err); } history.replaceState(null, '', location.pathname + location.hash); }
