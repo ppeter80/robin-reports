@@ -13,7 +13,7 @@
       <input class="mt" type="email" inputmode="email" autocomplete="email" data-email placeholder="${t('login_email_ph')}">
       <button class="mt" style="width:100%" data-magic="1">${t('login_magic')}</button>
       ${msg ? `<div class="mt small" style="color:var(--acc)">${esc(msg)}</div>` : ''}
-      <div class="muted small mt">${t('install_ios')}<br>${t('install_android')}</div></div>`;
+      <div class="muted small mt">${t('install_ios')}<br>${t('install_android')}</div><div class="muted" style="font-size:10px;margin-top:8px">v${C.version}</div></div>`;
   }
   function consentHtml(name) {
     return `<div class="card" style="margin-top:30px"><div class="h2">${t('onboarding_title')}, ${esc(name)} 👋</div><p class="small">${t('consent_intro')}</p>
@@ -24,12 +24,17 @@
   async function start() {
     if (C.stub) { await WW_STORE.init(); return { store: WW_STORE }; }
     if (!window.supabase) throw new Error('supabase-js not loaded');
-    const sb = window.supabase.createClient(C.supabaseUrl, C.supabaseKey);
-    // magic-link / OAuth návrat: supabase-js si session vyberie z URL sám
-    let { data: { session } } = await sb.auth.getSession();
+    // lock: v Safari/PWA vie navigator.locks zablokovať getSession() natrvalo → bez zámku (jedna karta, jeden používateľ)
+    const sb = window.supabase.createClient(C.supabaseUrl, C.supabaseKey, { auth: { persistSession: true, detectSessionInUrl: true, autoRefreshToken: true, lock: async (_name, _timeout, fn) => await fn() } });
+    window.WW_SB = sb;
+    // magic-link / OAuth návrat: supabase-js si session vyberie z URL sám; watchdog – ak sa do 6 s nič nestane, ukáž login
+    const watchdog = setTimeout(() => { if (!document.querySelector('[data-google]') && !window.WW_STORE_SUPABASE.state) screen(loginHtml(t('login_slow'))); }, 6000);
+    let session = null;
+    try { const r = await Promise.race([sb.auth.getSession(), new Promise((res) => setTimeout(() => res({ data: { session: null }, timeout: true }), 5000))]); session = r.data.session; } catch (e) { console.warn('getSession', e); }
+    clearTimeout(watchdog);
     if (!session) {
       await new Promise((resolve) => {
-        screen(loginHtml(''));
+        if (!document.querySelector('[data-google]')) screen(loginHtml(''));
         document.querySelector('#main').addEventListener('click', async (e) => {
           if (e.target.closest('[data-google]')) { await sb.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: location.href.split('#')[0].split('?')[0] } }); }
           if (e.target.closest('[data-magic]')) { const em = document.querySelector('[data-email]').value.trim(); if (!em) return; const { error } = await sb.auth.signInWithOtp({ email: em, options: { emailRedirectTo: location.href.split('#')[0].split('?')[0] } }); screen(loginHtml(error ? error.message : t('login_sent'))); }
