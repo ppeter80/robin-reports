@@ -55,7 +55,7 @@
     const vetoes = nextRow ? await q(sb.from('ww_vetoes').select('*').eq('cycle_id', nextRow.id)) : [];
     const vetoMap = {}; vetoes.forEach((v) => { vetoMap[v.by_user + '|' + v.against_user] = v.proposal_id; });
     const next = { id: nextRow ? nextRow.id : null, week_start: nws, status: nextRow ? nextRow.status : 'proposing', proposals: props.map((p) => ({ id: p.id, tpl: tplById[p.template_id], authors: p.authors, votes: votes.filter((v) => v.proposal_id === p.id).map((v) => v.user_id), vetoed: vetoes.some((v) => v.proposal_id === p.id) })), vetoes: vetoMap };
-    if (nextRow && nextRow.status === 'selected') { const nccs = await q(sb.from('ww_cycle_challenges').select('*').eq('cycle_id', nextRow.id).order('slot_no')); next.simulated = nccs.map((c) => ({ tpl: tplById[c.template_id], slot: c.slot_no, source: c.source, votes: c.votes_at_selection })); }
+    if (nextRow && nextRow.status === 'selected') { const nccs = await q(sb.from('ww_cycle_challenges').select('*').eq('cycle_id', nextRow.id).order('slot_no')); next.simulated = nccs.map((c) => ({ id: c.id, tpl: tplById[c.template_id], slot: c.slot_no, source: c.source, votes: c.votes_at_selection })); }
     // aktivita
     const evRows = await q(sb.from('ww_events').select('*').eq('group_id', group.id).order('created_at', { ascending: false }).limit(60));
     const evIds = evRows.map((e) => e.id);
