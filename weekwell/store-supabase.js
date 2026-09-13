@@ -6,7 +6,7 @@
   function iso(d) { const z = new Date(d.getTime() - d.getTimezoneOffset() * 60000); return z.toISOString().slice(0, 10); }
   const AV = ['🧔', '👩', '🧑', '👱‍♀️', '🧕', '👨‍🦰', '👩‍🦱', '🧑‍🦳', '👨‍🦲', '👩‍🦰'];
   const avatarFor = (u, i) => (u.avatar_url ? `<img src="${u.avatar_url}" style="width:22px;height:22px;border-radius:11px;vertical-align:middle">` : AV[i % AV.length]);
-  const T = (row) => ({ id: row.id, category: row.category, title_sk: row.title_sk, title_en: row.title_en, type: row.type, target: +row.target, unit: row.unit, min_days: row.min_days, difficulty: row.difficulty, proof: row.proof, source: row.group_id ? 'custom' : 'library' });
+  const T = (row) => ({ id: row.id, category: row.category, title_sk: row.title_sk, title_en: row.title_en, description: row.description || null, type: row.type, target: +row.target, unit: row.unit, min_days: row.min_days, difficulty: row.difficulty, proof: row.proof, source: row.group_id ? 'custom' : 'library' });
   const q = async (p) => { const { data, error } = await p; if (error) { console.error(error); throw error; } return data; };
 
   async function load() {
@@ -104,7 +104,7 @@
     async uploadProof(file) { const path = `${S.me}/${Date.now()}.jpg`; await q(sb.storage.from('ww-proofs').upload(path, file, { contentType: 'image/jpeg', upsert: true })); const { data } = await sb.storage.from('ww-proofs').createSignedUrl(path, 60 * 60 * 24 * 90); return data ? data.signedUrl : path; },
     async addProposal(tpl) {
       let tplId = tpl.id;
-      if (!tplId || tpl.source === 'custom' && !S.lib.find((x) => x.id === tplId)) { const row = await q(sb.from('ww_challenge_templates').insert({ group_id: S.group.id, title_sk: tpl.title_sk, title_en: tpl.title_en || tpl.title_sk, category: tpl.category, type: tpl.type, target: tpl.target, unit: tpl.unit, min_days: tpl.min_days || null, proof: tpl.proof || 'optional', difficulty: tpl.difficulty || null, created_by: S.me }).select().single()); tplId = row.id; }
+      if (!tplId || tpl.source === 'custom' && !S.lib.find((x) => x.id === tplId)) { const ins = { group_id: S.group.id, title_sk: tpl.title_sk, title_en: tpl.title_en || tpl.title_sk, category: tpl.category, type: tpl.type, target: tpl.target, unit: tpl.unit, min_days: tpl.min_days || null, proof: tpl.proof || 'optional', difficulty: tpl.difficulty || null, created_by: S.me }; if (tpl.description) ins.description = tpl.description; const row = await q(sb.from('ww_challenge_templates').insert(ins).select().single()); tplId = row.id; }
       const ex = await q(sb.from('ww_proposals').select('*').eq('cycle_id', S.next.id).eq('template_id', tplId).maybeSingle());
       if (ex) { if (!ex.authors.includes(S.me)) await q(sb.from('ww_proposals').update({ authors: [...ex.authors, S.me] }).eq('id', ex.id)); }
       else await q(sb.from('ww_proposals').insert({ cycle_id: S.next.id, template_id: tplId, authors: [S.me] }));
