@@ -19,7 +19,7 @@
   const memberFull = (id) => S.group.members.find((m) => m.id === id) || { id, name: '?', avatar: '👤', stats: {}, share: {} };
   function applyTheme(name) { const th = C.themes[name] || C.themes.green; const r = document.documentElement.style; r.setProperty('--bg', th.bg); r.setProperty('--card', th.card); r.setProperty('--card2', th.card2); r.setProperty('--line', th.line); r.setProperty('--text', th.text); r.setProperty('--muted', th.muted); r.setProperty('--acc', th.acc); r.setProperty('--acc2', th.acc2); document.body.classList.toggle('light', !th.dark); const m = document.querySelector('meta[name=theme-color]'); if (m) m.setAttribute('content', th.bg); try { localStorage.setItem('ww_theme', name); } catch (_) {} }
   try { applyTheme(localStorage.getItem('ww_theme') || 'green'); } catch (_) {}
-  const MENU = [['chat', '💬'], ['rules', '📜'], ['progress', '📈'], ['profile', '👤']];
+  const MENU = [['profile', '👤'], ['progress', '📈'], ['chat', '💬'], ['rules', '📜'], ['settings', '⚙️']];
   function renderMenu() { const mi = $('#menuin'); if (!mi) return; mi.innerHTML = MENU.map(([k, ic]) => `<a href="#${k}" data-tab="${k}" class="${WW_STATE.tab === k ? 'on' : ''}"><span>${ic}</span>${t('tab_' + k)}</a>`).join(''); }
   let toastT = null;
   function toast(msg) { let el = $('.toast'); if (!el) { el = document.createElement('div'); el.className = 'toast'; document.body.appendChild(el); } el.textContent = msg; clearTimeout(toastT); toastT = setTimeout(() => el.remove(), 1800); }
@@ -210,15 +210,26 @@
     return `<div class="gallery">${ph.map((p) => `<div class="gitem"><img src="${esc(p.url)}" alt="" data-view="${esc(p.url)}" data-cap="${esc(p.caption)}">${mine ? `<button class="gdel" data-delphoto="${p.id}">✕</button>` : ''}</div>`).join('')}</div>`;
   }
   function viewProfile() {
+    const m = memberFull(S.me); const pr = S.profile; const st = pr.stats || {}; const sh = pr.share || {};
+    const nPhotos = S.photos.filter((p) => p.user === S.me && p.kind === 'photo').length; const R = S.results[S.me] || {}; const weeks = (R.cycles || []).filter((c) => c.is_100).length;
+    const shared = STATS.filter(([k]) => sh[k] && st[k] != null && st[k] !== '').map(([k, u]) => `<span class="pill">${t('st_' + k)}: ${esc(st[k])} ${u}</span>`).join(' ');
+    return `
+      <div class="card">
+        <div class="row" style="gap:16px;align-items:center"><label class="avwrap" title="${t('change_photo')}">${av(m, 92)}<input type="file" accept="image/*" data-avatar hidden><span class="avedit">📷</span></label>
+          <div class="grow"><div class="pstats"><div><b>${nPhotos}</b><span>${t('photos')}</span></div><div><b>${badgesOf(S.me)}</b><span>🏅</span></div><div><b>${weeks}</b><span>${t('weeks_done')}</span></div></div></div></div>
+        <div class="mt"><b style="font-size:16px">${esc(m.name)}</b>${pr.location ? ` <span class="muted">· ${esc(pr.location)}</span>` : ''}</div>
+        ${pr.bio ? `<div class="small mt" style="white-space:pre-wrap">${esc(pr.bio)}</div>` : ''}
+        ${shared ? `<div class="mt small">${shared}</div>` : ''}
+        <div class="row mt"><button class="mini" data-tab="settings">✏️ ${t('edit_profile')}</button><button class="mini primary" data-storybtn="1">➕ ${t('add_story')}</button>${m.story ? `<span class="pill acc">${t('story_active')}</span>` : ''}<input type="file" accept="image/*" capture="environment" data-storyfile hidden></div>
+      </div>
+      <div class="card"><div class="row between"><h3 style="margin:0">${t('my_photos')}</h3><button class="mini primary" data-photobtn="1">➕ ${t('add_photo')}</button><input type="file" accept="image/*" data-photofile hidden></div><div class="mt">${gallery(S.me, true)}</div></div>
+      <div class="card"><div class="row between"><h3 style="margin:0">${t('badge_board')} · 🏅 ${badgesOf(S.me)}</h3></div><div class="badges mt">${((S.results[S.me] || {}).cycles || []).filter((c) => c.badges > 0).map((c) => `<div class="bitem" title="${c.week_start}">${badgeSvg(c.badges, 44)}<div class="muted" style="font-size:10px">${c.week_start.slice(5)}</div></div>`).join('') || `<div class="muted small">${t('no_badges')}</div>`}</div></div>`;
+  }
+  function viewSettings() {
     const m = memberFull(S.me); const n = S.profile.notif || {}; const pr = S.profile; const st = pr.stats || {}; const sh = pr.share || {};
     return `
-      <div class="card"><div class="row" style="gap:14px"><label class="avwrap" title="${t('change_photo')}">${av({ ...m, story: null }, 84)}<input type="file" accept="image/*" data-avatar hidden><span class="avedit">📷</span></label>
-        <div class="grow"><input data-name="1" value="${esc(m.name)}" style="font-weight:800;font-size:16px"><input class="mt" data-loc="1" value="${esc(pr.location || '')}" placeholder="${t('location_ph')}"></div></div>
-        <textarea class="mt" rows="2" maxlength="200" data-bio="1" placeholder="${t('bio_ph')}">${esc(pr.bio || '')}</textarea>
-        <div class="row mt"><button class="mini primary" data-storybtn="1">➕ ${t('add_story')}</button>${m.story ? `<span class="pill acc">${t('story_active')}</span>` : ''}<input type="file" accept="image/*" capture="environment" data-storyfile hidden></div></div>
-      <div class="card"><div class="row between"><h3 style="margin:0">${t('badge_board')} · 🏅 ${badgesOf(S.me)}</h3></div><div class="muted small">${t('badge_hint')}</div><div class="badges mt">${((S.results[S.me] || {}).cycles || []).filter((c) => c.badges > 0).map((c) => `<div class="bitem" title="${c.week_start}">${badgeSvg(c.badges, 44)}<div class="muted" style="font-size:10px">${c.week_start.slice(5)}</div></div>`).join('') || `<div class="muted small">${t('no_badges')}</div>`}</div></div>
+      <div class="card"><h3>${t('edit_profile')}</h3><label>${t('name')}</label><input data-name="1" value="${esc(m.name)}"><label>${t('location_ph')}</label><input data-loc="1" value="${esc(pr.location || '')}" placeholder="${t('location_ph')}"><label>${t('bio_ph')}</label><textarea rows="2" maxlength="200" data-bio="1" placeholder="${t('bio_ph')}">${esc(pr.bio || '')}</textarea></div>
       <div class="card"><h3>${t('my_data')}</h3><div class="muted small mb">${t('my_data_hint')}</div>${STATS.map(([k, u]) => statRow(k, u, st[k], sh[k], true)).join('')}</div>
-      <div class="card"><div class="row between"><h3 style="margin:0">${t('my_photos')}</h3><button class="mini primary" data-photobtn="1">➕ ${t('add_photo')}</button><input type="file" accept="image/*" data-photofile hidden></div><div class="mt">${gallery(S.me, true)}</div></div>
       <div class="card"><h3>${t('language')} · ${t('checkin_time')}</h3><div class="row"><div class="seg">${['sk', 'en'].map((l) => `<button class="${WW_STATE.lang === l ? 'on' : ''}" data-lang="${l}">${l.toUpperCase()}</button>`).join('')}</div><input type="time" data-cktime="1" value="${S.profile.checkinTime}" style="width:auto"></div></div>
       <div class="card"><h3>${t('theme')}</h3><div class="themes">${Object.keys(C.themes).map((k) => `<div class="theme ${(S.theme || localStorage.getItem('ww_theme') || 'green') === k ? 'on' : ''}" data-theme="${k}" title="${t('theme_' + k)}" style="background:linear-gradient(135deg,${C.themes[k].acc},${C.themes[k].bg})"></div>`).join('')}</div></div>
       <div class="card"><h3>${t('notifications')}</h3>${[['checkin', 'notif_checkin'], ['reminder', 'notif_reminder'], ['social', 'notif_social'], ['proposals', 'notif_proposals']].map(([k, lab]) => `<label class="row" style="margin:6px 0"><input type="checkbox" style="width:auto" data-notif="${k}" ${n[k] ? 'checked' : ''}> <span>${t(lab)}</span></label>`).join('')}<div class="muted small mt">${t('install_ios')}<br>${t('install_android')}</div></div>
@@ -229,7 +240,8 @@
     const m = memberFull(id); const st = m.stats || {}; const sh = m.share || {}; const mine = id === S.me;
     const stats = STATS.filter(([k]) => (mine || sh[k]) && st[k] != null && st[k] !== '').map(([k, u]) => statRow(k, u, st[k], sh[k], false)).join('') || `<div class="muted small">${t('no_shared')}</div>`;
     const story = m.story ? `<div class="mt"><div class="muted small">${t('story')}</div><img class="evphoto" src="${esc(m.story.url)}" alt="" data-view="${esc(m.story.url)}" data-cap="${esc(m.story.caption)}">${m.story.caption ? `<div class="small">${esc(m.story.caption)}</div>` : ''}</div>` : '';
-    sheet(`<div class="row" style="gap:14px">${av(m, 72)}<div class="grow"><div class="h2" style="margin:0">${esc(m.name)}</div><div class="muted small">${esc(m.location || '')}${m.id === S.group.admin ? ` · ${t('admin')}` : ''}${S.group.paused.includes(m.id) ? ` · ${t('paused')}` : ''}</div><div class="small mt">${esc(m.bio || '')}</div></div></div>
+    const nph = S.photos.filter((p) => p.user === m.id && p.kind === 'photo').length; const wk = ((S.results[m.id] || {}).cycles || []).filter((c) => c.is_100).length;
+    sheet(`<div class="row" style="gap:14px">${av(m, 72)}<div class="grow"><div class="pstats"><div><b>${nph}</b><span>${t('photos')}</span></div><div><b>${badgesOf(m.id)}</b><span>🏅</span></div><div><b>${wk}</b><span>${t('weeks_done')}</span></div></div><div class="h2" style="margin:6px 0 0">${esc(m.name)}</div><div class="muted small">${esc(m.location || '')}${m.id === S.group.admin ? ` · ${t('admin')}` : ''}${S.group.paused.includes(m.id) ? ` · ${t('paused')}` : ''}</div><div class="small mt">${esc(m.bio || '')}</div></div></div>
       <div class="row mt small"><span class="pill">${t('lb_week')}: ${P(memberPct(m.id))}</span><span class="pill">${t('streak')} ${(S.results[m.id] || {}).streak || 0}</span><span class="pill">🏅 ${badgesOf(m.id)}</span></div>
       ${story}
       <div class="mt"><div class="muted small">${t('my_data')}</div>${stats}</div>
@@ -240,7 +252,7 @@
 
   // ---------- render + events ----------
   function render() {
-    if (!S) return; const tab = WW_STATE.tab; const v = { home: viewHome, challenges: viewChallenges, group: viewGroup, progress: viewProgress, profile: viewProfile, rules: viewRules, chat: viewChat }[tab] || viewHome;
+    if (!S) return; const tab = WW_STATE.tab; const v = { home: viewHome, challenges: viewChallenges, group: viewGroup, progress: viewProgress, profile: viewProfile, settings: viewSettings, rules: viewRules, chat: viewChat }[tab] || viewHome;
     $('#main').innerHTML = (C.stub ? `<div class="banner">${t('stub_banner')}</div>` : '') + v();
     document.querySelectorAll('nav.tabs a').forEach((a) => { a.classList.toggle('on', a.dataset.tab === tab); a.querySelector('em').textContent = t('tab_' + a.dataset.tab); }); renderMenu(); const mb = $('#menubtn'); if (mb) mb.classList.toggle('primary', MENU.some(([k]) => k === tab));
     $('#sub').innerHTML = `${av(memberFull(S.me), 22)} ${esc(me().name)} · ${P(memberPct(S.me))}`;
