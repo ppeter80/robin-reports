@@ -147,6 +147,8 @@
     async sendMessage(text) { await q(sb.from('ww_messages').insert({ group_id: S.group.id, user_id: S.me, text })); await reload(); },
     async savePushSubscription(sub) { const ep = sub && sub.endpoint; if (!ep) return; await q(sb.from('ww_push_subscriptions').delete().eq('user_id', S.me).filter('subscription->>endpoint', 'eq', ep)); await q(sb.from('ww_push_subscriptions').insert({ user_id: S.me, subscription: sub })); },
     async setTheme(name) { await q(sb.from('ww_users').update({ notif_prefs: { ...S.profile.notif, theme: name } }).eq('id', S.me)); S.theme = name; },
+    async reopenCurrent() { await q(sb.rpc('ww_reopen_current')); await reload(); },
+    async selectNow() { await q(sb.rpc('ww_select_now')); await reload(); },
     async startCatchup() { const n = await q(sb.rpc('ww_start_catchup')); await reload(); return n; },
     async deleteGoal(id) { await q(sb.from('ww_goals').update({ status: 'archived', archived_at: new Date().toISOString() }).eq('id', id)); await reload(); },
     async setGoalShare(id, v) { await q(sb.from('ww_goals').update({ share_progress: v }).eq('id', id)); S.goals.find((x) => x.id === id).share = v; },

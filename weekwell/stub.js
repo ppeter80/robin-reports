@@ -110,6 +110,8 @@
     async savePushSubscription() {},
     async updateGroup(p) { Object.assign(S.group, p); save(); },
     async uploadGroupAvatar(blob) { S.group.avatar_url = await blobUrl(blob); save(); },
+    async reopenCurrent() { S.cur.challenges = []; S.cur.status = 'voting'; save(); },
+    async selectNow() { S.cur.status = 'running'; save(); },
     async startCatchup() { const T = (id) => S.lib.find((x) => x.id === id); const extra = [T('lib16'), T('lib3')]; extra.forEach((tpl, i) => S.cur.challenges.push({ id: 'ccu' + i, tpl, slot: 91 + i, source: 'catchup', votes: 0, catchup: true })); S.catchup = { available: false, active: true, from_week: S.catchup.from_week }; save(); return extra.length; },
     async setGoalShare(id, v) { S.goals.find((x) => x.id === id).share = v; save(); },
     async setMetricEntry(id, date, value) { const g = S.goals.find((x) => x.id === id); g.entries = g.entries.filter((x) => x.date !== date); if (value != null) g.entries.push({ date, value }); g.entries.sort((a, b) => (a.date < b.date ? -1 : 1)); save(); },
