@@ -38,7 +38,7 @@
     let curRow = await q(sb.from('ww_cycles').select('*').eq('group_id', group.id).eq('week_start', ws).maybeSingle());
     if (!curRow) { await q(sb.rpc('ww_tick')); curRow = await q(sb.from('ww_cycles').select('*').eq('group_id', group.id).eq('week_start', ws).maybeSingle()); }
     const ccs = curRow ? await q(sb.from('ww_cycle_challenges').select('*').eq('cycle_id', curRow.id).order('slot_no')) : [];
-    const cur = { id: curRow ? curRow.id : null, week_start: ws, status: curRow ? curRow.status : 'running', dates, challenges: ccs.map((c) => ({ id: c.id, tpl: tplById[c.template_id], slot: c.slot_no, source: c.source, votes: c.votes_at_selection })) };
+    const cur = { id: curRow ? curRow.id : null, week_start: ws, status: curRow ? curRow.status : 'running', dates, challenges: ccs.filter((c) => !c.for_user || c.for_user === uid).map((c) => ({ id: c.id, tpl: tplById[c.template_id], slot: c.slot_no, source: c.source, votes: c.votes_at_selection, catchup: c.source === 'catchup' })) };
     const logs = {};
     if (ccs.length) { const lr = await q(sb.from('ww_logs').select('*').in('cycle_challenge_id', ccs.map((c) => c.id))); lr.forEach((l) => { logs[l.user_id + '|' + l.cycle_challenge_id + '|' + l.date] = { done: l.done, value: l.value != null ? +l.value : undefined, src: l.proof_type === 'verified' ? 'verified' : l.proof_type ? 'proof' : 'self', url: l.proof_url, note: l.note }; }); }
     // budúci cyklus
@@ -55,7 +55,7 @@
     const evIds = evRows.map((e) => e.id);
     const reacts = evIds.length ? await q(sb.from('ww_reactions').select('*').in('event_id', evIds)) : [];
     const comms = evIds.length ? await q(sb.from('ww_comments').select('*').in('event_id', evIds).is('deleted_at', null).order('created_at')) : [];
-    const events = evRows.map((e) => { const kudos = {}; reacts.filter((r) => r.event_id === e.id).forEach((r) => { (kudos[r.emoji] = kudos[r.emoji] || []).push(r.from_user); }); const ph = (e.type === 'photo' || e.type === 'story') ? photos.find((p) => p.id === e.ref_id) : null; return { id: e.id, user: e.user_id, type: e.type, title: e.payload && (e.payload.title || e.payload.caption), proof: e.payload && e.payload.proof, photo: ph ? ph.url : null, ts: new Date(e.created_at).getTime(), kudos, comments: comms.filter((c) => c.event_id === e.id).map((c) => ({ user: c.user_id, text: c.text, ts: new Date(c.created_at).getTime() })) }; });
+    const events = evRows.map((e) => { const kudos = {}; reacts.filter((r) => r.event_id === e.id).forEach((r) => { (kudos[r.emoji] = kudos[r.emoji] || []).push(r.from_user); }); const ph = (e.type === 'photo' || e.type === 'story') ? photos.find((p) => p.id === e.ref_id) : null; return { id: e.id, user: e.user_id, type: e.type, n: e.payload && (e.payload.n || e.payload.badges), title: e.payload && (e.payload.title || e.payload.caption), proof: e.payload && e.payload.proof, photo: ph ? ph.url : null, ts: new Date(e.created_at).getTime(), kudos, comments: comms.filter((c) => c.event_id === e.id).map((c) => ({ user: c.user_id, text: c.text, ts: new Date(c.created_at).getTime() })) }; });
     // ciele
     const goalRows = await q(sb.from('ww_goals').select('*').eq('user_id', uid).eq('status', 'active').order('created_at'));
     const entries = goalRows.length ? await q(sb.from('ww_metric_entries').select('*').eq('user_id', uid).order('date')) : [];
@@ -63,8 +63,18 @@
     // výsledky (história uzavretých cyklov)
     const cycRows = await q(sb.from('ww_cycles').select('id,week_start').eq('group_id', group.id).eq('status', 'closed').order('week_start'));
     const resRows = cycRows.length ? await q(sb.from('ww_cycle_results').select('*').in('cycle_id', cycRows.map((c) => c.id))) : [];
-    const results = {}; members.forEach((m) => { const rs = cycRows.map((c) => resRows.find((r) => r.cycle_id === c.id && r.user_id === m.id)); const last = [...rs].reverse().find(Boolean); results[m.id] = { streak: last ? last.streak_after : 0, extra: last ? last.extra_points_after : 0, hist: rs.map((r) => (r ? +r.pct : 0)) }; });
-    S = { me: uid, lang: meRow.locale || 'sk', consent: !!meRow.consent_at, group: { id: group.id, name: group.name, emoji: group.emoji || '💪', admin: group.admin_id, slots: group.slots, tz: group.tz, members, paused }, lib, cur, next, logs, events, goals, results, profile: { checkinTime: (meRow.checkin_time || '20:30').slice(0, 5), notif: meRow.notif_prefs || {}, avatar_url: meRow.avatar_url || null, location: meRow.location || '', bio: meRow.bio || '', stats: meRow.stats || {}, share: meRow.share_fields || {} }, photos };
+    const results = {}; members.forEach((m) => { const rs = cycRows.map((c) => resRows.find((r) => r.cycle_id === c.id && r.user_id === m.id)); const last = [...rs].reverse().find(Boolean); results[m.id] = { streak: last ? last.streak_after : 0, extra: last ? last.extra_points_after : 0, badges: last ? (last.badges_after || 0) : 0, hist: rs.map((r) => (r ? +r.pct : 0)), cycles: cycRows.map((c, i) => ({ id: c.id, week_start: c.week_start, pct: rs[i] ? +rs[i].pct : 0, is_100: rs[i] ? rs[i].is_100 : false, badges: rs[i] ? (rs[i].badges_earned || 0) : 0, streak: rs[i] ? rs[i].streak_after : 0, caught_up: rs[i] ? !!rs[i].caught_up : false, paused: rs[i] ? rs[i].paused : false })) }; });
+    // #5 dobehnutie: minulý týždeň nesplnený a ešte nezačaté
+    let catchup = { available: false, active: false };
+    try {
+      const prevRow = cycRows.length ? cycRows[cycRows.length - 1] : null; const prevRes = prevRow ? resRows.find((r) => r.cycle_id === prevRow.id && r.user_id === uid) : null;
+      const cus = await q(sb.from('ww_catchups').select('*').eq('user_id', uid));
+      const nd7 = new Date(monday(new Date())); nd7.setDate(nd7.getDate() - 7);
+      const isPrevWeek = prevRow && prevRow.week_start === iso(nd7);
+      const started = prevRow && cus.find((x) => x.from_cycle_id === prevRow.id);
+      catchup = { available: !!(isPrevWeek && prevRes && !prevRes.is_100 && !prevRes.caught_up && !prevRes.paused && !started), active: !!(started && started.status === 'pending'), from_week: prevRow ? prevRow.week_start : null };
+    } catch (e) { console.warn('catchup', e); }
+    S = { me: uid, lang: meRow.locale || 'sk', consent: !!meRow.consent_at, group: { id: group.id, name: group.name, emoji: group.emoji || '💪', admin: group.admin_id, slots: group.slots, tz: group.tz, members, paused }, lib, cur, next, logs, events, goals, results, catchup, profile: { checkinTime: (meRow.checkin_time || '20:30').slice(0, 5), notif: meRow.notif_prefs || {}, avatar_url: meRow.avatar_url || null, location: meRow.location || '', bio: meRow.bio || '', stats: meRow.stats || {}, share: meRow.share_fields || {} }, photos };
     return S;
   }
   async function reload() { return load(); }
@@ -108,6 +118,7 @@
       await reload(); return 'added';
     },
     async updateGoal(id, p) { const row = {}; ['target', 'category', 'label', 'unit', 'interval', 'direction'].forEach((k) => { if (p[k] != null && p[k] !== '') row[k] = p[k]; }); if (p.dir) row.direction = p.dir; if (p.share != null) row.share_progress = p.share; await q(sb.from('ww_goals').update(row).eq('id', id)); await reload(); },
+    async startCatchup() { const n = await q(sb.rpc('ww_start_catchup')); await reload(); return n; },
     async deleteGoal(id) { await q(sb.from('ww_goals').update({ status: 'archived', archived_at: new Date().toISOString() }).eq('id', id)); await reload(); },
     async setGoalShare(id, v) { await q(sb.from('ww_goals').update({ share_progress: v }).eq('id', id)); S.goals.find((x) => x.id === id).share = v; },
     async setMetricEntry(id, date, value) { const g = S.goals.find((x) => x.id === id); if (value == null) await q(sb.from('ww_metric_entries').delete().eq('user_id', S.me).eq('metric', g.metric).eq('date', date)); else await q(sb.from('ww_metric_entries').upsert({ user_id: S.me, metric: g.metric, date, value }, { onConflict: 'user_id,metric,date' })); await reload(); },
