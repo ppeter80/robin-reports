@@ -78,7 +78,7 @@
     const metrics = dueMetrics.map((g) => { const e = g.entries.find((x) => x.date === sel); const u = mDef(g).unit; return `<div class="item"><div class="ic">📈</div><div class="grow"><div class="t">${esc(mName(g))}</div><div class="s">${t('goal')}: ${g.target} ${esc(u)}</div></div><input class="num" type="number" inputmode="decimal" data-metric="${g.id}" value="${e ? e.value : ''}" placeholder="${esc(u)}"></div>`; }).join('');
     const solo = S.group.members.length === 1;
     return `
-      <div class="card"><div class="row"><div>${ring(groupPct(), t('group_pct'))}</div><div>${ring(memberPct(S.me), t('my_pct'))}</div><div class="grow"><div style="font-weight:800">${esc(S.group.emoji)} ${esc(S.group.name)}</div><div class="muted">${t('week')} ${S.cur.week_start} · ${activeMembers().length}/${S.group.members.length} ${t('members').toLowerCase()}</div><div class="mt small">${esc(phaseTxt)}<br><span class="muted">${t('you_proposed', { n: mine })} · ${t('you_voted', { n: votedN })}</span></div></div></div>
+      <div class="card"><div class="row"><div>${ring(groupPct(), t('group_pct'))}</div><div>${ring(memberPct(S.me), t('my_pct'))}</div><div class="grow"><div style="font-weight:800">${esc(S.group.emoji)} ${esc(S.group.name)} ${S.group.admin === S.me ? `<button class="mini ghost" data-gsettings="1">✏️</button>` : ''}</div><div class="muted">${t('week')} ${S.cur.week_start} · ${activeMembers().length}/${S.group.members.length} ${t('members').toLowerCase()}</div><div class="mt small">${esc(phaseTxt)}<br><span class="muted">${t('you_proposed', { n: mine })} · ${t('you_voted', { n: votedN })}</span></div></div></div>
       ${solo ? `<div class="muted mt">${t('solo_hint')}</div><div class="row mt"><button class="mini primary" data-invite="1">${t('invite')}</button><button class="mini" data-tab="challenges">${t('pick_for_week')}</button></div>` : ''}</div>
       ${S.catchup && S.catchup.available ? `<div class="card"><h3>${t('catchup')}</h3><div class="small">${t('catchup_hint')}</div><button class="primary mt" data-catchup="1">↩︎ ${t('catchup_btn')} (${S.catchup.from_week || ''})</button></div>` : ''}
       ${S.catchup && S.catchup.active ? `<div class="banner">${t('catchup_active')}</div>` : ''}
@@ -127,7 +127,7 @@
     const mem = S.group.members.map((m) => `<div class="row between" style="padding:6px 0;border-top:1px solid var(--line)"><span class="row" data-member="${m.id}">${av(m, 30)} <span>${esc(m.name)}${m.location ? ` <span class="muted small">· ${esc(m.location)}</span>` : ''}</span></span><span>${m.id === S.group.admin ? `<span class="pill">${t('admin')}</span>` : ''} ${S.group.paused.includes(m.id) ? `<span class="pill warn">${t('paused')}</span>` : ''}</span></div>`).join('');
     const iPaused = S.group.paused.includes(S.me);
     return `
-      <div class="card"><div class="row"><div>${ring(groupPct(), t('group_pct'))}</div><div class="grow"><div style="font-weight:800">${esc(S.group.emoji)} ${esc(S.group.name)}</div><div class="row mt" style="align-items:flex-end;height:60px">${ghist || `<span class="muted small">${t('no_items')}</span>`}</div></div></div></div>
+      <div class="card"><div class="row"><div>${ring(groupPct(), t('group_pct'))}</div><div class="grow"><div style="font-weight:800">${esc(S.group.emoji)} ${esc(S.group.name)} ${S.group.admin === S.me ? `<button class="mini ghost" data-gsettings="1">✏️</button>` : ''}</div><div class="row mt" style="align-items:flex-end;height:60px">${ghist || `<span class="muted small">${t('no_items')}</span>`}</div></div></div></div>
       <div class="card"><div class="row between"><h3 style="margin:0">${t('leaderboard')}</h3><div class="seg">${['week', '4w', 'all'].map((k) => `<button class="${lb === k ? 'on' : ''}" data-lb="${k}">${t('lb_' + k)}</button>`).join('')}</div></div><table class="lb">${rows}</table></div>
       <div class="card"><h3>${t('activity')}</h3>${evs}</div>
       <div class="card"><div class="row between"><h3 style="margin:0">${t('members')} (${S.group.members.length}/${C.group.maxMembers})</h3><button class="mini primary" data-invite="1">${t('invite')}</button></div>${mem}
@@ -236,6 +236,10 @@
       <div class="card"><h3>${t('privacy')}</h3><div class="row"><button data-export="1">${t('export')}</button><button class="danger" data-delacc="1">${t('delete_account')}</button></div></div>
       <div class="card"><h3>${t('about')}</h3><div class="muted small">Weekwell ${C.version} · ${C.stub ? 'stub store' : 'Supabase'} · ${new Date().getFullYear()}</div><div class="row mt">${C.stub ? `<button class="mini" data-reset="1">${t('reset_stub')}</button>` : `<button class="mini" data-signout="1">${t('sign_out')}</button>`}</div></div>`;
   }
+  function groupSheet() {
+    const g = S.group; const sh = sheet(`<div class="h2">${t('group_settings')}</div><div class="grid2"><div><label>${t('group_name')}</label><input data-gs="name" value="${esc(g.name)}" maxlength="40"></div><div><label>Emoji</label><input data-gs="emoji" value="${esc(g.emoji || '')}" maxlength="4"></div></div><label>${t('slots')} (2–4)</label><select data-gs="slots">${[2, 3, 4].map((n) => `<option value="${n}" ${g.slots === n ? 'selected' : ''}>${n}</option>`).join('')}</select><div class="row mt"><button class="primary" data-gsok="1">${t('save')}</button><button data-gsx="1">${t('cancel')}</button></div>`);
+    sh.addEventListener('click', (ev) => { if (ev.target.closest('[data-gsx]')) { sh.remove(); return; } if (!ev.target.closest('[data-gsok]')) return; const v = (k) => sh.querySelector(`[data-gs="${k}"]`).value; const name = v('name').trim(); if (!name) return; sh.remove(); act(async () => { await ST.updateGroup({ name: name.slice(0, 40), emoji: v('emoji').trim().slice(0, 4) || '💪', slots: +v('slots') }); toast('✔'); }); });
+  }
   function memberSheet(id) {
     const m = memberFull(id); const st = m.stats || {}; const sh = m.share || {}; const mine = id === S.me;
     const stats = STATS.filter(([k]) => (mine || sh[k]) && st[k] != null && st[k] !== '').map(([k, u]) => statRow(k, u, st[k], sh[k], false)).join('') || `<div class="muted small">${t('no_shared')}</div>`;
@@ -262,8 +266,9 @@
 
   document.addEventListener('click', (e) => {
     if (!S) return;
-    const el = e.target.closest('[data-tab],[data-d],[data-chk],[data-proof],[data-propose],[data-vote],[data-veto],[data-delp],[data-sim],[data-lb],[data-kudos],[data-csend],[data-invite],[data-join],[data-pause],[data-addgoal],[data-lang],[data-export],[data-delacc],[data-reset],[data-signout],[data-view],[data-member],[data-storybtn],[data-photobtn],[data-delphoto],[data-avatar-btn],[data-editgoal],[data-delgoal],[data-catchup],[data-theme],[data-rpropose],[data-rvote],[data-rrevoke],[data-chatsend]');
+    const el = e.target.closest('[data-tab],[data-d],[data-chk],[data-proof],[data-propose],[data-vote],[data-veto],[data-delp],[data-sim],[data-lb],[data-kudos],[data-csend],[data-invite],[data-join],[data-pause],[data-addgoal],[data-lang],[data-export],[data-delacc],[data-reset],[data-signout],[data-view],[data-member],[data-storybtn],[data-photobtn],[data-delphoto],[data-avatar-btn],[data-editgoal],[data-delgoal],[data-catchup],[data-theme],[data-rpropose],[data-rvote],[data-rrevoke],[data-chatsend],[data-gsettings]');
     if (!el) return; const d = el.dataset;
+    if (d.gsettings) { groupSheet(); return; }
     if (d.view) { viewer(d.view, d.cap); return; }
     if (d.theme) { applyTheme(d.theme); return act(() => ST.setTheme(d.theme)); }
     if (d.rpropose) { const inp = $('[data-ruletext]'); const txt = (inp.value || '').trim(); if (!txt) return; el.disabled = true; return act(() => ST.proposeRule(txt.slice(0, 300), 'add', null)); }
