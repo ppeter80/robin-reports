@@ -1,7 +1,7 @@
 {
   "name": "Weekwell",
   "short_name": "Weekwell",
-  "start_url": ".",
+  "start_url": "./start.html",
   "scope": ".",
   "display": "standalone",
   "background_color": "#000000",
