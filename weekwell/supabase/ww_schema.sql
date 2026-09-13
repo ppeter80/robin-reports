@@ -1,6 +1,6 @@
 -- ============================================================================
 -- Weekwell — schéma + logika (iterácia 1), spec v0.3 kap. 4, 6, 10, 13.
--- Beží v Supabase projekte tipovačky (lultodbmyhawlpfgfhmg) vedľa TdC: všetky objekty s prefixom ww_.
+-- Beží v Supabase projekte tipovačky (TipLab: chekxmexwigvbqclrrin): všetky objekty s prefixom ww_.
 -- Spustiť celé naraz v SQL editore. Idempotentné (drop-if-exists) – dá sa spustiť znova.
 -- ============================================================================
 create extension if not exists pgcrypto;

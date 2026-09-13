@@ -1,9 +1,9 @@
 // Weekwell — konfigurácia (⚙ parametre zo spec v0.3 kap. 14). Jediné miesto, kde sú čísla.
 window.WW_CONFIG = {
-  version: '0.2.0-it1',
-  stub: true,                       // true = stub store (vzorové dáta); false = Supabase (po Petrových 3 krokoch)
-  supabaseUrl: 'https://lultodbmyhawlpfgfhmg.supabase.co',           // projekt tipovačky (zdieľaný, tabuľky ww_*)
-  supabaseKey: 'sb_publishable_c5ke1M0NDYzff_s7miJAHg_tFNM-Cn3',     // publishable key – verejný, RLS chráni dáta
+  version: '0.2.1-it1',
+  stub: false,                      // false = Supabase naostro (od 2026-09-13); true = vzorové dáta
+  supabaseUrl: 'https://chekxmexwigvbqclrrin.supabase.co',           // projekt TipLab (zdieľaný, tabuľky ww_*) – Peter tam spustil SQL 2026-09-13
+  supabaseKey: 'sb_publishable_73CPQ3p9-Eu_0k2KMGpMag_9kybj503',     // publishable key – verejný, RLS chráni dáta
   slots: { default: 3, min: 2, max: 4 },
   categoryMaxPerCycle: 2,
   schedule: {                       // pásmo skupiny; serverová logika v ww_tick() (supabase/ww_schema.sql)
