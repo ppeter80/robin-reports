@@ -9,6 +9,9 @@
   const me = () => S.group.members.find((m) => m.id === S.me) || { name: '?', avatar: '👤' };
   const member = (id) => S.group.members.find((m) => m.id === id) || { name: '?', avatar: '👤' };
   const tplTitle = (tpl) => (tpl ? ((WW_STATE.lang === 'en' ? tpl.title_en : tpl.title_sk) || tpl.title_sk) : '?');
+  const STATS = [['height_cm', 'cm'], ['weight_kg', 'kg'], ['birth_year', ''], ['resting_hr', 'bpm'], ['steps_avg', ''], ['sleep_avg', 'h']];
+  function av(m, size) { size = size || 28; const ring = m.story ? 'story' : ''; const inner = m.avatar_url ? `<img src="${esc(m.avatar_url)}" alt="">` : `<span>${m.avatar && !String(m.avatar).startsWith('<') ? m.avatar : '👤'}</span>`; return `<span class="av ${ring}" style="width:${size}px;height:${size}px;font-size:${Math.round(size * 0.6)}px" data-member="${m.id}">${inner}</span>`; }
+  const memberFull = (id) => S.group.members.find((m) => m.id === id) || { id, name: '?', avatar: '👤', stats: {}, share: {} };
   let toastT = null;
   function toast(msg) { let el = $('.toast'); if (!el) { el = document.createElement('div'); el.className = 'toast'; document.body.appendChild(el); } el.textContent = msg; clearTimeout(toastT); toastT = setTimeout(() => el.remove(), 1800); }
   async function act(fn) { try { await fn(); } catch (e) { console.error(e); toast('⚠️ ' + (e.message || e)); } S = ST.state; render(); }
@@ -102,15 +105,15 @@
     const lb = WW_STATE.lb; const R = (id) => S.results[id] || { streak: 0, extra: 0, hist: [] };
     const avg = (arr) => (arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0);
     const val = (m) => lb === 'week' ? memberPct(m.id) : lb === '4w' ? avg(R(m.id).hist.slice(-4)) / 100 : avg(R(m.id).hist) / 100;
-    const rows = [...S.group.members].sort((a, b) => val(b) - val(a) || R(b.id).extra - R(a.id).extra).map((m, i) => `<tr class="${m.id === S.me ? 'me' : ''}"><td>${i + 1}</td><td>${m.avatar} ${esc(m.name)} ${m.id === S.group.admin ? `<span class="pill">${t('admin')}</span>` : ''} ${S.group.paused.includes(m.id) ? `<span class="pill warn">${t('paused')}</span>` : ''}</td><td class="small muted">${t('extra')} ${R(m.id).extra} · ${t('streak')} ${R(m.id).streak}</td><td class="pct">${P(val(m))}</td></tr>`).join('');
+    const rows = [...S.group.members].sort((a, b) => val(b) - val(a) || R(b.id).extra - R(a.id).extra).map((m, i) => `<tr class="${m.id === S.me ? 'me' : ''}"><td>${i + 1}</td><td>${av(m, 26)} ${esc(m.name)} ${m.id === S.group.admin ? `<span class="pill">${t('admin')}</span>` : ''} ${S.group.paused.includes(m.id) ? `<span class="pill warn">${t('paused')}</span>` : ''}</td><td class="small muted">${t('extra')} ${R(m.id).extra} · ${t('streak')} ${R(m.id).streak}</td><td class="pct">${P(val(m))}</td></tr>`).join('');
     const hl = Math.max(0, ...S.group.members.map((m) => R(m.id).hist.length));
     const ghist = [...Array(hl)].map((_, i) => { const a = avg(S.group.members.map((m) => R(m.id).hist[i] || 0)); return `<div style="flex:1;text-align:center"><div style="height:${a * 0.5}px;background:#0f8f6a;border-radius:3px 3px 0 0;margin:0 2px"></div><div class="muted" style="font-size:10px">${Math.round(a)}</div></div>`; }).join('');
-    const evTxt = (e) => e.type === 'done' ? t('ev_done', { name: member(e.user).name, title: e.title || '' }) : e.type === 'pause' ? t('ev_pause', { name: member(e.user).name }) : e.type === 'selected' ? t('ev_selected') : e.type === 'extra' ? t('ev_extra', { name: member(e.user).name }) : e.type === 'join' ? t('ev_join', { name: member(e.user).name }) : e.type;
-    const evs = [...S.events].sort((a, b) => b.ts - a.ts).map((e) => `<div class="ev"><div class="row"><div class="ic" style="font-size:20px">${e.user ? member(e.user).avatar : '🎲'}</div><div class="grow"><div>${esc(evTxt(e))} ${e.proof ? `<span class="pill acc">${t('src_proof')}</span>` : ''}</div><div class="muted small">${new Date(e.ts).toLocaleString(WW_STATE.lang === 'en' ? 'en-GB' : 'sk-SK', { weekday: 'short', hour: '2-digit', minute: '2-digit' })}</div></div></div>
+    const evTxt = (e) => e.type === 'done' ? t('ev_done', { name: member(e.user).name, title: e.title || '' }) : e.type === 'photo' ? t('ev_photo', { name: member(e.user).name }) + (e.title ? ' – ' + e.title : '') : e.type === 'story' ? t('ev_story', { name: member(e.user).name }) + (e.title ? ' – ' + e.title : '') : e.type === 'pause' ? t('ev_pause', { name: member(e.user).name }) : e.type === 'selected' ? t('ev_selected') : e.type === 'extra' ? t('ev_extra', { name: member(e.user).name }) : e.type === 'join' ? t('ev_join', { name: member(e.user).name }) : e.type;
+    const evs = [...S.events].sort((a, b) => b.ts - a.ts).map((e) => `<div class="ev"><div class="row"><div class="ic" style="font-size:20px">${e.user ? av(memberFull(e.user), 30) : '🎲'}</div><div class="grow"><div>${esc(evTxt(e))} ${e.proof ? `<span class="pill acc">${t('src_proof')}</span>` : ''}</div><div class="muted small">${new Date(e.ts).toLocaleString(WW_STATE.lang === 'en' ? 'en-GB' : 'sk-SK', { weekday: 'short', hour: '2-digit', minute: '2-digit' })}</div></div></div>${e.photo ? `<img class="evphoto" src="${esc(e.photo)}" alt="" data-view="${esc(e.photo)}">` : ''}
       <div class="k">${C.kudos.map((k) => `<button class="${(e.kudos[k] || []).includes(S.me) ? 'on' : ''}" data-kudos="${e.id}" data-k="${k}">${k}${(e.kudos[k] || []).length ? ' ' + e.kudos[k].length : ''}</button>`).join('')}</div>
       ${e.comments.length ? `<div class="c">${e.comments.map((c) => `<div><b>${esc(member(c.user).name)}</b> ${esc(c.text)}</div>`).join('')}</div>` : ''}
       <div class="row mt"><input placeholder="${t('comment_ph')}" maxlength="${C.comment.maxChars}" data-cin="${e.id}"><button class="mini" data-csend="${e.id}">${t('send')}</button></div></div>`).join('') || `<div class="muted small">${t('no_items')}</div>`;
-    const mem = S.group.members.map((m) => `<div class="row between" style="padding:6px 0;border-top:1px solid var(--line)"><span>${m.avatar} ${esc(m.name)}</span><span>${m.id === S.group.admin ? `<span class="pill">${t('admin')}</span>` : ''} ${S.group.paused.includes(m.id) ? `<span class="pill warn">${t('paused')}</span>` : ''}</span></div>`).join('');
+    const mem = S.group.members.map((m) => `<div class="row between" style="padding:6px 0;border-top:1px solid var(--line)"><span class="row" data-member="${m.id}">${av(m, 30)} <span>${esc(m.name)}${m.location ? ` <span class="muted small">· ${esc(m.location)}</span>` : ''}</span></span><span>${m.id === S.group.admin ? `<span class="pill">${t('admin')}</span>` : ''} ${S.group.paused.includes(m.id) ? `<span class="pill warn">${t('paused')}</span>` : ''}</span></div>`).join('');
     const iPaused = S.group.paused.includes(S.me);
     return `
       <div class="card"><div class="row"><div>${ring(groupPct(), t('group_pct'))}</div><div class="grow"><div style="font-weight:800">${esc(S.group.emoji)} ${esc(S.group.name)}</div><div class="row mt" style="align-items:flex-end;height:60px">${ghist || `<span class="muted small">${t('no_items')}</span>`}</div></div></div></div>
@@ -135,29 +138,62 @@
   }
 
   // ---------- PROFIL ----------
+  function statRow(k, u, val, share, editable) {
+    const lab = t('st_' + k);
+    if (!editable) return val == null || val === '' ? '' : `<div class="row between small" style="padding:5px 0;border-top:1px solid var(--line)"><span class="muted">${lab}</span><b>${esc(val)} ${u}</b></div>`;
+    return `<div class="row small" style="padding:5px 0;border-top:1px solid var(--line);gap:8px"><span class="grow muted">${lab}</span><input class="num" type="number" inputmode="decimal" data-stat="${k}" value="${val != null ? val : ''}" placeholder="${u || '–'}"><label class="row" style="margin:0;gap:4px"><input type="checkbox" style="width:auto" data-stshare="${k}" ${share ? 'checked' : ''}><span class="muted" style="font-size:11px">${t('share_short')}</span></label></div>`;
+  }
+  function gallery(uid, mine) {
+    const ph = S.photos.filter((p) => p.user === uid && p.kind === 'photo');
+    if (!ph.length) return `<div class="muted small">${t('no_photos')}</div>`;
+    return `<div class="gallery">${ph.map((p) => `<div class="gitem"><img src="${esc(p.url)}" alt="" data-view="${esc(p.url)}" data-cap="${esc(p.caption)}">${mine ? `<button class="gdel" data-delphoto="${p.id}">✕</button>` : ''}</div>`).join('')}</div>`;
+  }
   function viewProfile() {
-    const m = me(); const n = S.profile.notif || {};
+    const m = memberFull(S.me); const n = S.profile.notif || {}; const pr = S.profile; const st = pr.stats || {}; const sh = pr.share || {};
     return `
-      <div class="card"><h3>${t('profile')}</h3><label>${t('name')}</label><input data-name="1" value="${esc(m.name)}"><label>${t('language')}</label><div class="seg">${['sk', 'en'].map((l) => `<button class="${WW_STATE.lang === l ? 'on' : ''}" data-lang="${l}">${l.toUpperCase()}</button>`).join('')}</div><label>${t('checkin_time')}</label><input type="time" data-cktime="1" value="${S.profile.checkinTime}"></div>
+      <div class="card"><div class="row" style="gap:14px"><label class="avwrap" title="${t('change_photo')}">${av({ ...m, story: null }, 84)}<input type="file" accept="image/*" data-avatar hidden><span class="avedit">📷</span></label>
+        <div class="grow"><input data-name="1" value="${esc(m.name)}" style="font-weight:800;font-size:16px"><input class="mt" data-loc="1" value="${esc(pr.location || '')}" placeholder="${t('location_ph')}"></div></div>
+        <textarea class="mt" rows="2" maxlength="200" data-bio="1" placeholder="${t('bio_ph')}">${esc(pr.bio || '')}</textarea>
+        <div class="row mt"><button class="mini primary" data-storybtn="1">➕ ${t('add_story')}</button>${m.story ? `<span class="pill acc">${t('story_active')}</span>` : ''}<input type="file" accept="image/*" capture="environment" data-storyfile hidden></div></div>
+      <div class="card"><h3>${t('my_data')}</h3><div class="muted small mb">${t('my_data_hint')}</div>${STATS.map(([k, u]) => statRow(k, u, st[k], sh[k], true)).join('')}</div>
+      <div class="card"><div class="row between"><h3 style="margin:0">${t('my_photos')}</h3><button class="mini primary" data-photobtn="1">➕ ${t('add_photo')}</button><input type="file" accept="image/*" data-photofile hidden></div><div class="mt">${gallery(S.me, true)}</div></div>
+      <div class="card"><h3>${t('language')} · ${t('checkin_time')}</h3><div class="row"><div class="seg">${['sk', 'en'].map((l) => `<button class="${WW_STATE.lang === l ? 'on' : ''}" data-lang="${l}">${l.toUpperCase()}</button>`).join('')}</div><input type="time" data-cktime="1" value="${S.profile.checkinTime}" style="width:auto"></div></div>
       <div class="card"><h3>${t('notifications')}</h3>${[['checkin', 'notif_checkin'], ['reminder', 'notif_reminder'], ['social', 'notif_social'], ['proposals', 'notif_proposals']].map(([k, lab]) => `<label class="row" style="margin:6px 0"><input type="checkbox" style="width:auto" data-notif="${k}" ${n[k] ? 'checked' : ''}> <span>${t(lab)}</span></label>`).join('')}<div class="muted small mt">${t('install_ios')}<br>${t('install_android')}</div></div>
       <div class="card"><h3>${t('privacy')}</h3><div class="row"><button data-export="1">${t('export')}</button><button class="danger" data-delacc="1">${t('delete_account')}</button></div></div>
       <div class="card"><h3>${t('about')}</h3><div class="muted small">Weekwell ${C.version} · ${C.stub ? 'stub store' : 'Supabase'} · ${new Date().getFullYear()}</div><div class="row mt">${C.stub ? `<button class="mini" data-reset="1">${t('reset_stub')}</button>` : `<button class="mini" data-signout="1">${t('sign_out')}</button>`}</div></div>`;
   }
+  function memberSheet(id) {
+    const m = memberFull(id); const st = m.stats || {}; const sh = m.share || {}; const mine = id === S.me;
+    const stats = STATS.filter(([k]) => (mine || sh[k]) && st[k] != null && st[k] !== '').map(([k, u]) => statRow(k, u, st[k], sh[k], false)).join('') || `<div class="muted small">${t('no_shared')}</div>`;
+    const story = m.story ? `<div class="mt"><div class="muted small">${t('story')}</div><img class="evphoto" src="${esc(m.story.url)}" alt="" data-view="${esc(m.story.url)}" data-cap="${esc(m.story.caption)}">${m.story.caption ? `<div class="small">${esc(m.story.caption)}</div>` : ''}</div>` : '';
+    sheet(`<div class="row" style="gap:14px">${av(m, 72)}<div class="grow"><div class="h2" style="margin:0">${esc(m.name)}</div><div class="muted small">${esc(m.location || '')}${m.id === S.group.admin ? ` · ${t('admin')}` : ''}${S.group.paused.includes(m.id) ? ` · ${t('paused')}` : ''}</div><div class="small mt">${esc(m.bio || '')}</div></div></div>
+      <div class="row mt small"><span class="pill">${t('lb_week')}: ${P(memberPct(m.id))}</span><span class="pill">${t('streak')} ${(S.results[m.id] || {}).streak || 0}</span><span class="pill">${t('extra')} ${(S.results[m.id] || {}).extra || 0}</span></div>
+      ${story}
+      <div class="mt"><div class="muted small">${t('my_data')}</div>${stats}</div>
+      <div class="mt"><div class="muted small">${t('photos')}</div>${gallery(m.id, false)}</div>`);
+  }
+  function viewer(url, cap) { const el = document.createElement('div'); el.className = 'viewer'; el.innerHTML = `<img src="${esc(url)}" alt="">${cap ? `<div class="cap">${esc(cap)}</div>` : ''}`; el.addEventListener('click', () => el.remove()); document.body.appendChild(el); }
+  async function pickAndUpload(inputSel, handler) { const inp = document.querySelector(inputSel); if (!inp) return; inp.onchange = async () => { const f = inp.files[0]; if (!f) return; await act(async () => { await handler(await shrink(f)); }); }; inp.click(); }
 
   // ---------- render + events ----------
   function render() {
     if (!S) return; const tab = WW_STATE.tab; const v = { home: viewHome, challenges: viewChallenges, group: viewGroup, progress: viewProgress, profile: viewProfile }[tab] || viewHome;
     $('#main').innerHTML = (C.stub ? `<div class="banner">${t('stub_banner')}</div>` : '') + v();
     document.querySelectorAll('nav.tabs a').forEach((a) => { a.classList.toggle('on', a.dataset.tab === tab); a.querySelector('em').textContent = t('tab_' + a.dataset.tab); });
-    $('#sub').textContent = `${me().avatar.startsWith('<') ? '' : me().avatar} ${me().name} · ${P(memberPct(S.me))}`;
+    $('#sub').innerHTML = `${av(memberFull(S.me), 22)} ${esc(me().name)} · ${P(memberPct(S.me))}`;
   }
   function go(tab) { WW_STATE.tab = tab; location.hash = tab; render(); window.scrollTo(0, 0); }
   const selDate = () => WW_STATE.selDate || today();
 
   document.addEventListener('click', (e) => {
     if (!S) return;
-    const el = e.target.closest('[data-tab],[data-d],[data-chk],[data-proof],[data-propose],[data-vote],[data-veto],[data-delp],[data-sim],[data-lb],[data-kudos],[data-csend],[data-invite],[data-join],[data-pause],[data-addgoal],[data-lang],[data-export],[data-delacc],[data-reset],[data-signout]');
+    const el = e.target.closest('[data-tab],[data-d],[data-chk],[data-proof],[data-propose],[data-vote],[data-veto],[data-delp],[data-sim],[data-lb],[data-kudos],[data-csend],[data-invite],[data-join],[data-pause],[data-addgoal],[data-lang],[data-export],[data-delacc],[data-reset],[data-signout],[data-view],[data-member],[data-storybtn],[data-photobtn],[data-delphoto],[data-avatar-btn]');
     if (!el) return; const d = el.dataset;
+    if (d.view) { viewer(d.view, d.cap); return; }
+    if (d.member && !e.target.closest('input')) { memberSheet(d.member); return; }
+    if (d.storybtn) { pickAndUpload('[data-storyfile]', async (blob) => { const cap = prompt(t('caption_ph')) || ''; await ST.addPhoto(blob, cap.slice(0, 200), 'story'); toast('✔ ' + t('story')); }); return; }
+    if (d.photobtn) { pickAndUpload('[data-photofile]', async (blob) => { const cap = prompt(t('caption_ph')) || ''; await ST.addPhoto(blob, cap.slice(0, 200), 'photo'); toast('✔'); }); return; }
+    if (d.delphoto) { if (confirm(t('delete') + '?')) act(() => ST.deletePhoto(d.delphoto)); return; }
     if (d.tab) { e.preventDefault(); go(d.tab); return; }
     if (d.d) { if (d.f === '1') return; WW_STATE.selDate = d.d; render(); return; }
     if (d.chk) { const l = S.logs[S.me + '|' + d.chk + '|' + selDate()] || {}; const cc = S.cur.challenges.find((x) => x.id === d.chk); if (!l.done && cc && cc.tpl.proof === 'required' && l.src !== 'proof') { toast(t('proof_required')); return; } return act(() => l.done ? ST.clearLog(d.chk, selDate()) : ST.setLog(d.chk, selDate(), { done: true, src: l.src || 'self' })); }
@@ -188,12 +224,17 @@
     if (d.signout) { act(async () => { await ST.signOut(); location.reload(); }); return; }
   });
   function libList(qs) { const ql = qs.toLowerCase(); return S.lib.filter((tp) => !ql || tplTitle(tp).toLowerCase().includes(ql) || t('cat_' + tp.category).toLowerCase().includes(ql)).map((tp) => `<div class="libitem"><div class="cat">${CAT_ICON[tp.category]}</div><div class="grow"><div>${esc(tplTitle(tp))}</div><div class="small">${tplLine(tp)}</div></div><button class="mini" data-pick="${tp.id}">${t('add')}</button></div>`).join(''); }
-  async function shrink(file) { const max = C.proof.maxPx; const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = URL.createObjectURL(file); }); const s = Math.min(1, max / Math.max(img.width, img.height)); const cv = document.createElement('canvas'); cv.width = Math.round(img.width * s); cv.height = Math.round(img.height * s); cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height); return new Promise((res) => cv.toBlob(res, 'image/jpeg', 0.82)); }
+  async function shrink(file, maxPx) { const max = maxPx || C.proof.maxPx; const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = URL.createObjectURL(file); }); const s = Math.min(1, max / Math.max(img.width, img.height)); const cv = document.createElement('canvas'); cv.width = Math.round(img.width * s); cv.height = Math.round(img.height * s); cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height); return new Promise((res) => cv.toBlob(res, 'image/jpeg', 0.82)); }
   document.addEventListener('change', (e) => {
     if (!S) return; const el = e.target; const d = el.dataset; const sel = selDate();
     if (d.num) return act(() => el.value === '' ? ST.clearLog(d.num, sel) : ST.setLog(d.num, sel, { value: +el.value, src: (S.logs[S.me + '|' + d.num + '|' + sel] || {}).src || 'self' }));
     if (d.metric) return act(() => ST.setMetricEntry(d.metric, sel, el.value === '' ? null : +el.value));
     if (d.share) return act(() => ST.setGoalShare(d.share, el.checked));
+    if (d.avatar !== undefined) { const f = el.files[0]; if (!f) return; return act(async () => { await ST.uploadAvatar(await shrink(f, 512)); toast('✔'); }); }
+    if (d.loc) return act(() => ST.updateProfile({ location: el.value.trim().slice(0, 60) }));
+    if (d.bio) return act(() => ST.updateProfile({ bio: el.value.trim().slice(0, 200) }));
+    if (d.stat) return act(() => ST.updateProfile({ stats: { [d.stat]: el.value === '' ? null : +el.value } }));
+    if (d.stshare) return act(() => ST.updateProfile({ share: { [d.stshare]: el.checked } }));
     if (d.name) return act(() => ST.updateProfile({ name: el.value.trim() || me().name }));
     if (d.cktime) return act(() => ST.updateProfile({ checkinTime: el.value }));
     if (d.notif) return act(() => ST.updateProfile({ notif: { [d.notif]: el.checked } }));

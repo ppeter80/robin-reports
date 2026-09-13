@@ -22,7 +22,14 @@
     const group = await q(sb.from('ww_groups').select('*').eq('id', mem.group_id).single());
     const mems = await q(sb.from('ww_memberships').select('*').eq('group_id', group.id).neq('status', 'left'));
     const users = await q(sb.from('ww_users').select('*').in('id', mems.map((m) => m.user_id)));
-    const members = mems.map((m, i) => { const u = users.find((x) => x.id === m.user_id) || { id: m.user_id, name: '?' }; return { id: u.id, name: u.name, avatar: avatarFor(u, i), role: m.role, status: m.status }; });
+    const members = mems.map((m, i) => { const u = users.find((x) => x.id === m.user_id) || { id: m.user_id, name: '?' }; return { id: u.id, name: u.name, avatar: avatarFor(u, i), avatar_url: u.avatar_url || null, location: u.location || '', bio: u.bio || '', stats: u.stats || {}, share: u.share_fields || {}, role: m.role, status: m.status }; });
+    // fotky + príbehy skupiny (posledných 120), signed URL na 6 h
+    let photos = [];
+    try {
+      const ph = await q(sb.from('ww_photos').select('*').eq('group_id', group.id).order('created_at', { ascending: false }).limit(120));
+      if (ph.length) { const { data: signed } = await sb.storage.from('ww-photos').createSignedUrls(ph.map((p) => p.path), 6 * 3600); photos = ph.map((p, i) => ({ id: p.id, user: p.user_id, url: (signed && signed[i] && signed[i].signedUrl) || '', caption: p.caption || '', kind: p.kind, ts: new Date(p.created_at).getTime(), expires: p.expires_at ? new Date(p.expires_at).getTime() : null })); }
+    } catch (e) { console.warn('photos', e); }
+    members.forEach((m) => { m.story = photos.find((p) => p.kind === 'story' && p.user === m.id && (!p.expires || p.expires > Date.now())) || null; });
     const paused = mems.filter((m) => m.status === 'paused').map((m) => m.user_id);
     const ws = iso(monday(new Date())); const dates = [...Array(7)].map((_, i) => { const d = new Date(monday(new Date())); d.setDate(d.getDate() + i); return iso(d); });
     const tpls = await q(sb.from('ww_challenge_templates').select('*').or(`group_id.is.null,group_id.eq.${group.id}`).eq('is_active', true).order('created_at'));
@@ -48,7 +55,7 @@
     const evIds = evRows.map((e) => e.id);
     const reacts = evIds.length ? await q(sb.from('ww_reactions').select('*').in('event_id', evIds)) : [];
     const comms = evIds.length ? await q(sb.from('ww_comments').select('*').in('event_id', evIds).is('deleted_at', null).order('created_at')) : [];
-    const events = evRows.map((e) => { const kudos = {}; reacts.filter((r) => r.event_id === e.id).forEach((r) => { (kudos[r.emoji] = kudos[r.emoji] || []).push(r.from_user); }); return { id: e.id, user: e.user_id, type: e.type, title: e.payload && e.payload.title, proof: e.payload && e.payload.proof, ts: new Date(e.created_at).getTime(), kudos, comments: comms.filter((c) => c.event_id === e.id).map((c) => ({ user: c.user_id, text: c.text, ts: new Date(c.created_at).getTime() })) }; });
+    const events = evRows.map((e) => { const kudos = {}; reacts.filter((r) => r.event_id === e.id).forEach((r) => { (kudos[r.emoji] = kudos[r.emoji] || []).push(r.from_user); }); const ph = (e.type === 'photo' || e.type === 'story') ? photos.find((p) => p.id === e.ref_id) : null; return { id: e.id, user: e.user_id, type: e.type, title: e.payload && (e.payload.title || e.payload.caption), proof: e.payload && e.payload.proof, photo: ph ? ph.url : null, ts: new Date(e.created_at).getTime(), kudos, comments: comms.filter((c) => c.event_id === e.id).map((c) => ({ user: c.user_id, text: c.text, ts: new Date(c.created_at).getTime() })) }; });
     // ciele
     const goalRows = await q(sb.from('ww_goals').select('*').eq('user_id', uid).eq('status', 'active').order('created_at'));
     const entries = goalRows.length ? await q(sb.from('ww_metric_entries').select('*').eq('user_id', uid).order('date')) : [];
@@ -57,7 +64,7 @@
     const cycRows = await q(sb.from('ww_cycles').select('id,week_start').eq('group_id', group.id).eq('status', 'closed').order('week_start'));
     const resRows = cycRows.length ? await q(sb.from('ww_cycle_results').select('*').in('cycle_id', cycRows.map((c) => c.id))) : [];
     const results = {}; members.forEach((m) => { const rs = cycRows.map((c) => resRows.find((r) => r.cycle_id === c.id && r.user_id === m.id)); const last = [...rs].reverse().find(Boolean); results[m.id] = { streak: last ? last.streak_after : 0, extra: last ? last.extra_points_after : 0, hist: rs.map((r) => (r ? +r.pct : 0)) }; });
-    S = { me: uid, lang: meRow.locale || 'sk', consent: !!meRow.consent_at, group: { id: group.id, name: group.name, emoji: group.emoji || '💪', admin: group.admin_id, slots: group.slots, tz: group.tz, members, paused }, lib, cur, next, logs, events, goals, results, profile: { checkinTime: (meRow.checkin_time || '20:30').slice(0, 5), notif: meRow.notif_prefs || {} } };
+    S = { me: uid, lang: meRow.locale || 'sk', consent: !!meRow.consent_at, group: { id: group.id, name: group.name, emoji: group.emoji || '💪', admin: group.admin_id, slots: group.slots, tz: group.tz, members, paused }, lib, cur, next, logs, events, goals, results, profile: { checkinTime: (meRow.checkin_time || '20:30').slice(0, 5), notif: meRow.notif_prefs || {}, avatar_url: meRow.avatar_url || null, location: meRow.location || '', bio: meRow.bio || '', stats: meRow.stats || {}, share: meRow.share_fields || {} }, photos };
     return S;
   }
   async function reload() { return load(); }
@@ -95,7 +102,10 @@
     async addGoal(g) { const m = C.metrics[g.metric]; await q(sb.from('ww_goals').insert({ user_id: S.me, metric: g.metric, direction: m.dir, target: g.target, start_value: g.start ?? null, interval: m.interval })); if (g.start != null) await q(sb.from('ww_metric_entries').upsert({ user_id: S.me, metric: g.metric, date: iso(new Date()), value: g.start }, { onConflict: 'user_id,metric,date' })); await reload(); },
     async setGoalShare(id, v) { await q(sb.from('ww_goals').update({ share_progress: v }).eq('id', id)); S.goals.find((x) => x.id === id).share = v; },
     async setMetricEntry(id, date, value) { const g = S.goals.find((x) => x.id === id); if (value == null) await q(sb.from('ww_metric_entries').delete().eq('user_id', S.me).eq('metric', g.metric).eq('date', date)); else await q(sb.from('ww_metric_entries').upsert({ user_id: S.me, metric: g.metric, date, value }, { onConflict: 'user_id,metric,date' })); await reload(); },
-    async updateProfile(p) { const row = {}; if (p.name) row.name = p.name; if (p.lang) row.locale = p.lang; if (p.checkinTime) row.checkin_time = p.checkinTime; if (p.notif) row.notif_prefs = { ...S.profile.notif, ...p.notif }; if (p.consent) row.consent_at = new Date().toISOString(); await q(sb.from('ww_users').update(row).eq('id', S.me)); await reload(); },
+    async updateProfile(p) { const row = {}; if (p.name) row.name = p.name; if (p.lang) row.locale = p.lang; if (p.checkinTime) row.checkin_time = p.checkinTime; if (p.notif) row.notif_prefs = { ...S.profile.notif, ...p.notif }; if (p.consent) row.consent_at = new Date().toISOString(); if (p.location != null) row.location = p.location; if (p.bio != null) row.bio = p.bio; if (p.stats) row.stats = { ...S.profile.stats, ...p.stats }; if (p.share) row.share_fields = { ...S.profile.share, ...p.share }; if (p.avatar_url !== undefined) row.avatar_url = p.avatar_url; await q(sb.from('ww_users').update(row).eq('id', S.me)); await reload(); },
+    async uploadAvatar(blob) { const path = S.me + '/avatar.jpg'; await q(sb.storage.from('ww-avatars').upload(path, blob, { contentType: 'image/jpeg', upsert: true })); const { data } = sb.storage.from('ww-avatars').getPublicUrl(path); const url = data.publicUrl + '?t=' + Date.now(); await this.updateProfile({ avatar_url: url }); return url; },
+    async addPhoto(blob, caption, kind) { const path = S.me + '/' + Date.now() + '.jpg'; await q(sb.storage.from('ww-photos').upload(path, blob, { contentType: 'image/jpeg', upsert: false })); await q(sb.from('ww_photos').insert({ user_id: S.me, group_id: S.group.id, path, caption: caption || null, kind: kind || 'photo', expires_at: kind === 'story' ? new Date(Date.now() + 24 * 3600e3).toISOString() : null })); await reload(); },
+    async deletePhoto(id) { await q(sb.from('ww_photos').delete().eq('id', id)); await reload(); },
     async updateGroup(p) { await q(sb.from('ww_groups').update(p).eq('id', S.group.id)); await reload(); },
     async exportJSON() { return JSON.stringify(S, null, 2); },
     async deleteAccount() { await q(sb.rpc('ww_delete_me')).catch(() => {}); await sb.auth.signOut(); },

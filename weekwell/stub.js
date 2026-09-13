@@ -54,7 +54,7 @@
   function seed() {
     const ws = monday(new Date());
     const dates = [...Array(7)].map((_, i) => { const d = new Date(ws); d.setDate(ws.getDate() + i); return iso(d); });
-    const members = [{ id: 'u1', name: 'Peter', avatar: '🧔' }, { id: 'u2', name: 'Miša', avatar: '👩' }, { id: 'u3', name: 'Tomáš', avatar: '🧑' }, { id: 'u4', name: 'Zuza', avatar: '👱‍♀️' }];
+    const members = [{ id: 'u1', name: 'Peter', avatar: '🧔', location: 'Bratislava', bio: 'Beh, bicykel, sauna.', stats: { height_cm: 183, weight_kg: 86.5, birth_year: 1980, resting_hr: 56 }, share: { weight_kg: false, height_cm: true, resting_hr: true } }, { id: 'u2', name: 'Miša', avatar: '👩', location: 'Trnava', bio: 'Joga a dlhé prechádzky.', stats: { height_cm: 168, resting_hr: 62 }, share: { height_cm: true, resting_hr: true } }, { id: 'u3', name: 'Tomáš', avatar: '🧑', location: 'Praha', bio: '', stats: {}, share: {} }, { id: 'u4', name: 'Zuza', avatar: '👱‍♀️', location: 'Snina', bio: 'Plávanie.', stats: { birth_year: 1985 }, share: { birth_year: true } }];
     const lib = LIB; const T = (id) => lib.find((x) => x.id === id);
     const cur = { id: 'c1', week_start: iso(ws), status: 'running', dates, challenges: [
       { id: 'cc1', tpl: T('lib16'), slot: 1, source: 'vote_majority', votes: 3 }, { id: 'cc2', tpl: T('lib3'), slot: 2, source: 'vote_rank', votes: 2 }, { id: 'cc3', tpl: T('lib20'), slot: 3, source: 'library', votes: 0 } ] };
@@ -75,7 +75,7 @@
       { id: 'g1', metric: 'weight', target: 84, share: false, entries: [...Array(8)].map((_, i) => ({ date: iso(new Date(ws.getTime() - (7 - i) * 7 * 864e5)), value: +(88.5 - i * 0.45 + (Math.random() - 0.5)).toFixed(1) })) },
       { id: 'g2', metric: 'run_km', target: 20, share: true, entries: [...Array(8)].map((_, i) => ({ date: iso(new Date(ws.getTime() - (7 - i) * 7 * 864e5)), value: +(8 + i * 1.2 + Math.random() * 2).toFixed(1) })) } ];
     const results = { u1: { streak: 3, extra: 1, hist: [100, 100, 100, 67, 100] }, u2: { streak: 1, extra: 2, hist: [100, 50, 100, 100, 83] }, u3: { streak: 0, extra: 0, hist: [67, 33, 100, 0, 50] }, u4: { streak: 0, extra: 1, hist: [100, 100, 0, 0, 0] } };
-    return { me: 'u1', lang: 'sk', consent: true, group: { id: 'g1', name: 'Chalani & Zuza', emoji: '🚴', admin: 'u1', slots: 3, tz: 'Europe/Bratislava', members, paused: ['u4'] }, lib, cur, next, logs, events, goals, results, profile: { checkinTime: '20:30', notif: { checkin: true, reminder: true, social: true, proposals: true } } };
+    return { me: 'u1', lang: 'sk', consent: true, group: { id: 'g1', name: 'Chalani & Zuza', emoji: '🚴', admin: 'u1', slots: 3, tz: 'Europe/Bratislava', members, paused: ['u4'] }, lib, cur, next, logs, events, goals, results, profile: { checkinTime: '20:30', notif: { checkin: true, reminder: true, social: true, proposals: true }, avatar_url: null, location: 'Bratislava', bio: 'Beh, bicykel, sauna.', stats: { height_cm: 183, weight_kg: 86.5, birth_year: 1980, resting_hr: 56 }, share: { weight_kg: false, height_cm: true, resting_hr: true } }, photos: [] };
   }
 
   let S = null;
@@ -99,11 +99,15 @@
     async addGoal(g) { S.goals.push({ id: uid(), metric: g.metric, target: g.target, share: false, entries: g.start != null ? [{ date: iso(new Date()), value: g.start }] : [] }); save(); },
     async setGoalShare(id, v) { S.goals.find((x) => x.id === id).share = v; save(); },
     async setMetricEntry(id, date, value) { const g = S.goals.find((x) => x.id === id); g.entries = g.entries.filter((x) => x.date !== date); if (value != null) g.entries.push({ date, value }); g.entries.sort((a, b) => (a.date < b.date ? -1 : 1)); save(); },
-    async updateProfile(p) { if (p.name) me().name = p.name; if (p.lang) S.lang = p.lang; if (p.checkinTime) S.profile.checkinTime = p.checkinTime; if (p.notif) Object.assign(S.profile.notif, p.notif); save(); },
+    async updateProfile(p) { if (p.name) me().name = p.name; if (p.lang) S.lang = p.lang; if (p.checkinTime) S.profile.checkinTime = p.checkinTime; if (p.notif) Object.assign(S.profile.notif, p.notif); if (p.location != null) { S.profile.location = p.location; me().location = p.location; } if (p.bio != null) { S.profile.bio = p.bio; me().bio = p.bio; } if (p.stats) { Object.assign(S.profile.stats, p.stats); me().stats = S.profile.stats; } if (p.share) { Object.assign(S.profile.share, p.share); me().share = S.profile.share; } save(); },
     async exportJSON() { return JSON.stringify(S, null, 2); },
     async deleteAccount() { localStorage.removeItem(KEY); },
     async simulateSelection(fn) { S.next.simulated = fn(S); save(); },
+    async uploadAvatar(blob) { const url = await blobUrl(blob); me().avatar_url = url; S.profile.avatar_url = url; save(); return url; },
+    async addPhoto(blob, caption, kind) { const url = await blobUrl(blob); const id = uid(); S.photos.unshift({ id, user: S.me, url, caption: caption || '', kind: kind || 'photo', ts: Date.now(), expires: kind === 'story' ? Date.now() + 24 * 3600e3 : null }); S.events.unshift({ id: uid(), user: S.me, type: kind || 'photo', title: caption || '', photo: url, ts: Date.now(), kudos: {}, comments: [] }); if (kind === 'story') me().story = S.photos[0]; save(); },
+    async deletePhoto(id) { S.photos = S.photos.filter((p) => p.id !== id); save(); },
     async signOut() {},
   };
+  function blobUrl(blob) { return new Promise((res) => { const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(blob); }); }
   window.WW_STORE = ST;
 })();
