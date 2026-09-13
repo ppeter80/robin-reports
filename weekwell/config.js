@@ -1,15 +1,15 @@
 // Weekwell — konfigurácia (⚙ parametre zo spec v0.3 kap. 14). Jediné miesto, kde sú čísla.
 window.WW_CONFIG = {
-  version: '0.4.11',
+  version: '0.5.1',
   stub: false,                      // false = Supabase naostro (od 2026-09-13); true = vzorové dáta
   supabaseUrl: 'https://chekxmexwigvbqclrrin.supabase.co',           // projekt TipLab (zdieľaný, tabuľky ww_*) – Peter tam spustil SQL 2026-09-13
   supabaseKey: 'sb_publishable_73CPQ3p9-Eu_0k2KMGpMag_9kybj503',     // publishable key – verejný, RLS chráni dáta
   slots: { default: 3, min: 2, max: 4 },
   categoryMaxPerCycle: 2,
   schedule: {                       // pásmo skupiny; serverová logika v ww_tick() (supabase/ww_schema.sql)
-    proposalsClose: { dow: 5, time: '18:00' },
-    votingClose:    { dow: 0, time: '17:00' },
-    selectionAt:    { dow: 0, time: '18:00' },
+    proposalsClose: { dow: 0, time: '24:00' },   // #22
+    votingClose:    { dow: 0, time: '24:00' },
+    selectionAt:    { dow: 1, time: '00:05' },
     cycleClose:     { dow: 0, time: '24:00' },
     reportAt:       { dow: 1, time: '07:00' },
   },
@@ -25,6 +25,7 @@ window.WW_CONFIG = {
   library: { noRepeatCycles: 2 },
   kudos: ['👏', '🔥', '💪', '❤️', '😂'],
   categories: ['movement', 'nutrition', 'alcohol', 'sleep', 'mental', 'lifestyle'],
+  vapidPublicKey: 'BMsEv22SWYKsBdXVpefAHXjpYr7Wpi2NVClG40Q_jnvh75xaqAolkgzdgxn6Vxl9G-V9BEiDPbfl5Kd9yRkmQ_A',   // #23 Web Push (verejný kľúč; privátny má Robin v toolkit/.env)
   themes: {                         // #11 – farebné témy (CSS premenné)
     green:  { bg: '#000000', card: '#111214', card2: '#191b1f', line: '#26282d', text: '#f3f4f6', muted: '#9aa0a6', acc: '#34d399', acc2: '#0f8f6a', dark: true },
     blue:   { bg: '#05070d', card: '#0f1420', card2: '#161d2e', line: '#232c40', text: '#eef2ff', muted: '#98a2c0', acc: '#60a5fa', acc2: '#1d4ed8', dark: true },

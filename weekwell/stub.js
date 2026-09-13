@@ -106,6 +106,7 @@
     async voteRule(id, v) { const r = S.rules.find((x) => x.id === id); r.yes = r.yes.filter((u) => u !== S.me); r.no = r.no.filter((u) => u !== S.me); (v ? r.yes : r.no).push(S.me); const others = S.group.members.filter((m) => m.id !== r.by && !S.group.paused.includes(m.id)).length; if (r.yes.length > others / 2) { r.status = 'active'; r.decided = Date.now(); if (r.kind === 'revoke' && r.target) { const t = S.rules.find((x) => x.id === r.target); if (t) t.status = 'revoked'; r.status = 'revoked'; } } else if (r.no.length > others / 2) { r.status = 'rejected'; r.decided = Date.now(); } save(); return r.status; },
     async sendMessage(text) { S.messages.push({ id: uid(), user: S.me, text, ts: Date.now() }); save(); },
     async setTheme(name) { S.theme = name; save(); },
+    async savePushSubscription() {},
     async updateGroup(p) { Object.assign(S.group, p); save(); },
     async uploadGroupAvatar(blob) { S.group.avatar_url = await blobUrl(blob); save(); },
     async startCatchup() { const T = (id) => S.lib.find((x) => x.id === id); const extra = [T('lib16'), T('lib3')]; extra.forEach((tpl, i) => S.cur.challenges.push({ id: 'ccu' + i, tpl, slot: 91 + i, source: 'catchup', votes: 0, catchup: true })); S.catchup = { available: false, active: true, from_week: S.catchup.from_week }; save(); return extra.length; },
