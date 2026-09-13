@@ -110,6 +110,8 @@
     async uploadProof(file) { const path = `${S.me}/${Date.now()}.jpg`; await q(sb.storage.from('ww-proofs').upload(path, file, { contentType: 'image/jpeg', upsert: true })); const { data } = await sb.storage.from('ww-proofs').createSignedUrl(path, 60 * 60 * 24 * 90); return data ? data.signedUrl : path; },
     async addProposal(tpl) {
       let tplId = tpl.id;
+      const same = (a, b) => String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
+      if ((!tplId || tpl.source === 'custom' && !S.lib.find((x) => x.id === tplId))) { const dup = S.lib.find((x) => x.source === 'custom' && same(x.title_sk, tpl.title_sk)); if (dup) tplId = dup.id; }   // rovnaký názov = tá istá výzva (#31)
       if (!tplId || tpl.source === 'custom' && !S.lib.find((x) => x.id === tplId)) { const ins = { group_id: S.group.id, title_sk: tpl.title_sk, title_en: tpl.title_en || tpl.title_sk, category: tpl.category, type: tpl.type, target: tpl.target, unit: tpl.unit, min_days: tpl.min_days || null, proof: tpl.proof || 'optional', difficulty: tpl.difficulty || null, created_by: S.me }; if (tpl.description) ins.description = tpl.description; const row = await q(sb.from('ww_challenge_templates').insert(ins).select().single()); tplId = row.id; }
       const ex = await q(sb.from('ww_proposals').select('*').eq('cycle_id', S.next.id).eq('template_id', tplId).maybeSingle());
       if (ex) { if (!ex.authors.includes(S.me)) await q(sb.from('ww_proposals').update({ authors: [...ex.authors, S.me] }).eq('id', ex.id)); }
