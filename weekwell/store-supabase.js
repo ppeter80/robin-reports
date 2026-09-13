@@ -83,7 +83,7 @@
       const mr = await q(sb.from('ww_messages').select('*').eq('group_id', group.id).order('created_at', { ascending: false }).limit(200));
       messages = mr.reverse().map((m) => ({ id: m.id, user: m.user_id, text: m.text, ts: new Date(m.created_at).getTime() }));
     } catch (e) { console.warn('rules/chat', e); }
-    S = { me: uid, lang: meRow.locale || 'sk', rules, messages, theme: (meRow.notif_prefs || {}).theme || null, consent: !!meRow.consent_at, group: { id: group.id, name: group.name, emoji: group.emoji || '💪', admin: group.admin_id, slots: group.slots, tz: group.tz, members, paused }, lib, cur, next, logs, events, goals, results, catchup, profile: { checkinTime: (meRow.checkin_time || '20:30').slice(0, 5), notif: meRow.notif_prefs || {}, avatar_url: meRow.avatar_url || null, location: meRow.location || '', bio: meRow.bio || '', stats: meRow.stats || {}, share: meRow.share_fields || {} }, photos };
+    S = { me: uid, lang: meRow.locale || 'sk', rules, messages, theme: (meRow.notif_prefs || {}).theme || null, consent: !!meRow.consent_at, group: { id: group.id, name: group.name, emoji: group.emoji || '💪', avatar_url: group.avatar_url || null, admin: group.admin_id, slots: group.slots, tz: group.tz, members, paused }, lib, cur, next, logs, events, goals, results, catchup, profile: { checkinTime: (meRow.checkin_time || '20:30').slice(0, 5), notif: meRow.notif_prefs || {}, avatar_url: meRow.avatar_url || null, location: meRow.location || '', bio: meRow.bio || '', stats: meRow.stats || {}, share: meRow.share_fields || {} }, photos };
     return S;
   }
   async function reload() { return load(); }
@@ -139,6 +139,7 @@
     async uploadAvatar(blob) { const path = S.me + '/avatar.jpg'; await q(sb.storage.from('ww-avatars').upload(path, blob, { contentType: 'image/jpeg', upsert: true })); const { data } = sb.storage.from('ww-avatars').getPublicUrl(path); const url = data.publicUrl + '?t=' + Date.now(); await this.updateProfile({ avatar_url: url }); return url; },
     async addPhoto(blob, caption, kind) { const path = S.me + '/' + Date.now() + '.jpg'; await q(sb.storage.from('ww-photos').upload(path, blob, { contentType: 'image/jpeg', upsert: false })); await q(sb.from('ww_photos').insert({ user_id: S.me, group_id: S.group.id, path, caption: caption || null, kind: kind || 'photo', expires_at: kind === 'story' ? new Date(Date.now() + 24 * 3600e3).toISOString() : null })); await reload(); },
     async deletePhoto(id) { await q(sb.from('ww_photos').delete().eq('id', id)); await reload(); },
+    async uploadGroupAvatar(blob) { const path = S.me + '/group-' + S.group.id + '.jpg'; await q(sb.storage.from('ww-avatars').upload(path, blob, { contentType: 'image/jpeg', upsert: true })); const { data } = sb.storage.from('ww-avatars').getPublicUrl(path); await this.updateGroup({ avatar_url: data.publicUrl + '?t=' + Date.now() }); },
     async updateGroup(p) { await q(sb.from('ww_groups').update(p).eq('id', S.group.id)); await reload(); },
     async exportJSON() { return JSON.stringify(S, null, 2); },
     async deleteAccount() { await q(sb.rpc('ww_delete_me')).catch(() => {}); await sb.auth.signOut(); },
