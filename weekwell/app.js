@@ -343,17 +343,17 @@
     if (d.metric) return act(() => ST.setMetricEntry(d.metric, sel, el.value === '' ? null : +el.value));
     if (d.share) return act(() => ST.setGoalShare(d.share, el.checked));
     if (d.avatar !== undefined) { const f = el.files[0]; if (!f) return; el.value = ''; return act(async () => { const small = await shrink(f, 1600); const cropped = await cropSheet(small, 512); if (!cropped) return; await ST.uploadAvatar(cropped); toast('✔'); }); }
-    if (d.loc) return act(() => ST.updateProfile({ location: el.value.trim().slice(0, 60) }));
-    if (d.bio) return act(() => ST.updateProfile({ bio: el.value.trim().slice(0, 200) }));
+    if (d.loc) return act(async () => { await ST.updateProfile({ location: el.value.trim().slice(0, 60) }); toast('✔'); });
+    if (d.bio) return act(async () => { await ST.updateProfile({ bio: el.value.trim().slice(0, 200) }); toast('✔'); });
     if (d.stat) return act(() => ST.updateProfile({ stats: { [d.stat]: el.value === '' ? null : +el.value } }));
     if (d.stshare) return act(() => ST.updateProfile({ share: { [d.stshare]: el.checked } }));
-    if (d.name) return act(() => ST.updateProfile({ name: el.value.trim() || me().name }));
+    if (d.name) return act(async () => { await ST.updateProfile({ name: el.value.trim().slice(0, 40) || me().name }); toast('✔ ' + t('name')); });
     if (d.cktime) return act(() => ST.updateProfile({ checkinTime: el.value }));
     if (d.notif) return act(() => ST.updateProfile({ notif: { [d.notif]: el.checked } }));
   });
   document.addEventListener('click', (e) => { const mb = e.target.closest('#menubtn'); const menu = $('#menu'); if (!menu) return; if (mb) { renderMenu(); menu.hidden = !menu.hidden; return; } if (!menu.hidden && (e.target === menu || e.target.closest('#menuin a'))) menu.hidden = true; });
   document.addEventListener('click', (e) => { if (e.target.closest('header.top .logo')) { const u = location.pathname + '?r=' + Date.now() + location.hash; location.replace(u); } });
-  document.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.matches('[data-chatin]')) { e.preventDefault(); const b = $('[data-chatsend]'); if (b) b.click(); } });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.matches('[data-chatin]')) { e.preventDefault(); const b = $('[data-chatsend]'); if (b) b.click(); } if (e.key === 'Enter' && e.target.matches('[data-name],[data-loc],[data-ruletext]')) { e.preventDefault(); e.target.blur(); } });
   window.addEventListener('hashchange', () => { WW_STATE.tab = location.hash.replace('#', '') || 'home'; render(); });
 
   // ---------- boot ----------
