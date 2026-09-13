@@ -296,6 +296,33 @@
     if (d.signout) { act(async () => { await ST.signOut(); location.reload(); }); return; }
   });
   function libList(qs) { const ql = qs.toLowerCase(); return S.lib.filter((tp) => !ql || tplTitle(tp).toLowerCase().includes(ql) || t('cat_' + tp.category).toLowerCase().includes(ql)).map((tp) => `<div class="libitem"><div class="cat">${CAT_ICON[tp.category]}</div><div class="grow"><div>${esc(tplTitle(tp))}</div><div class="small">${tplLine(tp)}</div></div><button class="mini" data-pick="${tp.id}">${t('add')}</button></div>`).join(''); }
+  // #13 – kruhový cropper: drag prstom/myšou, zoom posuvníkom → štvorcový JPEG (out px)
+  function cropSheet(file, out) {
+    out = out || 512;
+    return new Promise(async (resolve) => {
+      const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = URL.createObjectURL(file); });
+      const box = 260; const base = box / Math.min(img.width, img.height); let zoom = 1, ox = 0, oy = 0; // ox/oy = posun stredu v px boxu
+      const el = document.createElement('div'); el.className = 'sheet';
+      el.innerHTML = `<div class="in"><div class="h2">${t('crop_title')}</div><div class="muted small">${t('crop_hint')}</div><div class="cropbox" data-cropbox><img alt=""></div><input type="range" min="1" max="4" step="0.01" value="1" data-zoom class="mt"><div class="row mt"><button class="primary" data-ok>${t('save')}</button><button data-x>${t('cancel')}</button></div></div>`;
+      document.body.appendChild(el);
+      const im = el.querySelector('img'); im.src = img.src;
+      const paint = () => { const w = img.width * base * zoom, h = img.height * base * zoom; const maxx = Math.max(0, (w - box) / 2), maxy = Math.max(0, (h - box) / 2); ox = Math.max(-maxx, Math.min(maxx, ox)); oy = Math.max(-maxy, Math.min(maxy, oy)); im.style.width = w + 'px'; im.style.height = h + 'px'; im.style.left = (box - w) / 2 + ox + 'px'; im.style.top = (box - h) / 2 + oy + 'px'; };
+      paint();
+      let drag = null; const bx = el.querySelector('[data-cropbox]');
+      const pt = (e) => (e.touches ? e.touches[0] : e);
+      bx.addEventListener('pointerdown', (e) => { drag = { x: e.clientX - ox, y: e.clientY - oy }; bx.setPointerCapture(e.pointerId); });
+      bx.addEventListener('pointermove', (e) => { if (!drag) return; ox = e.clientX - drag.x; oy = e.clientY - drag.y; paint(); });
+      bx.addEventListener('pointerup', () => { drag = null; }); bx.addEventListener('pointercancel', () => { drag = null; });
+      el.querySelector('[data-zoom]').addEventListener('input', (e) => { zoom = +e.target.value; paint(); });
+      el.querySelector('[data-x]').addEventListener('click', () => { el.remove(); resolve(null); });
+      el.querySelector('[data-ok]').addEventListener('click', () => {
+        const w = img.width * base * zoom, h = img.height * base * zoom; const left = (box - w) / 2 + ox, top = (box - h) / 2 + oy;
+        const sx = -left / (base * zoom), sy = -top / (base * zoom), sw = box / (base * zoom), sh = box / (base * zoom);
+        const cv = document.createElement('canvas'); cv.width = out; cv.height = out; cv.getContext('2d').drawImage(img, sx, sy, sw, sh, 0, 0, out, out);
+        el.remove(); cv.toBlob((b) => resolve(b), 'image/jpeg', 0.88);
+      });
+    });
+  }
   async function stampBadge(blob, n) { const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = URL.createObjectURL(blob); }); const cv = document.createElement('canvas'); cv.width = img.width; cv.height = img.height; const ctx = cv.getContext('2d'); ctx.drawImage(img, 0, 0); const r = Math.round(Math.min(cv.width, cv.height) * 0.09); const cx = cv.width - r - Math.round(r * 0.4), cy = cv.height - r - Math.round(r * 0.4); ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fillStyle = '#34d399'; ctx.fill(); ctx.lineWidth = Math.max(2, r * 0.08); ctx.strokeStyle = '#04231a'; ctx.stroke(); ctx.beginPath(); ctx.arc(cx, cy, r * 0.62, 0, Math.PI * 2); ctx.fillStyle = 'rgba(4,35,26,.85)'; ctx.fill(); ctx.fillStyle = '#e9fff5'; ctx.font = `800 ${Math.round(r * 0.85)}px -apple-system,Segoe UI,Roboto,sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(String(n), cx, cy + r * 0.04); return new Promise((res) => cv.toBlob(res, 'image/jpeg', 0.85)); }
   async function shrink(file, maxPx) { const max = maxPx || C.proof.maxPx; const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = URL.createObjectURL(file); }); const s = Math.min(1, max / Math.max(img.width, img.height)); const cv = document.createElement('canvas'); cv.width = Math.round(img.width * s); cv.height = Math.round(img.height * s); cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height); return new Promise((res) => cv.toBlob(res, 'image/jpeg', 0.82)); }
   document.addEventListener('change', (e) => {
@@ -303,7 +330,7 @@
     if (d.num) return act(() => el.value === '' ? ST.clearLog(d.num, sel) : ST.setLog(d.num, sel, { value: +el.value, src: (S.logs[S.me + '|' + d.num + '|' + sel] || {}).src || 'self' }));
     if (d.metric) return act(() => ST.setMetricEntry(d.metric, sel, el.value === '' ? null : +el.value));
     if (d.share) return act(() => ST.setGoalShare(d.share, el.checked));
-    if (d.avatar !== undefined) { const f = el.files[0]; if (!f) return; return act(async () => { await ST.uploadAvatar(await shrink(f, 512)); toast('✔'); }); }
+    if (d.avatar !== undefined) { const f = el.files[0]; if (!f) return; el.value = ''; return act(async () => { const small = await shrink(f, 1600); const cropped = await cropSheet(small, 512); if (!cropped) return; await ST.uploadAvatar(cropped); toast('✔'); }); }
     if (d.loc) return act(() => ST.updateProfile({ location: el.value.trim().slice(0, 60) }));
     if (d.bio) return act(() => ST.updateProfile({ bio: el.value.trim().slice(0, 200) }));
     if (d.stat) return act(() => ST.updateProfile({ stats: { [d.stat]: el.value === '' ? null : +el.value } }));

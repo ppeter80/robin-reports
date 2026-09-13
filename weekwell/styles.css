@@ -123,3 +123,6 @@ textarea{font:inherit;background:var(--card2);color:var(--text);border:1px solid
 body.light .msg.me{color:#fff}
 header.top .logo{cursor:pointer;user-select:none}
 header.top .logo:active{opacity:.6}
+.cropbox{position:relative;width:260px;height:260px;margin:10px auto 0;border-radius:50%;overflow:hidden;background:#000;touch-action:none;border:2px solid var(--acc)}
+.cropbox img{position:absolute;max-width:none;user-select:none;-webkit-user-drag:none;pointer-events:none}
+input[type=range]{accent-color:var(--acc)}
