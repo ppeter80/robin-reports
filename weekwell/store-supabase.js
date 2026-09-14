@@ -67,7 +67,8 @@
     const entries = goalRows.length ? await q(sb.from('ww_metric_entries').select('*').eq('user_id', uid).order('date')) : [];
     const goals = goalRows.map((g) => ({ id: g.id, metric: g.metric, category: g.category || null, label: g.label || null, unit: g.unit || null, dir: g.direction, interval: g.interval, target: +g.target, share: g.share_progress, entries: entries.filter((e) => e.metric === g.metric).map((e) => ({ date: e.date, value: +e.value })) }));
     // výsledky (história uzavretých cyklov)
-    const cycRows = await q(sb.from('ww_cycles').select('id,week_start').eq('group_id', group.id).eq('status', 'closed').order('week_start'));
+    let cycRows = await q(sb.from('ww_cycles').select('id,week_start').eq('group_id', group.id).eq('status', 'closed').order('week_start'));
+    if (cycRows.length) { const withCc = await q(sb.from('ww_cycle_challenges').select('cycle_id').in('cycle_id', cycRows.map((c) => c.id))); const has = new Set(withCc.map((x) => x.cycle_id)); cycRows = cycRows.filter((c) => has.has(c.id)); }   // týždne bez výziev (štart skupiny) sa nerátajú
     const resRows = cycRows.length ? await q(sb.from('ww_cycle_results').select('*').in('cycle_id', cycRows.map((c) => c.id))) : [];
     const results = {}; members.forEach((m) => { const rs = cycRows.map((c) => resRows.find((r) => r.cycle_id === c.id && r.user_id === m.id)); const last = [...rs].reverse().find(Boolean); results[m.id] = { streak: last ? last.streak_after : 0, extra: last ? last.extra_points_after : 0, badges: last ? (last.badges_after || 0) : 0, hist: rs.map((r) => (r ? +r.pct : 0)), cycles: cycRows.map((c, i) => ({ id: c.id, week_start: c.week_start, pct: rs[i] ? +rs[i].pct : 0, is_100: rs[i] ? rs[i].is_100 : false, badges: rs[i] ? (rs[i].badges_earned || 0) : 0, streak: rs[i] ? rs[i].streak_after : 0, caught_up: rs[i] ? !!rs[i].caught_up : false, paused: rs[i] ? rs[i].paused : false })) }; });
     // #5 dobehnutie: minulý týždeň nesplnený a ešte nezačaté
