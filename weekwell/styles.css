@@ -87,6 +87,7 @@ hr{border:0;border-top:1px solid var(--line);margin:10px 0}
 .av img{width:100%;height:100%;object-fit:cover;display:block}
 .av.story{border-color:var(--acc);box-shadow:0 0 0 2px #000,0 0 0 4px var(--acc)}
 .avwrap{position:relative;display:inline-block;margin:0;cursor:pointer}
+.avwrap label{cursor:pointer}
 .avwrap .avedit{position:absolute;right:-2px;bottom:-2px;background:var(--acc);color:#04231a;border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-size:14px;border:2px solid #000}
 textarea{font:inherit;background:var(--card2);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:9px 10px;width:100%;resize:vertical}
 .gallery{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
