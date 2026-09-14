@@ -120,7 +120,7 @@
     async deleteAccount() { localStorage.removeItem(KEY); },
     async simulateSelection(fn) { S.next.simulated = fn(S); save(); },
     async uploadAvatar(blob) { const url = await blobUrl(blob); me().avatar_url = url; S.profile.avatar_url = url; save(); return url; },
-    async addPhoto(blob, caption, kind) { const url = await blobUrl(blob); const id = uid(); S.photos.unshift({ id, user: S.me, url, caption: caption || '', kind: kind || 'photo', ts: Date.now(), expires: kind === 'story' ? Date.now() + 24 * 3600e3 : null }); S.events.unshift({ id: uid(), user: S.me, type: kind || 'photo', title: caption || '', photo: url, ts: Date.now(), kudos: {}, comments: [] }); if (kind === 'story') me().story = S.photos[0]; save(); },
+    async addPhoto(blob, caption, kind) { const url = await blobUrl(blob); const id = uid(); S.photos.unshift({ id, user: S.me, url, caption: caption || '', kind: kind || 'photo', ts: Date.now(), expires: kind === 'story' ? Date.now() + 24 * 3600e3 : null }); S.events.unshift({ id: uid(), user: S.me, type: kind || 'photo', title: caption || '', photo: url, ts: Date.now(), kudos: {}, comments: [] }); if (kind === 'story') me().story = S.photos[0]; save(); return url; },
     async deletePhoto(id) { const ph = S.photos.find((p) => p.id === id); S.photos = S.photos.filter((p) => p.id !== id); if (ph) S.events = S.events.filter((e) => !(e.photo === ph.url && e.user === S.me)); if (ph && ph.kind === 'story') me().story = null; save(); },
     async signOut() {},
   };
