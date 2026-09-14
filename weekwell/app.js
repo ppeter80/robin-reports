@@ -17,9 +17,9 @@
   const mName = (g) => (g.metric && g.metric.startsWith('custom:')) ? (g.label || g.metric.slice(7)) : t('m_' + g.metric);
   const gCat = (g) => g.category || Object.keys(C.goalCategories).find((c) => C.goalCategories[c].includes(g.metric)) || 'other';
   function badgeSvg(n, size) { size = size || 44; return `<svg class="badge" width="${size}" height="${size}" viewBox="0 0 44 44"><defs><linearGradient id="bg${n}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#34d399"/><stop offset="1" stop-color="#0f8f6a"/></linearGradient></defs><polygon points="22,2 27,8 35,6 36,14 43,18 39,26 42,34 34,36 30,43 22,39 14,43 10,36 2,34 5,26 1,18 8,14 9,6 17,8" fill="url(#bg${n})" stroke="#04231a" stroke-width="1"/><circle cx="22" cy="22" r="12" fill="#04231a" opacity=".85"/><text x="22" y="27" text-anchor="middle" font-size="${n >= 10 ? 12 : 15}" font-weight="800" fill="#e9fff5" font-family="-apple-system,Segoe UI,Roboto,sans-serif">${n}</text></svg>`; }
-  const gav = (size) => S.group.avatar_url ? `<span class="av" style="width:${size}px;height:${size}px" data-view="${esc(S.group.avatar_url)}" data-cap="${esc(S.group.name)}"><img src="${esc(S.group.avatar_url)}" alt=""></span>` : esc(S.group.emoji);
+  const gav = (size) => S.group.avatar_url ? `<span class="av" style="width:${size}px;height:${size}px" data-view="${esc(S.group.avatar_url)}" data-cap="${esc(S.group.name)}" data-round="1"><img src="${esc(S.group.avatar_url)}" alt=""></span>` : esc(S.group.emoji);
   // veľký avatar v profile/karte člena: klik = zväčšiť fotku (nie otvoriť kartu)
-  const avBig = (m, size) => m.avatar_url ? `<span class="av ${m.story ? 'story' : ''}" style="width:${size}px;height:${size}px" data-view="${esc(m.avatar_url)}" data-cap="${esc(m.name)}"><img src="${esc(m.avatar_url)}" alt=""></span>` : av(m, size);
+  const avBig = (m, size) => m.avatar_url ? `<span class="av ${m.story ? 'story' : ''}" style="width:${size}px;height:${size}px" data-view="${esc(m.avatar_url)}" data-cap="${esc(m.name)}" data-round="1"><img src="${esc(m.avatar_url)}" alt=""></span>` : av(m, size);
   const badgesOf = (id) => (S.results[id] || {}).badges || 0;
   const STATS = [['height_cm', 'cm'], ['weight_kg', 'kg'], ['birth_year', ''], ['resting_hr', 'bpm'], ['steps_avg', ''], ['sleep_avg', 'h']];
   function av(m, size) { size = size || 28; const ring = m.story ? 'story' : ''; const inner = m.avatar_url ? `<img src="${esc(m.avatar_url)}" alt="">` : `<span>${m.avatar && !String(m.avatar).startsWith('<') ? m.avatar : '👤'}</span>`; return `<span class="av ${ring}" style="width:${size}px;height:${size}px;font-size:${Math.round(size * 0.6)}px" data-member="${m.id}">${inner}</span>`; }
@@ -305,7 +305,7 @@
       <div class="mt"><div class="muted small">${t('my_data')}</div>${stats}</div>
       <div class="mt"><div class="muted small">${t('photos')}</div>${gallery(m.id, false)}</div>`);
   }
-  function viewer(url, cap) { const el = document.createElement('div'); el.className = 'viewer'; el.innerHTML = `<img src="${esc(url)}" alt="">${cap ? `<div class="cap">${esc(cap)}</div>` : ''}`; el.addEventListener('click', () => el.remove()); document.body.appendChild(el); }
+  function viewer(url, cap, round) { const el = document.createElement('div'); el.className = 'viewer' + (round ? ' round' : ''); el.innerHTML = `<img src="${esc(url)}" alt="">${cap ? `<div class="cap">${esc(cap)}</div>` : ''}`; el.addEventListener('click', () => el.remove()); document.body.appendChild(el); }
   async function pickAndUpload(inputSel, handler) { const inp = document.querySelector(inputSel); if (!inp) return; inp.onchange = async () => { const f = inp.files[0]; if (!f) return; await act(async () => { await handler(await shrink(f)); }); }; inp.click(); }
 
   // ---------- render + events ----------
@@ -323,7 +323,7 @@
     const el = e.target.closest('[data-tab],[data-d],[data-chk],[data-proof],[data-propose],[data-vote],[data-veto],[data-delp],[data-sim],[data-lb],[data-kudos],[data-csend],[data-invite],[data-join],[data-pause],[data-addgoal],[data-lang],[data-export],[data-delacc],[data-reset],[data-signout],[data-view],[data-member],[data-storybtn],[data-photobtn],[data-delphoto],[data-avatar-btn],[data-editgoal],[data-delgoal],[data-catchup],[data-theme],[data-rpropose],[data-rvote],[data-rrevoke],[data-chatsend],[data-gsettings],[data-editp],[data-pushon],[data-ccinfo],[data-delphotoev],[data-selectnow],[data-reopen],[data-chtab],[data-again]');
     if (!el) return; const d = el.dataset;
     if (d.gsettings) { groupSheet(); return; }
-    if (d.view) { viewer(d.view, d.cap); return; }
+    if (d.view) { viewer(d.view, d.cap, !!d.round); return; }
     if (d.ccinfo) { if (e.target.closest('button,input,.chk')) return; if (d.ccinfo.startsWith('p:')) { const pp = S.next.proposals.find((x) => x.id === d.ccinfo.slice(2)); if (pp) challengeSheet({ tpl: pp.tpl, votes: pp.votes.length }, `<div class="muted small mt">${t('rule_by', { name: pp.authors.map((a) => member(a).name).join(', ') })}</div><div class="small mt">🗳 ${pp.votes.length ? pp.votes.map((v) => esc(member(v).name)).join(', ') : t('no_votes_yet')}</div>`); } else { const cc = S.cur.challenges.find((x) => x.id === d.ccinfo) || (S.next.simulated || []).find((x) => x.id === d.ccinfo); if (cc) challengeSheet(cc); } return; }
     if (d.chtab) { WW_STATE.chTab = d.chtab; render(); return; }
     if (d.again) { const tpl = S.lib.find((x) => x.id === d.again) || (S.history || []).flatMap((h) => [...h.challenges, ...h.proposals]).map((x) => x.tpl).find((x) => x && x.id === d.again); if (!tpl) return; el.disabled = true; return act(() => ST.addProposal(tpl)); }
