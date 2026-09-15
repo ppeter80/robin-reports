@@ -30,7 +30,14 @@
   function renderMenu() { const mi = $('#menuin'); if (!mi) return; mi.innerHTML = MENU.map(([k, ic]) => `<a href="#${k}" data-tab="${k}" class="${WW_STATE.tab === k ? 'on' : ''}"><span>${ic}</span>${t('tab_' + k)}</a>`).join(''); }
   let toastT = null;
   function toast(msg) { let el = $('.toast'); if (!el) { el = document.createElement('div'); el.className = 'toast'; document.body.appendChild(el); } el.textContent = msg; clearTimeout(toastT); toastT = setTimeout(() => el.remove(), 1800); }
-  async function act(fn) { try { await fn(); } catch (e) { console.error(e); toast('⚠️ ' + (e.message || e)); } S = ST.state; render(); }
+  const PENDING = new Set(); let busyN = 0;
+  async function act(fn, key) {
+    if (key) { if (PENDING.has(key)) return; PENDING.add(key); }
+    busyN++; document.body.classList.add('busy');
+    try { await fn(); } catch (e) { console.error(e); toast('⚠️ ' + (e.message || e)); if (!C.stub) { try { await ST.reload(); } catch (_) {} } }
+    busyN--; if (!busyN) document.body.classList.remove('busy'); if (key) PENDING.delete(key);
+    S = ST.state; render();
+  }
 
   // ---------- výpočty (spec 3.1, 6) ----------
   function logsFor(uid, ccId) { return S.cur.dates.map((d) => S.logs[uid + '|' + ccId + '|' + d] || null); }
@@ -366,7 +373,7 @@
     if (d.rpropose) { const inp = $('[data-ruletext]'); const txt = (inp.value || '').trim(); if (!txt) return; el.disabled = true; return act(() => ST.proposeRule(txt.slice(0, 300), 'add', null)); }
     if (d.rvote) { return act(async () => { const st = await ST.voteRule(d.rvote, d.v === '1'); if (st === 'active') toast('✅'); }); }
     if (d.rrevoke) { e.preventDefault(); const r = S.rules.find((x) => x.id === d.rrevoke); if (!r || !confirm(t('rule_revoke_text', { t: r.text }))) return; return act(() => ST.proposeRule(t('rule_revoke_text', { t: r.text }), 'revoke', r.id)); }
-    if (d.chatsend) { const inp = $('[data-chatin]'); const txt = (inp.value || '').trim(); if (!txt) return; inp.value = ''; return act(() => ST.sendMessage(txt.slice(0, 500))); }
+    if (d.chatsend) { const inp = $('[data-chatin]'); const txt = (inp.value || '').trim(); if (!txt) return; if (PENDING.has('chat')) return; inp.value = ''; const text = txt.slice(0, 500); if (!C.stub) { S.messages.push({ id: 'tmp' + Date.now(), user: S.me, text, ts: Date.now() }); render(); window.scrollTo(0, document.body.scrollHeight); } return act(() => ST.sendMessage(text), 'chat'); }
     if (d.member && !e.target.closest('input')) { memberSheet(d.member); return; }
     if (d.storybtn) { pickAndUpload('[data-storyfile]', async (blob) => { const cap = prompt(t('caption_ph')) || ''; await ST.addPhoto(blob, cap.slice(0, 200), 'story'); toast('✔ ' + t('story')); }); return; }
     if (d.photobtn) { pickAndUpload('[data-photofile]', async (blob) => { const cap = prompt(t('caption_ph')) || ''; const cur = (S.results[S.me] || {}).streak || 0; let out = blob; if (cur > 0 && confirm(t('badge_on_photo') + ' (' + cur + ')?')) out = await stampBadge(blob, cur); await ST.addPhoto(out, cap.slice(0, 200), 'photo'); toast('✔'); }); return; }
@@ -374,7 +381,7 @@
     if (d.delphoto) { if (confirm(t('delete') + '?')) act(() => ST.deletePhoto(d.delphoto)); return; }
     if (d.tab) { e.preventDefault(); go(d.tab); return; }
     if (d.d) { if (d.f === '1') return; WW_STATE.selDate = d.d; render(); return; }
-    if (d.chk) { const l = S.logs[S.me + '|' + d.chk + '|' + selDate()] || {}; const cc = S.cur.challenges.find((x) => x.id === d.chk); if (!l.done && cc && cc.tpl.proof === 'required' && l.src !== 'proof') { toast(t('proof_required')); return; } return act(() => l.done ? ST.clearLog(d.chk, selDate()) : ST.setLog(d.chk, selDate(), { done: true, src: l.src || 'self' })); }
+    if (d.chk) { const l = S.logs[S.me + '|' + d.chk + '|' + selDate()] || {}; const cc = S.cur.challenges.find((x) => x.id === d.chk); if (!l.done && cc && cc.tpl.proof === 'required' && l.src !== 'proof') { toast(t('proof_required')); return; } const key = 'chk:' + d.chk + ':' + selDate(); if (PENDING.has(key)) return; if (!C.stub) { const k = S.me + '|' + d.chk + '|' + selDate(); if (l.done) delete S.logs[k]; else S.logs[k] = { ...l, done: true, src: l.src || 'self' }; render(); } return act(() => l.done ? ST.clearLog(d.chk, selDate()) : ST.setLog(d.chk, selDate(), { done: true, src: l.src || 'self', wasDone: !!l.done }), key); }
     if (d.proof) {
       const sh = sheet(`<div class="h2">${t('proof_add')}</div><label>${t('proof_photo')}</label><input type="file" accept="image/*" capture="environment" data-pf-file><label>${t('proof_strava')}</label><input data-pf-url placeholder="https://www.strava.com/activities/…"><div class="row mt"><button class="primary" data-pf="save">${t('save')}</button><button data-pf="x">${t('cancel')}</button></div>`);
       sh.addEventListener('click', async (ev) => { const b = ev.target.closest('[data-pf]'); if (!b) return; if (b.dataset.pf === 'x') { sh.remove(); return; }
@@ -390,8 +397,8 @@
     if (d.delp) return act(() => ST.removeProposal(d.delp));
     if (d.sim) return act(() => ST.simulateSelection(selectChallenges));
     if (d.lb) { WW_STATE.lb = d.lb; render(); return; }
-    if (d.kudos) return act(() => ST.toggleKudos(d.kudos, d.k));
-    if (d.csend) { const inp = document.querySelector(`[data-cin="${d.csend}"]`); const txt = inp.value.trim(); if (!txt) return; return act(() => ST.addComment(d.csend, txt.slice(0, C.comment.maxChars))); }
+    if (d.kudos) { const key = 'kudos:' + d.kudos + ':' + d.k; if (PENDING.has(key)) return; if (!C.stub) { const ev = S.events.find((x) => x.id === d.kudos); if (ev) { const arr = ev.kudos[d.k] = ev.kudos[d.k] || []; const i = arr.indexOf(S.me); if (i >= 0) arr.splice(i, 1); else arr.push(S.me); render(); } } return act(() => ST.toggleKudos(d.kudos, d.k), key); }
+    if (d.csend) { const key = 'csend:' + d.csend; if (PENDING.has(key)) return; const inp = document.querySelector(`[data-cin="${d.csend}"]`); const txt = inp.value.trim(); if (!txt) return; inp.value = ''; const text = txt.slice(0, C.comment.maxChars); if (!C.stub) { const ev = S.events.find((x) => x.id === d.csend); if (ev) { ev.comments.push({ user: S.me, text, ts: Date.now() }); render(); } } return act(() => ST.addComment(d.csend, text), key); }
     if (d.invite) { return act(async () => { const code = await ST.createInvite(); const link = location.href.split('#')[0].split('?')[0] + '?j=' + code; const txt = t('invite_text', { link }); if (navigator.share) { try { await navigator.share({ text: txt }); } catch (_) {} } else { try { await navigator.clipboard.writeText(txt); } catch (_) {} } toast(t('copied') + ' · ' + code); }); }
     if (d.join) { const sh = sheet(`<div class="h2">${t('join_code')}</div><input data-jc placeholder="ABC123" style="text-transform:uppercase"><div class="row mt"><button class="primary" data-jgo="1">${t('join')}</button><button data-jx="1">${t('cancel')}</button></div>`); sh.addEventListener('click', (ev) => { if (ev.target.closest('[data-jx]')) { sh.remove(); return; } if (!ev.target.closest('[data-jgo]')) return; const code = sh.querySelector('[data-jc]').value.trim().toUpperCase(); if (!code) return; sh.remove(); act(() => ST.joinGroup(code)); }); return; }
     if (d.pause) { if (S.group.paused.includes(S.me)) return act(() => ST.setPause(0)); const sh = sheet(`<div class="h2">${t('pause_me')}</div><label>${t('pause_weeks')}</label><select data-pw><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select><div class="muted small mt">${t('pause_hint')}</div><div class="row mt"><button class="primary" data-pgo="1">${t('save')}</button><button data-px="1">${t('cancel')}</button></div>`); sh.addEventListener('click', (ev) => { if (ev.target.closest('[data-px]')) { sh.remove(); return; } if (!ev.target.closest('[data-pgo]')) return; const w = +sh.querySelector('[data-pw]').value; sh.remove(); act(() => ST.setPause(w)); }); return; }

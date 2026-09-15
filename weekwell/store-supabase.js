@@ -110,12 +110,12 @@
     monday, iso, get state() { return S; }, get client() { return sb; }, get user() { return U; },
     async init(client, user) { sb = client; U = user; return load(); },
     async reload() { return reload(); },
-    async setLog(cc, date, patch) {
-      const k = S.me + '|' + cc + '|' + date; const cur = S.logs[k] || {}; const merged = { ...cur, ...patch };
+    async setLog(cc, date, patch0) {
+      const { wasDone, ...patch } = patch0; const k = S.me + '|' + cc + '|' + date; const cur = S.logs[k] || {}; const merged = { ...cur, ...patch };
       const row = { user_id: S.me, cycle_challenge_id: cc, date, done: merged.done ?? null, value: merged.value ?? null, note: merged.note ?? null, proof_url: merged.url ?? null, proof_type: merged.src === 'proof' ? (merged.url ? 'strava' : 'photo') : merged.src === 'verified' ? 'verified' : null, logged_at: new Date().toISOString() };
       await q(sb.from('ww_logs').upsert(row, { onConflict: 'user_id,cycle_challenge_id,date' }));
       S.logs[k] = merged;
-      if (patch.done && !cur.done) { const c = S.cur.challenges.find((x) => x.id === cc); await q(sb.from('ww_events').insert({ group_id: S.group.id, user_id: S.me, type: 'done', ref_id: cc, payload: { title: c ? c.tpl.title_sk : '', proof: merged.src === 'proof' ? true : undefined } })); }
+      if (patch.done && !(wasDone != null ? wasDone : cur.done)) { const c = S.cur.challenges.find((x) => x.id === cc); await q(sb.from('ww_events').insert({ group_id: S.group.id, user_id: S.me, type: 'done', ref_id: cc, payload: { title: c ? c.tpl.title_sk : '', proof: merged.src === 'proof' ? true : undefined } })); }
     },
     async clearLog(cc, date) { await q(sb.from('ww_logs').delete().eq('user_id', S.me).eq('cycle_challenge_id', cc).eq('date', date)); delete S.logs[S.me + '|' + cc + '|' + date]; },
     async uploadProof(file) { const path = `${S.me}/${Date.now()}.jpg`; await q(sb.storage.from('ww-proofs').upload(path, file, { contentType: 'image/jpeg', upsert: true })); const { data } = await sb.storage.from('ww-proofs').createSignedUrl(path, 60 * 60 * 24 * 90); return data ? data.signedUrl : path; },
@@ -139,8 +139,9 @@
     async removeProposal(pid) { const p = S.next.proposals.find((x) => x.id === pid); if (p.authors.length > 1) await q(sb.from('ww_proposals').update({ authors: p.authors.filter((a) => a !== S.me) }).eq('id', pid)); else await q(sb.from('ww_proposals').delete().eq('id', pid)); await reload(); },
     async toggleVote(pid) { const p = S.next.proposals.find((x) => x.id === pid); if (p.votes.includes(S.me)) await q(sb.from('ww_votes').delete().eq('cycle_id', S.next.id).eq('proposal_id', pid).eq('user_id', S.me)); else await q(sb.from('ww_votes').insert({ cycle_id: S.next.id, proposal_id: pid, user_id: S.me })); await reload(); },
     async veto(pid, against) { await q(sb.from('ww_vetoes').insert({ cycle_id: S.next.id, proposal_id: pid, by_user: S.me, against_user: against })); await reload(); },
-    async toggleKudos(eid, k) { const ev = S.events.find((x) => x.id === eid); if ((ev.kudos[k] || []).includes(S.me)) await q(sb.from('ww_reactions').delete().eq('event_id', eid).eq('from_user', S.me).eq('emoji', k)); else await q(sb.from('ww_reactions').insert({ event_id: eid, from_user: S.me, emoji: k })); await reload(); },
-    async addComment(eid, text) { await q(sb.from('ww_comments').insert({ event_id: eid, user_id: S.me, text })); await reload(); },
+    // kudos/komentár/správa: appka už upravila S optimisticky (#54); tu len zápis do DB, bez reload
+    async toggleKudos(eid, k) { const ev = S.events.find((x) => x.id === eid); const has = (ev.kudos[k] || []).includes(S.me); if (!has) await q(sb.from('ww_reactions').delete().eq('event_id', eid).eq('from_user', S.me).eq('emoji', k)); else { const { error } = await sb.from('ww_reactions').insert({ event_id: eid, from_user: S.me, emoji: k }); if (error && !/duplicate|23505/.test(error.message || '')) throw error; } },
+    async addComment(eid, text) { await q(sb.from('ww_comments').insert({ event_id: eid, user_id: S.me, text })); },
     async createInvite() { return q(sb.rpc('ww_create_invite')); },
     async joinGroup(code) { const gid = await q(sb.rpc('ww_join_group', { p_code: code })); await reload(); return gid; },
     async setPause(weeks) { await q(sb.rpc('ww_set_pause', { p_weeks: weeks || 0 })); await reload(); },
@@ -155,7 +156,7 @@
     async updateGoal(id, p) { const row = {}; ['target', 'category', 'label', 'unit', 'interval', 'direction'].forEach((k) => { if (p[k] != null && p[k] !== '') row[k] = p[k]; }); if (p.dir) row.direction = p.dir; if (p.share != null) row.share_progress = p.share; await q(sb.from('ww_goals').update(row).eq('id', id)); await reload(); },
     async proposeRule(text, kind, target) { await q(sb.rpc('ww_propose_rule', { p_text: text, p_kind: kind || 'add', p_target: target || null })); await reload(); },
     async voteRule(id, v) { const st = await q(sb.rpc('ww_vote_rule', { p_rule: id, p_vote: v })); await reload(); return st; },
-    async sendMessage(text) { await q(sb.from('ww_messages').insert({ group_id: S.group.id, user_id: S.me, text })); await reload(); },
+    async sendMessage(text) { const row = await q(sb.from('ww_messages').insert({ group_id: S.group.id, user_id: S.me, text }).select('id,created_at').single()); const m = S.messages.find((x) => String(x.id).startsWith('tmp') && x.text === text); if (m && row) { m.id = row.id; m.ts = new Date(row.created_at).getTime(); } },
     async savePushSubscription(sub) { const ep = sub && sub.endpoint; if (!ep) return; await q(sb.from('ww_push_subscriptions').delete().eq('user_id', S.me).filter('subscription->>endpoint', 'eq', ep)); await q(sb.from('ww_push_subscriptions').insert({ user_id: S.me, subscription: sub })); },
     async setTheme(name) { await q(sb.from('ww_users').update({ notif_prefs: { ...S.profile.notif, theme: name } }).eq('id', S.me)); S.theme = name; },
     async reopenCurrent() { await q(sb.rpc('ww_reopen_current')); await reload(); },
