@@ -1,7 +1,8 @@
 // Weekwell service worker — zámerne bez cache (živá testovacia appka); push notifikácie (#23).
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()));
-self.addEventListener('fetch', (e) => { e.respondWith(fetch(e.request)); });
+// vlastné súbory vždy zo siete bez HTTP cache (iOS si držal starý app.js aj po novej verzii)
+self.addEventListener('fetch', (e) => { const same = new URL(e.request.url).origin === self.location.origin; e.respondWith(same && e.request.method === 'GET' ? fetch(e.request, { cache: 'reload' }).catch(() => fetch(e.request)) : fetch(e.request)); });
 self.addEventListener('push', (e) => {
   let d = {}; try { d = e.data ? e.data.json() : {}; } catch (_) { d = { body: e.data ? e.data.text() : '' }; }
   e.waitUntil(self.registration.showNotification(d.title || 'Weekwell', { body: d.body || '', icon: 'icon-192.png', badge: 'icon-192.png', tag: d.tag || 'ww', data: { url: d.url || './' }, renotify: false }));
