@@ -94,7 +94,7 @@ textarea{font:inherit;background:var(--card2);color:var(--text);border:1px solid
 .gitem{position:relative;aspect-ratio:1;overflow:hidden;border-radius:8px;background:var(--card2)}
 .gitem img{width:100%;height:100%;object-fit:cover;display:block;cursor:pointer}
 .gitem .gdel{position:absolute;top:4px;right:4px;padding:2px 7px;font-size:11px;border-radius:999px;background:rgba(0,0,0,.6)}
-.evphoto{width:100%;max-height:360px;object-fit:cover;border-radius:10px;margin-top:8px;display:block;cursor:pointer}
+.evphoto{display:block;max-width:100%;max-height:360px;width:auto;margin:8px auto 0;border-radius:10px;cursor:pointer;background:var(--card2)}
 .viewer{position:fixed;inset:0;background:rgba(0,0,0,.95);z-index:40;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:12px}
 .viewer img{max-width:100%;max-height:85vh;border-radius:10px}
 .viewer.round img{width:min(88vw,70vh);height:min(88vw,70vh);border-radius:50%;object-fit:cover;border:3px solid var(--acc)}
