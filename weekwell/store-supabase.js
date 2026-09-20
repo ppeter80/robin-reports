@@ -40,6 +40,7 @@
     const ws = iso(monday(new Date())); const dates = [...Array(7)].map((_, i) => { const d = new Date(monday(new Date())); d.setDate(d.getDate() + i); return iso(d); });
     const tpls = await q(sb.from('ww_challenge_templates').select('*').or(`group_id.is.null,group_id.eq.${group.id}`).eq('is_active', true).order('created_at'));
     const lib = tpls.map(T); const tplById = Object.fromEntries(lib.map((t) => [t.id, t]));
+    try { const di = await q(sb.from('ww_app_config').select('value').eq('key', 'tpl_desc_i18n').maybeSingle()); const dv = (di && di.value) || {}; lib.forEach((t) => { const x = dv[t.id]; if (x && (x.sk === t.description || x.en === t.description)) { t.description_sk = x.sk; t.description_en = x.en; } }); } catch (e) { /* preklad popisov je voliteľný */ }
     // aktuálny cyklus
     let curRow = await q(sb.from('ww_cycles').select('*').eq('group_id', group.id).eq('week_start', ws).maybeSingle());
     if (!curRow) { await q(sb.rpc('ww_tick')); curRow = await q(sb.from('ww_cycles').select('*').eq('group_id', group.id).eq('week_start', ws).maybeSingle()); }

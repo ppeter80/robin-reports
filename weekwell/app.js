@@ -12,6 +12,7 @@
   const today = () => ST.iso(new Date());
   const me = () => S.group.members.find((m) => m.id === S.me) || { name: '?', avatar: '👤' };
   const member = (id) => S.group.members.find((m) => m.id === id) || { name: '?', avatar: '👤' };
+  const tplDescText = (tpl) => (tpl ? ((WW_STATE.lang === 'en' ? tpl.description_en : tpl.description_sk) || tpl.description || '') : '');  // popis v jazyku používateľa (#58)
   const tplTitle = (tpl) => (tpl ? ((WW_STATE.lang === 'en' ? tpl.title_en : tpl.title_sk) || tpl.title_sk) : '?');
   const mDef = (g) => C.metrics[g.metric] || { unit: g.unit || '', dir: g.dir || 'up', interval: g.interval || 'free' };
   const mName = (g) => (g.metric && g.metric.startsWith('custom:')) ? (g.label || g.metric.slice(7)) : t('m_' + g.metric);
@@ -73,7 +74,7 @@
   // ---------- UI helpers ----------
   function ring(pct, label) { const r = 36, c = 2 * Math.PI * r, o = c * (1 - pct); return `<div class="ring"><svg width="86" height="86"><circle cx="43" cy="43" r="${r}" stroke="#26282d" stroke-width="8" fill="none"/><circle cx="43" cy="43" r="${r}" stroke="#34d399" stroke-width="8" fill="none" stroke-linecap="round" stroke-dasharray="${c}" stroke-dashoffset="${o}"/></svg><div class="v">${Math.round(pct * 100)}%<small>${esc(label)}</small></div></div>`; }
   function sheet(html) { const el = document.createElement('div'); el.className = 'sheet'; el.innerHTML = `<div class="in">${html}</div>`; el.addEventListener('click', (e) => { if (e.target === el) el.remove(); }); document.body.appendChild(el); return el; }
-  const tplDesc = (tpl) => (tpl && tpl.description ? `<div class="muted small" style="margin-top:2px">${esc(tpl.description)}</div>` : '');
+  const tplDesc = (tpl) => (tplDescText(tpl) ? `<div class="muted small" style="margin-top:2px">${esc(tplDescText(tpl))}</div>` : '');
   function challengeSheet(cc, extra) {
     const tpl = cc.tpl || {}; const rows = [];
     rows.push([t('category'), t('cat_' + tpl.category)]); rows.push([t('type'), t('type_' + tpl.type)]);
@@ -82,7 +83,7 @@
     rows.push([t('proof_add').replace('📎 ', ''), tpl.proof === 'required' ? t('proof_required') : t('optional')]);
     if (cc.source) rows.push([t('selected_source'), t(SRC_T[cc.source] || 'library') + (cc.votes ? ` · ${cc.votes} ${t('votes')}` : '')]);
     if (cc.id && S.cur.challenges.some((x) => x.id === cc.id)) { const L = S.cur.dates.map((d) => S.logs[S.me + '|' + cc.id + '|' + d]); rows.push([t('this_week'), P(challengePct(S.me, cc))]); rows.push([t('checkin_title'), S.cur.dates.map((d, i) => `<span class="pill ${L[i] && (L[i].done || L[i].value) ? 'acc' : ''}">${['Po', 'Ut', 'St', 'Št', 'Pi', 'So', 'Ne'][i]}${L[i] && L[i].value != null ? ' ' + L[i].value : ''}</span>`).join(' ')]); }
-    sheet(`<div class="row" style="gap:10px"><div class="ic" style="font-size:28px">${iconFor(tpl)}</div><div class="h2" style="margin:0">${esc(tplTitle(tpl))}</div></div>${tpl.description ? `<div class="small mt" style="white-space:pre-wrap">${esc(tpl.description)}</div>` : ''}<div class="mt">${rows.map(([k, v]) => `<div class="row between small" style="padding:6px 0;border-top:1px solid var(--line)"><span class="muted">${k}</span><span style="text-align:right">${v}</span></div>`).join('')}</div>${extra || ''}`);
+    sheet(`<div class="row" style="gap:10px"><div class="ic" style="font-size:28px">${iconFor(tpl)}</div><div class="h2" style="margin:0">${esc(tplTitle(tpl))}</div></div>${tplDescText(tpl) ? `<div class="small mt" style="white-space:pre-wrap">${esc(tplDescText(tpl))}</div>` : ''}<div class="mt">${rows.map(([k, v]) => `<div class="row between small" style="padding:6px 0;border-top:1px solid var(--line)"><span class="muted">${k}</span><span style="text-align:right">${v}</span></div>`).join('')}</div>${extra || ''}`);
   }
   function tplLine(tpl) { if (!tpl) return ''; const tt = tpl.type === 'binary_daily' ? `${tpl.target} ${t('days')}` : tpl.type === 'once' ? t('type_once') : `${tpl.target} ${tpl.unit}`; return `<span class="pill">${t('cat_' + tpl.category)}</span> <span class="pill">${esc(tt)}</span> ${tpl.difficulty ? `<span class="pill">${t('diff_' + tpl.difficulty)}</span>` : ''}`; }
 
@@ -263,8 +264,8 @@
   function viewChat() {
     const PAL = ['#60a5fa', '#f472b6', '#fbbf24', '#a78bfa', '#34d399', '#fb923c', '#22d3ee', '#f87171', '#a3e635', '#e879f9'];
     const colorOf = (uid) => { const idx = S.group.members.findIndex((m) => m.id === uid); return PAL[(idx >= 0 ? idx : 0) % PAL.length]; };
-    const isRobin = (m) => /^(📣|🤖)\s*Robin/.test(m.text);
-    const msgs = S.messages.map((m) => { if (isRobin(m)) return `<div class="msg robin"><div class="who">🤖 Robin</div>${esc(m.text.replace(/^(📣|🤖)\s*Robin:?\s*/, ''))}<div class="when">${new Date(m.ts).toLocaleString(WW_STATE.lang === 'en' ? 'en-GB' : 'sk-SK', { weekday: 'short', hour: '2-digit', minute: '2-digit' })}</div></div>`; const mine = m.user === S.me; return `<div class="msg ${mine ? 'me' : ''}"><div class="who" style="color:${mine ? 'rgba(255,255,255,.85)' : colorOf(m.user)}">${esc(member(m.user).name)}</div>${esc(m.text)}<div class="when">${new Date(m.ts).toLocaleString(WW_STATE.lang === 'en' ? 'en-GB' : 'sk-SK', { weekday: 'short', hour: '2-digit', minute: '2-digit' })}</div></div>`; }).join('');
+    const isRobin = (m) => /^(📣|🤖)\s*Robin/.test(m.text); const robinLang = (m) => { const x = /^(📣|🤖)\s*Robin\[(\w\w)\]/.exec(m.text); return x ? x[2] : null; }; const myLang = WW_STATE.lang === 'en' ? 'en' : 'sk';  // Robinove správy so značkou [sk]/[en] vidí len používateľ v danom jazyku
+    const msgs = S.messages.filter((m) => !robinLang(m) || robinLang(m) === myLang).map((m) => { if (isRobin(m)) return `<div class="msg robin"><div class="who">🤖 Robin</div>${esc(m.text.replace(/^(📣|🤖)\s*Robin(\[\w\w\])?:?\s*/, ''))}<div class="when">${new Date(m.ts).toLocaleString(WW_STATE.lang === 'en' ? 'en-GB' : 'sk-SK', { weekday: 'short', hour: '2-digit', minute: '2-digit' })}</div></div>`; const mine = m.user === S.me; return `<div class="msg ${mine ? 'me' : ''}"><div class="who" style="color:${mine ? 'rgba(255,255,255,.85)' : colorOf(m.user)}">${esc(member(m.user).name)}</div>${esc(m.text)}<div class="when">${new Date(m.ts).toLocaleString(WW_STATE.lang === 'en' ? 'en-GB' : 'sk-SK', { weekday: 'short', hour: '2-digit', minute: '2-digit' })}</div></div>`; }).join('');
     setTimeout(() => { const el = $('#chatend'); if (el) el.scrollIntoView(); }, 0);
     return `<div class="card"><h3>${t('chat')} · ${esc(S.group.emoji)} ${esc(S.group.name)}</h3><div class="chat">${msgs || `<div class="muted small">${t('chat_empty')}</div>`}<div id="chatend"></div></div></div><div class="chatin row"><input data-chatin placeholder="${t('chat_ph')}" maxlength="500" autocomplete="off"><button class="primary" data-chatsend="1">${t('send')}</button></div>`;
   }
@@ -434,8 +435,8 @@
   function challengeForm(prop) {
     const tp = prop ? prop.tpl : null; const v0 = (k, d) => (tp && tp[k] != null ? tp[k] : d);
     const sh = sheet(`<div class="h2">${prop ? t('edit_challenge') : t('custom')}</div>
-      <label>${t('title')}</label><input data-c="title" maxlength="60" placeholder="${t('custom_title_ph')}" value="${esc(v0('title_sk', ''))}">
-      <label>${t('description')}</label><input data-c="desc" maxlength="200" placeholder="${t('custom_desc_ph')}" value="${esc(v0('description', '') || '')}">
+      <label>${t('title')}</label><input data-c="title" maxlength="60" placeholder="${t('custom_title_ph')}" value="${esc(tp ? tplTitle(tp) : '')}">
+      <label>${t('description')}</label><input data-c="desc" maxlength="200" placeholder="${t('custom_desc_ph')}" value="${esc(tp ? tplDescText(tp) : '')}">
       <div class="grid2"><div><label>${t('category')}</label><select data-c="category">${C.categories.map((c) => `<option value="${c}" ${v0('category', 'movement') === c ? 'selected' : ''}>${t('cat_' + c)}</option>`).join('')}</select></div><div><label>${t('type')}</label><select data-c="type">${['binary_daily', 'count_weekly', 'count_daily', 'once'].map((k) => `<option value="${k}" ${v0('type', 'binary_daily') === k ? 'selected' : ''}>${t('type_' + k)}</option>`).join('')}</select></div></div>
       <div data-cwrap="binary_daily"><label>${t('days_per_week')}</label><select data-c="days">${[1, 2, 3, 4, 5, 6, 7].map((n) => `<option value="${n}" ${(tp && tp.type === 'binary_daily' ? tp.target : 5) === n ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
       <div data-cwrap="count" hidden><div class="grid2"><div><label>${t('target')}</label><input type="number" inputmode="decimal" data-c="target" placeholder="10" value="${tp && tp.type !== 'binary_daily' && tp.type !== 'once' ? tp.target : ''}"></div><div><label>${t('unit')}</label><input data-c="unit" placeholder="${t('unit_ph')}" value="${esc(tp && tp.type !== 'binary_daily' && tp.type !== 'once' ? tp.unit : '')}"></div></div><div data-cwrap="count_daily" hidden><label>${t('min_days')}</label><select data-c="min_days">${[1, 2, 3, 4, 5, 6, 7].map((n) => `<option value="${n}" ${(v0('min_days', 5)) === n ? 'selected' : ''}>${n}</option>`).join('')}</select></div></div>
