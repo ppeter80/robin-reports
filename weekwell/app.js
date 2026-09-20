@@ -186,10 +186,27 @@
   // ---------- POKROK ----------
   function chart(entries, target) {
     if (!entries.length) return `<div class="muted small">${t('no_items')}</div>`;
-    const vs = entries.map((e) => e.value); const lo = Math.min(...vs, target) * 0.98, hi = Math.max(...vs, target) * 1.02; const W = 320, H = 110;
-    const x = (i) => 10 + (i / Math.max(1, entries.length - 1)) * (W - 20); const y = (v) => H - 10 - ((v - lo) / (hi - lo || 1)) * (H - 20);
-    const path = entries.map((e, i) => (i ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(e.value).toFixed(1)).join(' ');
-    return `<svg class="chart" viewBox="0 0 ${W} ${H}"><line x1="10" x2="${W - 10}" y1="${y(target)}" y2="${y(target)}" stroke="#fbbf24" stroke-dasharray="4 4"/><path d="${path}" fill="none" stroke="#34d399" stroke-width="2.5"/>${entries.map((e, i) => `<circle cx="${x(i)}" cy="${y(e.value)}" r="3" fill="#34d399"/>`).join('')}</svg>`;
+    // os X podľa skutočného dátumu (nie poradia); dátumy meraní dole, okrúhle hodnoty vľavo, cieľ a posledná hodnota pri čiare
+    const W = 320, H = 150, L = 36, R = 12, T = 22, B = 24; const vs = entries.map((e) => e.value);
+    let lo = Math.min(...vs, target), hi = Math.max(...vs, target); const pad = (hi - lo) * 0.08 || Math.abs(hi) * 0.05 || 1; lo -= pad; hi += pad;
+    const ms = (d) => new Date(d + 'T00:00:00').getTime(); const t0 = ms(entries[0].date), t1 = ms(entries[entries.length - 1].date), span = t1 - t0;
+    const x = (d) => (span ? L + ((ms(d) - t0) / span) * (W - L - R) : (L + W - R) / 2); const y = (v) => H - B - ((v - lo) / (hi - lo || 1)) * (H - T - B);
+    const multiYear = new Date(t0).getFullYear() !== new Date(t1).getFullYear();
+    const fd = (d) => { const o = new Date(d + 'T00:00:00'); return o.getDate() + '.' + (o.getMonth() + 1) + '.' + (multiYear ? String(o.getFullYear()).slice(2) : ''); };
+    const fv = (v) => { const r = Math.round(v * 10) / 10; return (Math.abs(r) >= 1000 ? Math.round(r) : r).toLocaleString(WW_STATE.lang === 'en' ? 'en' : 'sk'); };
+    // okrúhle kroky osi Y (1 / 2 / 2,5 / 5 × 10^n)
+    const raw = (hi - lo) / 3, mag = Math.pow(10, Math.floor(Math.log10(raw))); const step = [1, 2, 2.5, 5, 10].map((k) => k * mag).find((k) => k >= raw) || raw;
+    const yT = []; for (let v = Math.ceil(lo / step) * step; v <= hi + 1e-9; v += step) yT.push(Math.round(v * 1e6) / 1e6);
+    const ySvg = yT.map((v) => `<line x1="${L}" x2="${W - R}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}" stroke="var(--line)" stroke-width="1"/><text x="${L - 5}" y="${(y(v) + 3).toFixed(1)}" text-anchor="end" class="cx">${fv(v)}</text>`).join('');
+    // popisy dátumov = skutočné merania: prvé, posledné a rovnomerne medzi nimi; príliš blízke vynechať
+    const n = entries.length, want = Math.min(4, n); let idx = [...new Set([...Array(want)].map((_, i) => Math.round((i * (n - 1)) / Math.max(1, want - 1))))];
+    const minGap = multiYear ? 62 : 46; const keep = []; idx.forEach((i) => { const xi = x(entries[i].date); if (i === n - 1 || (!keep.length || xi - x(entries[keep[keep.length - 1]].date) >= minGap) && x(entries[n - 1].date) - xi >= minGap) keep.push(i); });
+    const xSvg = keep.map((i) => { const xi = x(entries[i].date); const anchor = keep.length === 1 ? 'middle' : i === 0 ? 'start' : i === n - 1 ? 'end' : 'middle'; return `<line x1="${xi.toFixed(1)}" x2="${xi.toFixed(1)}" y1="${H - B}" y2="${H - B + 4}" stroke="var(--muted)" stroke-width="1"/><text x="${xi.toFixed(1)}" y="${H - 7}" text-anchor="${anchor}" class="cx">${fd(entries[i].date)}</text>`; }).join('');
+    const path = entries.map((e, i) => (i ? 'L' : 'M') + x(e.date).toFixed(1) + ' ' + y(e.value).toFixed(1)).join(' ');
+    const last = entries[n - 1], ly = y(last.value), ty = y(target);
+    const dots = entries.map((e) => `<circle cx="${x(e.date).toFixed(1)}" cy="${y(e.value).toFixed(1)}" r="3" fill="#34d399"><title>${fd(e.date)} · ${fv(e.value)}</title></circle>`).join('');
+    const goalLbl = `<text x="${L + 3}" y="${(ty - 4 > T ? ty - 4 : ty + 11).toFixed(1)}" class="cx cg">${t('goal')} ${fv(target)}</text>`;
+    return `<svg class="chart" viewBox="0 0 ${W} ${H}">${ySvg}${xSvg}<line x1="${L}" x2="${W - R}" y1="${ty.toFixed(1)}" y2="${ty.toFixed(1)}" stroke="#fbbf24" stroke-dasharray="4 4"/>${goalLbl}<path d="${path}" fill="none" stroke="#34d399" stroke-width="2.5" stroke-linejoin="round"/>${dots}<text x="${(n === 1 ? x(last.date) : W - R + 2).toFixed(1)}" y="${(ly - 8).toFixed(1)}" text-anchor="${n === 1 ? 'middle' : 'end'}" class="cv">${fv(last.value)}</text></svg>`;
   }
   function trend(g) { const e = g.entries; if (e.length < 2) return 'stable'; const last = e[e.length - 1].value, prev = e[Math.max(0, e.length - 1 - C.trend.windowWeeks)].value; const ch = (last - prev) / (prev || 1) * 100; const good = mDef(g).dir === 'down' ? -ch : ch; return good >= C.trend.thresholdPct ? 'improving' : good <= -C.trend.thresholdPct ? 'attention' : 'stable'; }
   function goalCard(g) {

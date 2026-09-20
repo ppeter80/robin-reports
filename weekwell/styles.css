@@ -73,7 +73,10 @@ nav.tabs a.on{color:var(--acc)}
 .ev .k button.on{border-color:var(--acc);background:#0f2a22}
 .ev .c{margin-top:6px;padding-left:10px;border-left:2px solid var(--line);font-size:13px}
 .ev .c div{margin:3px 0}
-.chart{width:100%;height:120px}
+.chart{width:100%;height:auto;aspect-ratio:320/150;display:block;margin:6px 0}
+.chart .cx{font-size:9.5px;fill:var(--muted)}
+.chart .cx.cg{fill:var(--warn)}
+.chart .cv{font-size:11px;font-weight:700;fill:var(--text);paint-order:stroke;stroke:var(--card);stroke-width:3px;stroke-linejoin:round}
 .sheet{position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:flex-end;z-index:20}
 .sheet .in{background:var(--card);border:1px solid var(--line);border-radius:16px 16px 0 0;padding:14px 14px calc(14px + env(safe-area-inset-bottom));width:100%;max-width:640px;margin:0 auto;max-height:85vh;overflow:auto}
 .h2{font-size:16px;font-weight:800;margin:0 0 8px}
