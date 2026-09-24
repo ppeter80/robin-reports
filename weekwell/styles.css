@@ -126,7 +126,14 @@ textarea{font:inherit;background:var(--card2);color:var(--text);border:1px solid
 .msg .who{font-size:13px;color:var(--muted);margin-bottom:3px}
 .msg.me .who{color:rgba(255,255,255,.75)}
 .msg .when{font-size:11px;color:var(--muted);margin-top:3px;text-align:right}
-.chatin{position:sticky;bottom:calc(64px + env(safe-area-inset-bottom));background:var(--bg);padding:8px 0;align-items:flex-end}
+.chatin{position:sticky;bottom:calc(64px + env(safe-area-inset-bottom));background:var(--bg);padding:8px 0}
+.qreply{border-left:3px solid var(--acc);background:rgba(255,255,255,.06);padding:3px 8px;margin:2px 0 6px;border-radius:6px;font-size:12px;color:var(--muted);white-space:normal}.qreply b{color:var(--acc)}.msg.me .qreply{border-left-color:rgba(255,255,255,.7);background:rgba(0,0,0,.2);color:rgba(255,255,255,.85)}.msg.me .qreply b{color:#fff}
+.rx{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}.rxpill{background:rgba(255,255,255,.08);border:1px solid transparent;border-radius:12px;padding:1px 8px;font-size:13px;cursor:pointer;white-space:nowrap}.rxpill.mine{border-color:var(--acc);background:rgba(16,185,129,.18)}.msg.me .rxpill{background:rgba(0,0,0,.25)}
+.msgact{display:flex;flex-direction:column;gap:8px;width:fit-content;max-width:92%;margin:-2px 0 6px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:9px 10px;box-shadow:0 8px 22px rgba(0,0,0,.35);align-self:flex-start}.msgact.mine{align-self:flex-end}
+.msgact .emorow{display:grid;grid-template-columns:repeat(8,1fr);gap:2px}.msgact .ra{font-size:24px;line-height:1;cursor:pointer;text-align:center;padding:5px 0;border-radius:9px}.msgact .ra:active{background:rgba(255,255,255,.12)}
+.msgact .btnrow{display:flex;gap:8px;border-top:1px solid var(--line);padding-top:8px}.msgact .rb{flex:1;text-align:center;font-size:13px;color:var(--acc);border:1px solid var(--acc);border-radius:9px;padding:6px 8px;cursor:pointer;white-space:nowrap}.msgact .rb.del{color:#f87171;border-color:#f87171}
+.replybar{border-left:3px solid var(--acc);background:rgba(16,185,129,.12);border-radius:6px;padding:5px 9px;margin-bottom:6px;font-size:12px;color:var(--muted);display:flex;justify-content:space-between;align-items:center;gap:8px}.replybar b{color:var(--acc)}.replybar span{cursor:pointer;font-size:16px;color:var(--text);padding:0 4px}
+.msg{cursor:pointer}
 .chatin textarea{resize:none;overflow-y:auto;min-height:44px;max-height:140px;line-height:1.35;font-size:16px}
 .rule{padding:10px 0;border-top:1px solid var(--line)}
 .rule .txt{font-size:15px}
