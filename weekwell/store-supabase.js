@@ -6,7 +6,7 @@
   function iso(d) { const z = new Date(d.getTime() - d.getTimezoneOffset() * 60000); return z.toISOString().slice(0, 10); }
   const AV = ['🧔', '👩', '🧑', '👱‍♀️', '🧕', '👨‍🦰', '👩‍🦱', '🧑‍🦳', '👨‍🦲', '👩‍🦰'];
   const avatarFor = (u, i) => (u.avatar_url ? `<img src="${u.avatar_url}" style="width:22px;height:22px;border-radius:11px;vertical-align:middle">` : AV[i % AV.length]);
-  const T = (row) => ({ id: row.id, category: row.category, title_sk: row.title_sk, title_en: row.title_en, description: row.description || null, type: row.type, target: +row.target, unit: row.unit, min_days: row.min_days, difficulty: row.difficulty, proof: row.proof, source: row.group_id ? 'custom' : 'library' });
+  const T = (row) => ({ id: row.id, category: row.category, title_sk: row.title_sk, title_en: row.title_en, description: row.description || null, type: row.type, target: +row.target, unit: row.unit, min_days: row.min_days, difficulty: row.difficulty, proof: row.proof, source: row.group_id ? 'custom' : 'library', created_by: row.created_by || null });
   const q = async (p) => { const { data, error } = await p; if (error) { console.error(error); throw error; } return data; };
 
   async function load() {
@@ -45,7 +45,10 @@
     let curRow = await q(sb.from('ww_cycles').select('*').eq('group_id', group.id).eq('week_start', ws).maybeSingle());
     if (!curRow) { await q(sb.rpc('ww_tick')); curRow = await q(sb.from('ww_cycles').select('*').eq('group_id', group.id).eq('week_start', ws).maybeSingle()); }
     const ccs = curRow ? await q(sb.from('ww_cycle_challenges').select('*').eq('cycle_id', curRow.id).order('slot_no')) : [];
-    const cur = { id: curRow ? curRow.id : null, week_start: ws, status: curRow ? curRow.status : 'running', dates, challenges: ccs.filter((c) => !c.for_user || c.for_user === uid).map((c) => ({ id: c.id, tpl: tplById[c.template_id], slot: c.slot_no, source: c.source, votes: c.votes_at_selection, catchup: c.source === 'catchup' })) };
+    const cur = { id: curRow ? curRow.id : null, week_start: ws, status: curRow ? curRow.status : 'running', dates, challenges: ccs.filter((c) => c.source !== 'personal' && (!c.for_user || c.for_user === uid)).map((c) => ({ id: c.id, tpl: tplById[c.template_id], slot: c.slot_no, source: c.source, votes: c.votes_at_selection, catchup: c.source === 'catchup' })), personal: ccs.filter((c) => c.source === 'personal').map((c) => ({ id: c.id, tpl: tplById[c.template_id], slot: c.slot_no, source: 'personal', personal: true, owner: c.for_user, parent: c.parent_id || null })), declined: [] };
+    // #62 osobné výzvy: moje odmietnuté pozvánky + ⭐ z minulých týždňov (bežiaci týždeň počíta appka naživo)
+    const stars = {};
+    try { if (cur.personal.length) { const pa = await q(sb.from('ww_personal_answers').select('cc_id,answer').eq('user_id', uid).in('cc_id', cur.personal.map((c) => c.id))); cur.declined = pa.filter((a) => !a.answer).map((a) => a.cc_id); } const sr = await q(sb.rpc('ww_personal_stars', { p_group: group.id, p_except: curRow ? curRow.id : null })); (sr || []).forEach((r) => { stars[r.user_id] = r.stars; }); } catch (e) { console.warn('personal (fix17 not applied?)', e); }
     const logs = {};
     if (ccs.length) { const lr = await q(sb.from('ww_logs').select('*').in('cycle_challenge_id', ccs.map((c) => c.id))); lr.forEach((l) => { logs[l.user_id + '|' + l.cycle_challenge_id + '|' + l.date] = { done: l.done, value: l.value != null ? +l.value : undefined, src: l.proof_type === 'verified' ? 'verified' : l.proof_type ? 'proof' : 'self', url: l.proof_url, note: l.note }; }); }
     // budúci cyklus
@@ -102,11 +105,21 @@
         history = hc.map((c) => ({ id: c.id, week_start: c.week_start, challenges: hcc.filter((x) => x.cycle_id === c.id).map((x) => ({ id: x.id, tpl: tplById[x.template_id], source: x.source, votes: x.votes_at_selection })), proposals: hp.filter((x) => x.cycle_id === c.id).map((x) => ({ id: x.id, tpl: tplById[x.template_id], authors: x.authors })), results: resRows.filter((r) => r.cycle_id === c.id).map((r) => ({ user: r.user_id, pct: +r.pct })) })).reverse();
       }
     } catch (e) { console.warn('history', e); }
-    S = { me: uid, lang: meRow.locale || 'sk', rules, messages, history, theme: (meRow.notif_prefs || {}).theme || null, consent: !!meRow.consent_at, group: { id: group.id, name: group.name, emoji: group.emoji || '💪', avatar_url: group.avatar_url || null, admin: group.admin_id, slots: group.slots, tz: group.tz, members, paused }, lib, cur, next, logs, events, goals, results, catchup, profile: { checkinTime: (meRow.checkin_time || '20:30').slice(0, 5), notif: meRow.notif_prefs || {}, avatar_url: meRow.avatar_url || null, location: meRow.location || '', bio: meRow.bio || '', stats: meRow.stats || {}, share: meRow.share_fields || {} }, photos };
+    S = { me: uid, lang: meRow.locale || 'sk', rules, messages, history, theme: (meRow.notif_prefs || {}).theme || null, consent: !!meRow.consent_at, group: { id: group.id, name: group.name, emoji: group.emoji || '💪', avatar_url: group.avatar_url || null, admin: group.admin_id, slots: group.slots, tz: group.tz, members, paused }, lib, cur, next, logs, events, goals, results, stars, catchup, profile: { checkinTime: (meRow.checkin_time || '20:30').slice(0, 5), notif: meRow.notif_prefs || {}, avatar_url: meRow.avatar_url || null, location: meRow.location || '', bio: meRow.bio || '', stats: meRow.stats || {}, share: meRow.share_fields || {} }, photos };
     return S;
   }
   async function reload() { return load(); }
   const ccByTpl = (tplId) => S.cur.challenges.find((c) => c.tpl && c.tpl.id === tplId);
+  const ccAny = (id) => S.cur.challenges.find((x) => x.id === id) || (S.cur.personal || []).find((x) => x.id === id);
+  const tplFields = (tpl) => { const f = { title_sk: tpl.title_sk, title_en: tpl.title_en || tpl.title_sk, category: tpl.category, type: tpl.type, target: tpl.target, unit: tpl.unit, min_days: tpl.min_days || null, proof: tpl.proof || 'optional' }; if (tpl.description !== undefined) f.description = tpl.description; return f; };
+  // šablóna výzvy: z knižnice = jej id; vlastná = existujúca s rovnakým názvom (#31) alebo nová
+  async function tplIdFor(tpl) {
+    let tplId = tpl.id;
+    const same = (a, b) => String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
+    if ((!tplId || tpl.source === 'custom' && !S.lib.find((x) => x.id === tplId))) { const dup = S.lib.find((x) => x.source === 'custom' && same(x.title_sk, tpl.title_sk)); if (dup) tplId = dup.id; }
+    if (!tplId || tpl.source === 'custom' && !S.lib.find((x) => x.id === tplId)) { const ins = { group_id: S.group.id, title_sk: tpl.title_sk, title_en: tpl.title_en || tpl.title_sk, category: tpl.category, type: tpl.type, target: tpl.target, unit: tpl.unit, min_days: tpl.min_days || null, proof: tpl.proof || 'optional', difficulty: tpl.difficulty || null, created_by: S.me }; if (tpl.description) ins.description = tpl.description; const row = await q(sb.from('ww_challenge_templates').insert(ins).select().single()); tplId = row.id; }
+    return tplId;
+  }
 
   const ST = {
     monday, iso, get state() { return S; }, get client() { return sb; }, get user() { return U; },
@@ -117,15 +130,12 @@
       const row = { user_id: S.me, cycle_challenge_id: cc, date, done: merged.done ?? null, value: merged.value ?? null, note: merged.note ?? null, proof_url: merged.url ?? null, proof_type: merged.src === 'proof' ? (merged.url ? 'strava' : 'photo') : merged.src === 'verified' ? 'verified' : null, logged_at: new Date().toISOString() };
       await q(sb.from('ww_logs').upsert(row, { onConflict: 'user_id,cycle_challenge_id,date' }));
       S.logs[k] = merged;
-      if (patch.done && !(wasDone != null ? wasDone : cur.done)) { const c = S.cur.challenges.find((x) => x.id === cc); await q(sb.from('ww_events').insert({ group_id: S.group.id, user_id: S.me, type: 'done', ref_id: cc, payload: { title: c ? c.tpl.title_sk : '', proof: merged.src === 'proof' ? true : undefined } })); }
+      if (patch.done && !(wasDone != null ? wasDone : cur.done)) { const c = ccAny(cc); await q(sb.from('ww_events').insert({ group_id: S.group.id, user_id: S.me, type: 'done', ref_id: cc, payload: { title: c ? c.tpl.title_sk : '', proof: merged.src === 'proof' ? true : undefined } })); }
     },
     async clearLog(cc, date) { await q(sb.from('ww_logs').delete().eq('user_id', S.me).eq('cycle_challenge_id', cc).eq('date', date)); delete S.logs[S.me + '|' + cc + '|' + date]; },
     async uploadProof(file) { const path = `${S.me}/${Date.now()}.jpg`; await q(sb.storage.from('ww-proofs').upload(path, file, { contentType: 'image/jpeg', upsert: true })); const { data } = await sb.storage.from('ww-proofs').createSignedUrl(path, 60 * 60 * 24 * 90); return data ? data.signedUrl : path; },
     async addProposal(tpl) {
-      let tplId = tpl.id;
-      const same = (a, b) => String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
-      if ((!tplId || tpl.source === 'custom' && !S.lib.find((x) => x.id === tplId))) { const dup = S.lib.find((x) => x.source === 'custom' && same(x.title_sk, tpl.title_sk)); if (dup) tplId = dup.id; }   // rovnaký názov = tá istá výzva (#31)
-      if (!tplId || tpl.source === 'custom' && !S.lib.find((x) => x.id === tplId)) { const ins = { group_id: S.group.id, title_sk: tpl.title_sk, title_en: tpl.title_en || tpl.title_sk, category: tpl.category, type: tpl.type, target: tpl.target, unit: tpl.unit, min_days: tpl.min_days || null, proof: tpl.proof || 'optional', difficulty: tpl.difficulty || null, created_by: S.me }; if (tpl.description) ins.description = tpl.description; const row = await q(sb.from('ww_challenge_templates').insert(ins).select().single()); tplId = row.id; }
+      const tplId = await tplIdFor(tpl);
       const ex = await q(sb.from('ww_proposals').select('*').eq('cycle_id', S.next.id).eq('template_id', tplId).maybeSingle());
       if (ex) { if (!ex.authors.includes(S.me)) await q(sb.from('ww_proposals').update({ authors: [...ex.authors, S.me] }).eq('id', ex.id)); }
       else await q(sb.from('ww_proposals').insert({ cycle_id: S.next.id, template_id: tplId, authors: [S.me] }));
@@ -166,6 +176,17 @@
     async reopenCurrent() { await q(sb.rpc('ww_reopen_current')); await reload(); },
     async selectNow() { await q(sb.rpc('ww_select_now')); await reload(); },
     async startCatchup() { const n = await q(sb.rpc('ww_start_catchup')); await reload(); return n; },
+    // #62 osobné výzvy (ww_fix17.sql): pravidlá (limit, len bez zápisov a bez pripojených) stráži server
+    async addPersonal(tpl) { const tplId = await tplIdFor(tpl); await q(sb.rpc('ww_add_personal', { p_template: tplId })); await reload(); },
+    async updatePersonal(ccId, tpl) {
+      const c = (S.cur.personal || []).find((x) => x.id === ccId); const cur = c && c.tpl; let tplId = cur && cur.id;
+      await q(sb.rpc('ww_personal_editable', { p_cc: ccId }));
+      if (cur && cur.source === 'custom' && cur.created_by === S.me) await q(sb.from('ww_challenge_templates').update(tplFields(tpl)).eq('id', cur.id));
+      else { const row = await q(sb.from('ww_challenge_templates').insert({ ...tplFields(tpl), group_id: S.group.id, created_by: S.me }).select().single()); tplId = row.id; }
+      await q(sb.rpc('ww_update_personal', { p_cc: ccId, p_template: tplId })); await reload();
+    },
+    async deletePersonal(ccId) { await q(sb.rpc('ww_delete_personal', { p_cc: ccId })); await reload(); },
+    async answerPersonal(ccId, yes) { await q(sb.rpc('ww_answer_personal', { p_cc: ccId, p_yes: !!yes })); await reload(); },
     async deleteGoal(id) { await q(sb.from('ww_goals').update({ status: 'archived', archived_at: new Date().toISOString() }).eq('id', id)); await reload(); },
     async setGoalShare(id, v) { await q(sb.from('ww_goals').update({ share_progress: v }).eq('id', id)); S.goals.find((x) => x.id === id).share = v; },
     async setMetricEntry(id, date, value) { const g = S.goals.find((x) => x.id === id); if (value == null) await q(sb.from('ww_metric_entries').delete().eq('user_id', S.me).eq('metric', g.metric).eq('date', date)); else await q(sb.from('ww_metric_entries').upsert({ user_id: S.me, metric: g.metric, date, value }, { onConflict: 'user_id,metric,date' })); await reload(); },
@@ -177,7 +198,7 @@
       let photoId = null;
       if (p.blob) { const path = S.me + '/' + Date.now() + '.jpg'; await q(sb.storage.from('ww-photos').upload(path, p.blob, { contentType: 'image/jpeg', upsert: false })); const row = await q(sb.from('ww_photos').insert({ user_id: S.me, group_id: S.group.id, path, caption: (p.title || '').slice(0, 200) || null, kind: 'activity' }).select('id').single()); photoId = row.id; }
       await q(sb.from('ww_events').insert({ group_id: S.group.id, user_id: S.me, type: 'activity', ref_id: photoId, payload: { atype: p.atype, value: p.value, unit: p.unit, note: p.note || '', title: p.title, date: p.date, cc: p.cc || null } }));
-      if (p.cc) { const k = S.me + '|' + p.cc + '|' + p.date; const cur = S.logs[k] || {}; const c = S.cur.challenges.find((x) => x.id === p.cc); const tp = (c && c.tpl && c.tpl.type) || '';
+      if (p.cc) { const k = S.me + '|' + p.cc + '|' + p.date; const cur = S.logs[k] || {}; const c = ccAny(p.cc); const tp = (c && c.tpl && c.tpl.type) || '';
         if (tp === 'binary_daily' || tp === 'once') { if (!cur.done) await this.setLog(p.cc, p.date, { done: true, src: cur.src || 'self' }); }
         else await this.setLog(p.cc, p.date, { value: Math.round(((cur.value || 0) + p.value) * 100) / 100, src: cur.src || 'self' }); }
       await reload();

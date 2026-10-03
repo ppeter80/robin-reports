@@ -1,6 +1,6 @@
 // Weekwell — konfigurácia (⚙ parametre zo spec v0.3 kap. 14). Jediné miesto, kde sú čísla.
 window.WW_CONFIG = {
-  version: '0.7.7',
+  version: '0.9.0',
   stub: false,                      // false = Supabase naostro (od 2026-09-13); true = vzorové dáta
   supabaseUrl: 'https://chekxmexwigvbqclrrin.supabase.co',           // projekt TipLab (zdieľaný, tabuľky ww_*) – Peter tam spustil SQL 2026-09-13
   supabaseKey: 'sb_publishable_73CPQ3p9-Eu_0k2KMGpMag_9kybj503',     // publishable key – verejný, RLS chráni dáta
@@ -23,6 +23,7 @@ window.WW_CONFIG = {
   proof: { maxPx: 1200, maxMb: 1 },
   trend: { thresholdPct: 2, windowWeeks: 4 },
   library: { noRepeatCycles: 2 },
+  personal: { maxPerWeek: 3 },      // #62 osobné výzvy; server: ww_app_config.personal_max_per_cycle
   kudos: ['👏', '🔥', '💪', '❤️', '😂'],
   categories: ['movement', 'nutrition', 'alcohol', 'sleep', 'mental', 'lifestyle'],
   vapidPublicKey: 'BMsEv22SWYKsBdXVpefAHXjpYr7Wpi2NVClG40Q_jnvh75xaqAolkgzdgxn6Vxl9G-V9BEiDPbfl5Kd9yRkmQ_A',   // #23 Web Push (verejný kľúč; privátny má Robin v toolkit/.env)
