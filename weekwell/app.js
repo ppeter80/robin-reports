@@ -50,7 +50,8 @@
     if (t.type === 'count_weekly') return Math.min(L.reduce((a, l) => a + (l && l.value ? +l.value : 0), 0) / t.target, 1);
     return 0;
   }
-  function memberPct(uid) { const cs = S.cur.challenges; if (!cs.length) return 0; return cs.reduce((a, cc) => a + challengePct(uid, cc), 0) / cs.length; }
+  // % člena = priemer skupinových výziev + jeho vlastných z dobehnutia (ako ww_member_pct); cudzie dobehnutie sa mu neráta
+  function memberPct(uid) { const cs = (S.cur.all || S.cur.challenges).filter((cc) => !cc.forUser || cc.forUser === uid); if (!cs.length) return 0; return cs.reduce((a, cc) => a + challengePct(uid, cc), 0) / cs.length; }
   // #62 osobné výzvy: mimo %, série a odznakov; riadok = jeden účastník (owner), pripojený má parent = pôvodná výzva; odmena ⭐ za 100 %
   const PMAX = (C.personal || {}).maxPerWeek || 3;
   const personal = () => S.cur.personal || [];
@@ -66,7 +67,8 @@
   const closeSheets = () => document.querySelectorAll('.sheet').forEach((x) => x.remove());
   function activeMembers() { return S.group.members.filter((m) => !S.group.paused.includes(m.id)); }
   function groupPct() { const am = activeMembers(); if (!am.length) return 0; return am.reduce((a, m) => a + memberPct(m.id), 0) / am.length; }
-  const P = (x) => Math.round(x * 100) + ' %';
+  const pInt = (x) => (x < 1 ? Math.min(99, Math.round(x * 100)) : 100);   // 100 len keď je naozaj všetko splnené (99,6 % ≠ splnený týždeň)
+  const P = (x) => pInt(x) + ' %';
   function phase() { if (S.next && S.next.status && S.next.status !== 'proposing' && S.next.status !== 'voting') return 'selected'; return 'voting'; }   // #22: návrhy + hlasovanie do nedele 24:00
 
   // ---------- engine výberu (spec 4.3) – klientske demo pre stub ----------
@@ -85,7 +87,7 @@
   const SRC_T = { vote_majority: 'majority', vote_rank: 'by_votes', carry_over: 'carry_over', random_pool: 'random_pool', library: 'library', manual: 'library' };
 
   // ---------- UI helpers ----------
-  function ring(pct, label) { const r = 36, c = 2 * Math.PI * r, o = c * (1 - pct); return `<div class="ring"><svg width="86" height="86"><circle cx="43" cy="43" r="${r}" stroke="#26282d" stroke-width="8" fill="none"/><circle cx="43" cy="43" r="${r}" stroke="#34d399" stroke-width="8" fill="none" stroke-linecap="round" stroke-dasharray="${c}" stroke-dashoffset="${o}"/></svg><div class="v">${Math.round(pct * 100)}%<small>${esc(label)}</small></div></div>`; }
+  function ring(pct, label) { const r = 36, c = 2 * Math.PI * r, o = c * (1 - pct); return `<div class="ring"><svg width="86" height="86"><circle cx="43" cy="43" r="${r}" stroke="#26282d" stroke-width="8" fill="none"/><circle cx="43" cy="43" r="${r}" stroke="#34d399" stroke-width="8" fill="none" stroke-linecap="round" stroke-dasharray="${c}" stroke-dashoffset="${o}"/></svg><div class="v">${pInt(pct)}%<small>${esc(label)}</small></div></div>`; }
   function sheet(html) { const el = document.createElement('div'); el.className = 'sheet'; el.innerHTML = `<div class="in">${html}</div>`; el.addEventListener('click', (e) => { if (e.target === el) el.remove(); }); document.body.appendChild(el); return el; }
   const tplDesc = (tpl) => (tplDescText(tpl) ? `<div class="muted small" style="margin-top:2px">${esc(tplDescText(tpl))}</div>` : '');
   function challengeSheet(cc, extra) {

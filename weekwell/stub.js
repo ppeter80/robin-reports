@@ -115,7 +115,7 @@
     async uploadGroupAvatar(blob) { S.group.avatar_url = await blobUrl(blob); save(); },
     async reopenCurrent() { S.cur.challenges = []; S.cur.status = 'voting'; save(); },
     async selectNow() { S.cur.status = 'running'; save(); },
-    async startCatchup() { const T = (id) => S.lib.find((x) => x.id === id); const extra = [T('lib16'), T('lib3')]; extra.forEach((tpl, i) => S.cur.challenges.push({ id: 'ccu' + i, tpl, slot: 91 + i, source: 'catchup', votes: 0, catchup: true })); S.catchup = { available: false, active: true, from_week: S.catchup.from_week }; save(); return extra.length; },
+    async startCatchup() { const T = (id) => S.lib.find((x) => x.id === id); const extra = [T('lib16'), T('lib3')]; extra.forEach((tpl, i) => S.cur.challenges.push({ id: 'ccu' + i, tpl, slot: 91 + i, source: 'catchup', votes: 0, catchup: true, forUser: S.me })); S.catchup = { available: false, active: true, from_week: S.catchup.from_week }; save(); return extra.length; },
     async addPersonal(tpl) { S.cur.personal = S.cur.personal || []; if (S.cur.personal.filter((c) => c.owner === S.me).length >= 3) throw new Error('personal_limit'); const id = uid(); S.cur.personal.push({ id, tpl: { ...tpl, id: tpl.id || 'cust' + Date.now() }, slot: 200 + S.cur.personal.length, source: 'personal', personal: true, owner: S.me, parent: null }); S.events.unshift({ id: uid(), user: S.me, type: 'personal', title: tpl.title_sk, ts: Date.now(), kudos: {}, comments: [] }); save(); },
     async updatePersonal(ccId, tpl) { const c = S.cur.personal.find((x) => x.id === ccId); c.tpl = { ...c.tpl, ...tpl, id: c.tpl.id }; save(); },
     async deletePersonal(ccId) { S.cur.personal = S.cur.personal.filter((x) => x.id !== ccId && x.parent !== ccId); save(); },
