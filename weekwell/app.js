@@ -79,7 +79,6 @@
     const byVotes = (a, b) => b.votes.length - a.votes.length || Math.random() - 0.5;
     take(pool.filter((p) => p.votes.length > M / 2).sort(byVotes), 'vote_majority');
     take(pool.filter((p) => p.votes.length > 0 && p.votes.length <= M / 2).sort(byVotes), 'vote_rank');
-    take(S.cur.challenges.map((cc) => ({ tpl: cc.tpl, votes: [] })), 'carry_over');
     take(pool.filter((p) => p.votes.length === 0).sort(() => Math.random() - 0.5), 'random_pool');
     take(S.lib.filter((t) => !S.cur.challenges.find((cc) => cc.tpl.id === t.id)).sort(() => Math.random() - 0.5).map((t) => ({ tpl: t, votes: [] })), 'library');
     return out.map((o, i) => ({ ...o, slot: i + 1 }));
