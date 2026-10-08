@@ -69,6 +69,7 @@ th{color:var(--mut);font-weight:600;font-size:.72rem}
     <button id="t-doh" onclick="tab('doh')">🧑‍🎓 Dohodári</button>
     <button id="t-maj" onclick="tab('maj')">🏢 Majetok</button>
     <button id="t-uct" onclick="tab('uct')">📒 Účtovníctvo</button>
+    <button id="t-dph" onclick="tab('dph')">💶 DPH</button>
     <button id="t-zml" onclick="tab('zml')">📄 Zmluvy</button>
     <button id="t-cli" onclick="tab('cli')">👥 Klienti</button>
     <button id="t-set" onclick="tab('set')">⚙️ Nastavenia</button>
@@ -84,6 +85,7 @@ th{color:var(--mut);font-weight:600;font-size:.72rem}
   <div id="s-doh" style="display:none"></div>
   <div id="s-maj" style="display:none"></div>
   <div id="s-uct" style="display:none"></div>
+  <div id="s-dph" style="display:none"></div>
   <div id="s-zml" style="display:none"></div>
   <div id="s-cli" style="display:none"></div>
   <div id="s-set" style="display:none"></div>
@@ -212,8 +214,8 @@ const TYPLBL={'faktúra':'FAKTÚRA','zálohová':'ZÁLOHOVÁ FAKTÚRA','dobropis
 function peekNo(typ){const k=TYPPFX[typ]||'F';return `${k}${new Date().getFullYear()}${String((CNT[k]||0)+1).padStart(3,'0')}`}
 function nextNo(typ){const k=TYPPFX[typ]||'F';CNT[k]=(CNT[k]||0)+1;LS.set('counters',CNT);return `${k}${new Date().getFullYear()}${String(CNT[k]).padStart(3,'0')}`}
 
-function tab(t){for(const k of ['dash','fak','new','nak','cp','ces','doh','maj','uct','zml','cli','set']){$('s-'+k).style.display=k===t?'':'none';$('t-'+k).classList.toggle('on',k===t)}
- if(t==='dash')renderDash();if(t==='fak')renderFak();if(t==='new')renderNew();if(t==='nak')renderNak();if(t==='cp')renderCP();if(t==='ces')renderCes();if(t==='doh')renderDoh();if(t==='maj')renderMaj();if(t==='uct')renderUct();if(t==='zml')renderZml();if(t==='cli')renderCli();if(t==='set')renderSet()}
+function tab(t){for(const k of ['dash','fak','new','nak','cp','ces','doh','maj','uct','dph','zml','cli','set']){$('s-'+k).style.display=k===t?'':'none';$('t-'+k).classList.toggle('on',k===t)}
+ if(t==='dash')renderDash();if(t==='fak')renderFak();if(t==='new')renderNew();if(t==='nak')renderNak();if(t==='cp')renderCP();if(t==='ces')renderCes();if(t==='doh')renderDoh();if(t==='maj')renderMaj();if(t==='uct')renderUct();if(t==='dph')renderDph();if(t==='zml')renderZml();if(t==='cli')renderCli();if(t==='set')renderSet()}
 
 // ===== NASTAVENIA =====
 function renderSet(){
@@ -374,7 +376,10 @@ function renderNak(){
   <label>Dodávateľ</label><input id="e_dod">
   <label>Popis</label><input id="e_pop">
   <div class="row"><div><label>Kategória</label><select id="e_kat" onchange="if($('e_ucet'))$('e_ucet').value=KAT_UCET[this.value]||'548'">${KAT.map(k=>`<option>${esc(k)}</option>`).join('')}</select></div>
-  <div><label>DPH na vstupe</label><select id="e_dph"><option value="none">bez DPH</option><option value="23">23 %</option><option value="5">5 %</option><option value="19">19 %</option></select></div></div>
+  <div><label>DPH na vstupe</label><select id="e_dph" onchange="const b=$('e_kvbox');if(b)b.style.display=this.value==='none'?'none':''"><option value="none">bez DPH (neplatiteľ, zahraničie bez DPH)</option><option value="23">23 %</option><option value="19">19 %</option><option value="5">5 %</option><option value="rcs">samozdanenie – služba z EÚ / zahraničia (23 %)</option><option value="rct">samozdanenie – tovar z EÚ (23 %)</option></select></div></div>
+  <div id="e_kvbox" style="display:none"><div class="row"><div><label>IČ DPH dodávateľa (KV)</label><input id="e_icdph" placeholder="SK… / CZ… / IE…"></div><div><label>Číslo faktúry dodávateľa</label><input id="e_cis"></div></div>
+  <label style="margin-top:6px"><input type="checkbox" id="e_zjf" style="width:auto;margin-right:6px;vertical-align:middle">Zjednodušená faktúra / bloček (KV B.3.1 – bez čísla a IČ DPH)</label>
+  <label style="margin-top:4px"><input type="checkbox" id="e_noodp" style="width:auto;margin-right:6px;vertical-align:middle">Bez nároku na odpočet DPH (reprezentácia, súkromné použitie)</label></div>
   <div class="row"><div><label>Platené z</label><select id="e_plat">${PLAT_ORD.map(k=>`<option value="${k}">${esc(PLAT[k])}</option>`).join('')}</select></div>
   <div><label>Účet (účtovníctvo)</label><select id="e_ucet">${OSN.filter(a=>a[2]==='N').map(a=>`<option value="${a[0]}">${a[0]} ${esc(a[1])}</option>`).join('')}</select></div></div>
   <label style="margin-top:8px"><input type="checkbox" id="e_uzn" checked style="width:auto;margin-right:6px;vertical-align:middle">Uznateľný náklad</label>
@@ -385,7 +390,7 @@ function renderNak(){
   <div class="card"><b>Náklady (${EXP.length})</b>`;
  if(!EXP.length)h+='<p class="mut">Zatiaľ žiadne.</p>';
  else{h+='<table><thead><tr><th>Dátum</th><th>Dodávateľ / kategória</th><th class="r">Suma</th><th></th></tr></thead><tbody>';
-  EXP.forEach(e=>{h+=`<tr><td>${esc(e.dat)}</td><td>${esc(e.dod||'—')}<br><span class="mut">${esc(e.kat)}${e.uzn?'':' · NEuzn.'} · ${esc(e.ucet||KAT_UCET[e.kat]||'548')}/${esc(e.plat||'221')}</span></td><td class="r"><b>${eur(e.sum)}</b>${e.dph!=='none'?`<br><span class="mut">DPH ${esc(e.dph)}%</span>`:''}</td><td class="r">${(e.foto||e.pdf)?`<button class="mini" onclick="viewExpDoc(${e.id})">🖼️</button>`:`<button class="ghost" style="padding:3px 8px;font-size:.75rem;color:var(--red)" onclick="this.nextElementSibling.click()">⚠️ doklad</button><input type="file" accept="image/*,application/pdf" style="display:none" onchange="addExpDoc(${e.id},this)">`}<button class="mini" onclick="delExp(${e.id})">✕</button></td></tr>`});
+  EXP.forEach(e=>{h+=`<tr><td>${esc(e.dat)}</td><td>${esc(e.dod||'—')}<br><span class="mut">${esc(e.kat)}${e.uzn?'':' · NEuzn.'} · ${esc(e.ucet||KAT_UCET[e.kat]||'548')}/${esc(e.plat||'221')}</span></td><td class="r"><b>${eur(e.sum)}</b>${e.dph&&e.dph!=='none'?`<br><span class="mut">${e.dph==='rcs'||e.dph==='rct'?'samozdanenie':'DPH '+esc(e.dph)+' %'}${e.noodp?' · bez odpočtu':''}</span>`:''}</td><td class="r">${(e.foto||e.pdf)?`<button class="mini" onclick="viewExpDoc(${e.id})">🖼️</button>`:`<button class="ghost" style="padding:3px 8px;font-size:.75rem;color:var(--red)" onclick="this.nextElementSibling.click()">⚠️ doklad</button><input type="file" accept="image/*,application/pdf" style="display:none" onchange="addExpDoc(${e.id},this)">`}<button class="mini" onclick="delExp(${e.id})">✕</button></td></tr>`});
   h+='</tbody></table>'}
  h+='</div>';$('s-nak').innerHTML=h;curExpFoto=null;curExpPdf=null;if($('e_ucet'))$('e_ucet').value=KAT_UCET[$('e_kat').value]||'548';
 }
@@ -417,7 +422,7 @@ function parseDoklad(t){
  if(line)res.dod=line;
  return res;
 }
-function addExp(){const s=+$('e_sum').value;if(!s){toast('Zadaj sumu');return}try{EXP.unshift({id:uid(),dat:$('e_dat').value,dod:$('e_dod').value,pop:$('e_pop').value,kat:$('e_kat').value,sum:s,dph:$('e_dph').value,uzn:$('e_uzn').checked,plat:($('e_plat')||{}).value||'221',ucet:($('e_ucet')||{}).value||KAT_UCET[$('e_kat').value]||'548',foto:curExpFoto,pdf:curExpPdf});LS.set('expenses',EXP)}catch(e){toast('Chyba: fotka je asi priveľká');return}toast('Náklad pridaný ✅');renderNak()}
+function addExp(){const s=+$('e_sum').value;if(!s){toast('Zadaj sumu');return}try{EXP.unshift({id:uid(),dat:$('e_dat').value,dod:$('e_dod').value,pop:$('e_pop').value,kat:$('e_kat').value,sum:s,dph:$('e_dph').value,uzn:$('e_uzn').checked,plat:($('e_plat')||{}).value||'221',ucet:($('e_ucet')||{}).value||KAT_UCET[$('e_kat').value]||'548',icdph:(($('e_icdph')||{}).value||'').trim(),cis:(($('e_cis')||{}).value||'').trim(),zjf:!!($('e_zjf')||{}).checked,noodp:!!($('e_noodp')||{}).checked,foto:curExpFoto,pdf:curExpPdf});LS.set('expenses',EXP)}catch(e){toast('Chyba: fotka je asi priveľká');return}toast('Náklad pridaný ✅');renderNak()}
 function delExp(id){EXP=EXP.filter(e=>e.id!==id);LS.set('expenses',EXP);renderNak()}
 function viewFoto(id){const e=EXP.find(x=>x.id===id);if(e&&e.foto){const w=window.open();w.document.write('<img src="'+e.foto+'" style="max-width:100%">')}}
 
@@ -714,12 +719,12 @@ function renderDash(){
   <div class="tot"><span>Náklady – odpisy majetku (ročne)</span><b>${eur(odp)}</b></div>
   <div class="tot big"><span>Zisk (odhad)</span><span>${eur(zisk)}</span></div>
   <div class="tot"><span>Odhad dane PO (10 %)</span><b>${eur(danPO)}</b></div></div>
-  <div class="card"><b>🧾 DPH prehľad</b> <span class="mut">(podklad pre účtovníka)</span>
-  <div class="tot"><span>DPH na výstupe (z faktúr)</span><b>${eur(dphOut)}</b></div>
-  <div class="tot"><span>DPH na vstupe (z nákladov)</span><b>${eur(dphIn)}</b></div>
-  <div class="tot big"><span>${saldo>=0?'DPH na odvod':'Nadmerný odpočet'}</span><span>${eur(Math.abs(saldo))}</span></div>
-  <div class="tot" style="margin-top:8px;border-top:1px solid var(--line);padding-top:8px"><span>Reverse-charge dodania do EÚ (VIES)</span><b>${eur(rcEU)}</b></div>
-  <p class="mut" style="margin-top:8px">Podklad — oficiálne DPH priznanie, kontrolný a súhrnný výkaz (VIES) podáva účtovník z týchto čísel.</p></div>`;
+  ${(()=>{const per=today().slice(0,7);const D=dphObd(per);const R=D.R;return `<div class="card"><b>💶 DPH – ${per.slice(5,7)}/${per.slice(0,4)}</b> <span class="mut">(zostavuje sa z dokladov)</span>
+  <div class="tot"><span>Daň celkom (r. 17)</span><b>${eur(R['17'])}</b></div>
+  <div class="tot"><span>Odpočítanie dane (r. 18 + 18a + 19)</span><b>${eur((R['18']||0)+(R['18a']||0)+(R['19']||0))}</b></div>
+  <div class="tot big"><span>${R['33']>0?'Nadmerný odpočet (r. 33)':'Vlastná daňová povinnosť (r. 32)'}</span><span>${eur(R['33']>0?R['33']:R['32'])}</span></div>
+  <div class="tot" style="margin-top:8px;border-top:1px solid var(--line);padding-top:8px"><span>Súhrnný výkaz – služby do EÚ</span><b>${eur(D.SV.reduce((s,x)=>s+x.v,0))}</b></div>
+  ${D.W.length?`<p class="mut" style="margin-top:6px;color:var(--red)">⚠️ ${D.W.length} upozornení</p>`:''}<div style="margin-top:8px"><button class="ghost" onclick="tab('dph')">Otvoriť priznanie, KV a SV →</button></div></div>`})()}`;
 }
 
 // ===== ZMLUVY =====
@@ -850,7 +855,8 @@ function uctAuto(){const E=[];const push=x=>{if(x)E.push(x)};
  // náklady
  EXP.forEach(x=>{const tot=+x.sum||0;if(!tot)return;const uc=x.ucet||KAT_UCET[x.kat]||'548';const r=VRATE[x.dph]||0;const pl=x.plat||'221';
   const odp=r>0&&SUP.dphOd&&x.dat>=SUP.dphOd;const base=odp?tot/(1+r):tot;const dph=tot-base;const pop=(x.dod||'')+(x.pop?' – '+x.pop:'')+(x.uzn===false?' (nedaňový)':'');
-  push(uctE(x.dat,'ND'+String(x.id).slice(-5),pop,uc,pl,base,'exp',x.id));if(dph>0.004)push(uctE(x.dat,'ND'+String(x.id).slice(-5),'DPH '+x.dph+' % '+(x.dod||''),'343',pl,dph,'exp',x.id))});
+  push(uctE(x.dat,'ND'+String(x.id).slice(-5),pop,uc,pl,base,'exp',x.id));if(dph>0.004)push(uctE(x.dat,'ND'+String(x.id).slice(-5),'DPH '+x.dph+' % '+(x.dod||''),'343',pl,dph,'exp',x.id));
+  if((x.dph==='rcs'||x.dph==='rct')&&!(SUP.dphOd&&x.dat>=SUP.dphOd))push(uctE(x.dat,'ND'+String(x.id).slice(-5),'DPH samozdanenie 23 % bez odpočtu '+(x.dod||''),'548','343',Math.round(tot*23)/100,'exp',x.id))});
  // cestovné príkazy (uložené)
  CP.forEach(cp=>{const k=cpCalc(cp);const dat=(cp.uk||cp.na||'').slice(0,10);const pop=cp.no+' '+(cp.miesto||'')+' – '+(cp.ucel||'');
   push(uctE(dat,cp.no,'Stravné '+pop,'512','365',k.strav,'cp',cp.id));if(k.auto)push(uctE(dat,cp.no,'Náhrada za vozidlo '+pop,'512','365',k.auto,'cp',cp.id));
@@ -1008,6 +1014,92 @@ function uctPrint(y){const E=uctAuto();const S=uctSUV(E,y),Sp=uctSUV(E,y-1),V=uc
  $('print').innerHTML=`<div class="inv"><h2>Súvaha Úč MÚJ 1-01</h2>${hd}${tb(SUV_ROWS,S.R,Sp.R)}<div style="font-size:10px;margin-top:6px">Kontrola: r. 01 ${n2(S.R[1])} = r. 24 ${n2(S.R[24])} ${Math.abs(S.R[1]-S.R[24])<0.005?'✓':'✗ NESEDÍ'}; VH r. 33 prevzatý z VZaS r. 38.</div>
   <div style="page-break-before:always"></div><h2>Výkaz ziskov a strát Úč MÚJ 2-01</h2>${hd}${tb(VZS_ROWS,V.R,Vp.R)}
   <div style="font-size:10px;margin-top:8px">Vzor výkazov: príloha č. 1 k opatreniu MF SR č. MF/15464/2013-74 (MF SR č. 18008/2014). Podklad z Practeo Admin – pred podaním skontroluje účtovník; poznámky (Úč MÚJ 3-01) sa zostavujú samostatne.</div></div>`;
+ window.print()}
+
+// ===== DPH – daňové priznanie (DPHv25, platné od 1. 7. 2025), kontrolný výkaz (vzor MF/015393/2020-731) a súhrnný výkaz =====
+// Údaje sa skladajú priamo z dokladov za zdaňovacie obdobie (kalendárny mesiac): faktúry podľa dátumu dodania (zálohová podľa dátumu úhrady), náklady podľa dátumu dokladu.
+const DPH_OUT={'23':{z:'03',d:'04'},'19':{z:'01',d:'02'},'5':{z:'01a',d:'02a'}};      // dodanie tovaru a služby v tuzemsku § 8, 9 (r. 19–22 poučenia)
+const DPH_ODP={'23':'19','19':'18','5':'18a'},DPH_ODP_A={'23':'21','19':'20','5':'20a'}; // odpočítanie dane spolu / z toho § 51 ods. 1 písm. a) (faktúry od tuzemských platiteľov)
+const DPH_ROWS=[['01','Dodanie v tuzemsku – základ dane, znížená sadzba 19 % (§ 27 ods. 2)'],['02','– daň 19 %'],['01a','Dodanie v tuzemsku – základ dane, znížená sadzba 5 % (§ 27 ods. 3)'],['02a','– daň 5 %'],['03','Dodanie v tuzemsku – základ dane, základná sadzba 23 %'],['04','– daň 23 %'],
+ ['05','Nadobudnutie tovaru z EÚ (§ 11) – základ 19 %'],['06','– daň'],['05a','Nadobudnutie tovaru z EÚ – základ 5 %'],['06a','– daň'],['07','Nadobudnutie tovaru z EÚ – základ 23 %'],['08','– daň'],
+ ['09','Tovar a služba, pri ktorých platí daň príjemca (§ 69 ods. 2, 3, 9–12) – základ 19 %'],['10','– daň'],['09a','– základ 5 %'],['10a','– daň'],['09b','– základ 23 % (prijaté služby z EÚ / tretích krajín)'],['10b','– daň 23 %'],
+ ['13','Dodanie oslobodené od dane – základ dane (§ 28–43, 46–48…)'],['14','z toho § 43 ods. 1 a 4 (dodanie tovaru do EÚ)'],['15','z toho § 46, 47, 48 ods. 8 (vývoz)'],['16','Daň podľa § 48ca ods. 2, § 48d ods. 15, § 48e'],['17','DAŇ CELKOM'],
+ ['18','Odpočítanie dane celkom – znížená sadzba 19 %'],['18a','– znížená sadzba 5 %'],['19','– základná sadzba 23 %'],['20','z toho § 51 ods. 1 písm. a) – 19 %'],['20a','– 5 %'],['21','– 23 %'],
+ ['24','Rozdiel v základe dane podľa § 25 (opravy, dobropisy) (+/−)'],['25','Rozdiel v dani podľa § 25 (+/−)'],['26','Rozdiel v základe dane podľa § 25a (nevymožiteľné pohľadávky) (+/−)'],['27','Rozdiel v dani podľa § 25a (+/−)'],['28','Oprava odpočítanej dane podľa § 53, 53a (+/−)'],['29','Oprava odpočítanej dane podľa § 53b (+/−)'],['30','Odpočítanie dane pri registrácii platiteľa (§ 55)'],['31','Vrátenie dane cestujúcim (§ 60)'],
+ ['32','VLASTNÁ DAŇOVÁ POVINNOSŤ'],['33','NADMERNÝ ODPOČET'],['34','Nadmerný odpočet odpočítaný od vlastnej daňovej povinnosti (§ 79)'],['35','VLASTNÁ DAŇOVÁ POVINNOSŤ NA ÚHRADU']];
+const DPH_R17=['02','02a','04','06','06a','08','10','10a','10b','12','12a','12b','12c','12d','12e','16']; // bod 34 poučenia
+const DPH_MAN=['24','25','26','27','28','29','30','31','34']; // riadky zadávané ručne (opravy, § 55, § 79)
+function dphRate(m){return (m==='sk23'||m==='sk')?'23':m==='sk19'?'19':m==='sk5'?'5':null}
+function dphPlatitel(dt){return !!SUP.dphOd&&(dt||'')>=SUP.dphOd}
+function dphKraj(icdph){const k=(icdph||'').trim().slice(0,2).toUpperCase();return /^[A-Z]{2}$/.test(k)?k:''}
+function dphObd(per){const R={};const add=(r,v)=>{R[r]=(R[r]||0)+v};const KV={A1:[],B1:[],B2:[],B31:{z:0,d:0,o:0},C1:[]};const SV={};const W=[];const inP=d=>(d||'').slice(0,7)===per;const r2=x=>Math.round(x*100)/100;
+ INV.filter(i=>!i.draft&&i.no).forEach(i=>{const t=totals(i);const c=CLI[i.cli]||{};const rate=dphRate(i.dph);
+  if(i.typ==='zálohová'){if(i.paid&&inP(i.dpaid)&&rate){add(DPH_OUT[rate].z,t.base);add(DPH_OUT[rate].d,t.dph);KV.A1.push({ic:c.icdph||'',no:i.no,dt:i.dpaid,z:t.base,d:t.dph,s:rate,p:'platba vopred § 19 ods. 4'})}
+   if(i.paid&&inP(i.dpaid)&&i.dph==='rc')W.push('Zálohová '+i.no+' (reverse charge) – do súhrnného výkazu sa uvedie až riadna faktúra za dodanie služby');return}
+  const dt=i.ddod||i.dvyst;if(!inP(dt))return;
+  if(i.typ==='dobropis'){if(rate){add('24',t.base);add('25',t.dph);KV.C1.push({ic:c.icdph||'',no:i.no,ref:i.ref||'',z:t.base,d:t.dph,s:rate})}
+   else if(i.dph==='rc'){const k=dphKraj(c.icdph);if(k){const key=k+'|'+c.icdph;SV[key]=SV[key]||{k,ic:c.icdph,kod:2,v:0};SV[key].v+=t.base}}return}
+  let zb=0,zd=0;if(i.zal){const z=INV.find(x=>x.id===+i.zal);if(z&&z.paid&&dphRate(z.dph)){const zt=totals(z);zb=Math.min(zt.base,t.base);zd=Math.min(zt.dph,t.dph)}}
+  if(rate){const b=t.base-zb,d=t.dph-zd;if(Math.abs(b)>0.004||Math.abs(d)>0.004){add(DPH_OUT[rate].z,b);add(DPH_OUT[rate].d,d);KV.A1.push({ic:c.icdph||'',no:i.no,dt,z:b,d,s:rate,p:zb?'po odpočítaní zálohy':''})}
+   if(!c.icdph)W.push('Faktúra '+i.no+': klient nemá IČ DPH – v KV A.1 ostane prázdne (ak je odberateľ nezdaniteľná osoba, je to v poriadku)')}
+  else if(i.dph==='rc'){const k=dphKraj(c.icdph);if(!k){W.push('Faktúra '+i.no+' (reverse charge): klient nemá IČ DPH v tvare CZ…/DE… – nedá sa zaradiť do súhrnného výkazu');return}
+   const key=k+'|'+c.icdph;SV[key]=SV[key]||{k,ic:c.icdph,kod:2,v:0};SV[key].v+=t.base}
+  else if(i.dph==='exempt')add('13',t.base)});
+ EXP.forEach(x=>{if(!inP(x.dat))return;const tot=+x.sum||0;if(!tot)return;const m=x.dph;const pl=dphPlatitel(x.dat);const odp=pl&&!x.noodp;
+  if(m==='23'||m==='19'||m==='5'){if(!pl){if(SUP.dphOd)W.push('Doklad '+(x.dod||'')+' '+x.dat+': pred dňom registrácie platiteľa – DPH bez odpočtu (prípadne § 55 → r. 30 ručne)');return}
+   if(x.noodp)return;const r=VRATE[m];const base=r2(tot/(1+r)),d=r2(tot-base);add(DPH_ODP[m],d);add(DPH_ODP_A[m],d);
+   if(x.zjf||!x.cis||!x.icdph){KV.B31.z+=base;KV.B31.d+=d;KV.B31.o+=d;if(!x.zjf&&!(x.cis&&x.icdph))W.push('Doklad '+(x.dod||'')+' '+x.dat+': chýba číslo faktúry alebo IČ DPH dodávateľa – zaradený do B.3.1 ako zjednodušená faktúra')}
+   else KV.B2.push({ic:x.icdph,no:x.cis,dt:x.dat,z:base,d,s:m,o:d})}
+  else if(m==='rcs'||m==='rct'){const d=r2(tot*0.23);if(m==='rcs'){add('09b',tot);add('10b',d)}else{add('07',tot);add('08',d)}
+   if(odp)add('19',d);KV.B1.push({ic:x.icdph||'',no:x.cis||('ND'+String(x.id).slice(-5)),dt:x.dat,z:tot,d,s:'23',o:odp?d:0});
+   if(!pl)W.push('Samozdanenie '+(x.dod||'')+' '+x.dat+': pred registráciou platiteľa – daň sa platí (r. 10b), bez odpočtu')}});
+ const man=((UCT.dph||{})[per])||{};DPH_MAN.forEach(r=>{if(+man[r])add(r,+man[r])});
+ R['17']=DPH_R17.reduce((s,r)=>s+(R[r]||0),0);
+ const v=R['17']-(R['18']||0)-(R['18a']||0)-(R['19']||0)+(R['25']||0)+(R['27']||0)+(R['28']||0)+(R['29']||0)-(R['30']||0)-(R['31']||0);
+ if(v>=0){R['32']=v;R['33']=0}else{R['32']=0;R['33']=-v}
+ R['35']=Math.max(0,R['32']-(R['34']||0));
+ Object.keys(R).forEach(k=>R[k]=r2(R[k]));KV.B31.z=r2(KV.B31.z);KV.B31.d=r2(KV.B31.d);KV.B31.o=r2(KV.B31.o);
+ return{R,KV,SV:Object.values(SV).map(s=>Object.assign(s,{v:Math.round(s.v)})),W}}
+function dphObdobia(){const S=new Set();INV.forEach(i=>{if(!i.draft){S.add((i.ddod||i.dvyst||'').slice(0,7));if(i.dpaid)S.add(i.dpaid.slice(0,7))}});EXP.forEach(x=>S.add((x.dat||'').slice(0,7)));S.add(today().slice(0,7));
+ return Array.from(S).filter(p=>/^\d{4}-\d{2}$/.test(p)).sort()}
+let dphPer=null;
+function setDphMan(per,r,v){UCT.dph=UCT.dph||{};UCT.dph[per]=UCT.dph[per]||{};UCT.dph[per][r]=+v||0;LS.set('uct',UCT);renderDph()}
+function dphLine(r){return `<tr><td>${esc(r.ic)}</td><td>${esc(r.no)}${r.ref?'<br><span class="mut">k '+esc(r.ref)+'</span>':''}</td><td>${r.dt?esc(r.dt.slice(8,10)+'.'+r.dt.slice(5,7)+'.'+r.dt.slice(0,4)):''}</td><td class="r">${n2(r.z)}</td><td class="r">${n2(r.d)}</td><td class="r">${esc(r.s)}</td>${r.o!=null?'<td class="r">'+n2(r.o)+'</td>':''}</tr>`}
+function renderDph(){const ps=dphObdobia();if(!dphPer||!ps.includes(dphPer))dphPer=ps[ps.length-1];const per=dphPer;const D=dphObd(per);const R=D.R;const lbl=per.slice(5,7)+'/'+per.slice(0,4);
+ let h=`<div class="card"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><b>💶 DPH – zdaňovacie obdobie</b><select style="width:auto" onchange="dphPer=this.value;renderDph()">${ps.map(p=>`<option value="${p}" ${p===per?'selected':''}>${p.slice(5,7)}/${p.slice(0,4)}</option>`).join('')}</select><button class="ghost" style="padding:5px 10px;font-size:.78rem" onclick="dphPrint('${per}')">🖨️ Podklad PDF</button><button class="ghost" style="padding:5px 10px;font-size:.78rem" onclick="exportKVCSV('${per}')">⬇️ KV CSV</button></div>
+  <p class="mut">${SUP.dphOd?'Platiteľ DPH od '+esc(SUP.dphOd.slice(8,10)+'. '+SUP.dphOd.slice(5,7)+'. '+SUP.dphOd.slice(0,4))+' (IČ DPH '+esc(SUP.icdph||'—')+').':'<span style="color:var(--red)">Nastav dátum „Platiteľ DPH od“ v Účtovníctve → Zápisy a nastavenia.</span>'} Mesačné zdaňovacie obdobie; priznanie, kontrolný a súhrnný výkaz do 25. dňa nasledujúceho mesiaca (súhrnný výkaz len ak boli služby do EÚ). Hodnoty sa skladajú z dokladov automaticky.</p>
+  ${D.W.length?'<div class="box" style="border-color:var(--red)"><b>⚠️ Upozornenia</b>'+D.W.map(w=>'<div class="mut" style="padding:2px 0">• '+esc(w)+'</div>').join('')+'</div>':''}
+  <div class="tot big"><span>${R['32']>0?'Vlastná daňová povinnosť (r. 32)':R['33']>0?'Nadmerný odpočet (r. 33)':'Nulové priznanie'}</span><span>${eur(R['32']>0?R['32']:R['33'])}</span></div>
+  ${R['34']?`<div class="tot"><span>Na úhradu po odpočítaní nadmerného odpočtu (r. 35)</span><b>${eur(R['35'])}</b></div>`:''}</div>`;
+ h+=`<div class="card"><b>📄 Daňové priznanie k DPH (DPHv25) – ${lbl}</b><p class="mut">Len riadky s hodnotou; sumy v eurách na 2 desatinné miesta (§ 78 ods. 7). Riadky 24–31 a 34 sa zadávajú ručne (opravy, § 55, § 79).</p><table><thead><tr><th>r.</th><th>Položka</th><th class="r">Suma</th></tr></thead><tbody>`;
+ DPH_ROWS.forEach(([r,t])=>{const v=R[r]||0;const man=DPH_MAN.includes(r);const bold=['17','32','33','35'].includes(r);if(!man&&Math.abs(v)<0.005&&!bold)return;
+  h+=`<tr><td>${r}</td><td>${bold?'<b>'+esc(t)+'</b>':esc(t)}</td><td class="r">${man?`<input type="number" step="0.01" value="${v||''}" placeholder="0" style="width:110px;text-align:right;font-size:.8rem;padding:4px 6px" onchange="setDphMan('${per}','${r}',this.value)">`:(bold?'<b>'+n2(v)+'</b>':n2(v))}</td></tr>`});
+ h+='</tbody></table></div>';
+ const KV=D.KV;const th7='<thead><tr><th>IČ DPH</th><th>Číslo faktúry</th><th>Dátum</th><th class="r">Základ</th><th class="r">Daň</th><th class="r">%</th><th class="r">Odpočet</th></tr></thead>';
+ h+=`<div class="card"><b>🧾 Kontrolný výkaz (KVDPH) – ${lbl}</b><p class="mut">Vzor MF/015393/2020-731 (platný od 2021, sadzby 23/19/5 od 2025). Pri „nulovom“ KV sa podáva len s identifikačnými údajmi.</p>`;
+ h+=`<b style="font-size:.85rem">A.1. Vyhotovené faktúry s daňou (§ 69 ods. 1)</b>${KV.A1.length?'<table><thead><tr><th>IČ DPH odberateľa</th><th>Číslo faktúry</th><th>Dátum dodania / platby</th><th class="r">Základ</th><th class="r">Daň</th><th class="r">%</th></tr></thead><tbody>'+KV.A1.map(dphLine).join('')+'</tbody></table>':'<p class="mut">žiadne</p>'}`;
+ h+=`<b style="font-size:.85rem">B.1. Prijaté plnenia so samozdanením (§ 69 ods. 2, 3, 6, 7, 9–12)</b>${KV.B1.length?'<table>'+th7+'<tbody>'+KV.B1.map(dphLine).join('')+'</tbody></table>':'<p class="mut">žiadne</p>'}`;
+ h+=`<b style="font-size:.85rem">B.2. Prijaté faktúry od tuzemských platiteľov s odpočtom</b>${KV.B2.length?'<table>'+th7+'<tbody>'+KV.B2.map(dphLine).join('')+'</tbody></table>':'<p class="mut">žiadne</p>'}`;
+ h+=`<b style="font-size:.85rem">B.3.1. Zjednodušené faktúry (bločky, doklady do 100 €) – spolu</b><div class="tot"><span>Základ ${n2(KV.B31.z)} · daň ${n2(KV.B31.d)}</span><b>odpočet ${n2(KV.B31.o)}</b></div>${KV.B31.o>=3000?'<p style="color:var(--red);font-size:.8rem">Odpočet zo zjednodušených faktúr ≥ 3 000 € → treba B.3.2 v členení podľa dodávateľov (doplň IČ DPH k dokladom).</p>':''}`;
+ h+=`<b style="font-size:.85rem">C.1. Vyhotovené opravné faktúry (dobropisy)</b>${KV.C1.length?'<table><thead><tr><th>IČ DPH odberateľa</th><th>Číslo opravnej / pôvodnej</th><th></th><th class="r">Rozdiel základu</th><th class="r">Rozdiel dane</th><th class="r">%</th></tr></thead><tbody>'+KV.C1.map(dphLine).join('')+'</tbody></table>':'<p class="mut">žiadne</p>'}</div>`;
+ h+=`<div class="card"><b>🇪🇺 Súhrnný výkaz (SVDPH) – ${lbl}</b><p class="mut">Služby s miestom dodania v inom členskom štáte (§ 15 ods. 1, reverse charge) – kód 2, hodnota v celých eurách. Do priznania k DPH sa tieto dodania neuvádzajú (miesto dodania mimo tuzemska).</p>${D.SV.length?'<table><thead><tr><th>Štát</th><th>IČ DPH odberateľa</th><th class="r">Kód</th><th class="r">Hodnota €</th></tr></thead><tbody>'+D.SV.map(s=>`<tr><td>${esc(s.k)}</td><td>${esc(s.ic)}</td><td class="r">${s.kod}</td><td class="r">${n0(s.v)}</td></tr>`).join('')+'</tbody></table>':'<p class="mut">žiadne dodania do EÚ – súhrnný výkaz sa za toto obdobie nepodáva</p>'}</div>`;
+ h+=`<div class="card"><b>📘 Ako appka zaraďuje doklady</b><table><tbody><tr><td>Faktúra SK 23/19/5 %</td><td>r. 03/04 (01/02, 01a/02a), KV A.1; zálohová po úhrade (§ 19 ods. 4), riadna faktúra len rozdiel</td></tr><tr><td>Faktúra reverse charge (ČR/EÚ)</td><td>len súhrnný výkaz kód 2 podľa dátumu dodania</td></tr><tr><td>Dobropis</td><td>r. 24/25 so znamienkom, KV C.1</td></tr><tr><td>Náklad s DPH 23/19/5 %</td><td>r. 19/18/18a + r. 21/20/20a; KV B.2 (s číslom faktúry a IČ DPH dodávateľa) alebo B.3.1 (bloček / bez údajov)</td></tr><tr><td>Služba z EÚ / zahraničia (samozdanenie)</td><td>r. 09b/10b + odpočet r. 19, KV B.1; tovar z EÚ r. 07/08</td></tr><tr><td>Pred dňom registrácie</td><td>bez odpočtu (DPH je náklad); samozdanenie sa platí aj ako osoba § 7a</td></tr></tbody></table></div>`;
+ $('s-dph').innerHTML=h}
+function exportKVCSV(per){const D=dphObd(per);const R=[['Sekcia','IC_DPH','Cislo','Povodna','Datum','Zaklad','Dan','Sadzba','Odpocet']];
+ D.KV.A1.forEach(r=>R.push(['A.1',r.ic,r.no,'',r.dt,r.z.toFixed(2),r.d.toFixed(2),r.s,'']));D.KV.B1.forEach(r=>R.push(['B.1',r.ic,r.no,'',r.dt,r.z.toFixed(2),r.d.toFixed(2),r.s,r.o.toFixed(2)]));D.KV.B2.forEach(r=>R.push(['B.2',r.ic,r.no,'',r.dt,r.z.toFixed(2),r.d.toFixed(2),r.s,r.o.toFixed(2)]));
+ if(D.KV.B31.z||D.KV.B31.d)R.push(['B.3.1','','','','',D.KV.B31.z.toFixed(2),D.KV.B31.d.toFixed(2),'',D.KV.B31.o.toFixed(2)]);D.KV.C1.forEach(r=>R.push(['C.1',r.ic,r.no,r.ref,'',r.z.toFixed(2),r.d.toFixed(2),r.s,'']));
+ D.SV.forEach(s=>R.push(['SV',s.ic,'','','',String(s.v),'',String(s.kod),'']));
+ dl('Practeo_KV_DPH_'+per+'.csv','﻿'+R.map(r=>r.map(csvEsc).join(';')).join('\n'),'text/csv');toast('Export KV ✅')}
+function dphPrint(per){const D=dphObd(per);const R=D.R;const lbl=per.slice(5,7)+'/'+per.slice(0,4);const hd=`<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:6px"><div><b>${esc(SUP.meno)}</b><br>${esc(SUP.sidlo)}<br>IČO ${esc(SUP.ico)} · DIČ ${esc(SUP.dic)} · IČ DPH ${esc(SUP.icdph)}</div><div style="text-align:right">Zdaňovacie obdobie ${lbl}<br>podklad z Practeo Admin, ${new Date().toLocaleDateString('sk-SK')}</div></div>`;
+ const rows=DPH_ROWS.filter(([r])=>Math.abs(R[r]||0)>0.004||['17','32','33'].includes(r)).map(([r,t])=>`<tr><td class="r">${r}</td><td>${esc(t)}</td><td class="r">${n2(R[r]||0)}</td></tr>`).join('');
+ const L=(arr,hdr)=>arr.length?'<table style="width:100%"><thead><tr>'+hdr.map(x=>'<th>'+x+'</th>').join('')+'</tr></thead><tbody>'+arr.map(r=>`<tr><td>${esc(r.ic)}</td><td>${esc(r.no)}${r.ref?' / '+esc(r.ref):''}</td><td>${esc(r.dt||'')}</td><td class="r">${n2(r.z)}</td><td class="r">${n2(r.d)}</td><td class="r">${esc(r.s)}</td><td class="r">${r.o!=null?n2(r.o):''}</td></tr>`).join('')+'</tbody></table>':'<div style="font-size:11px">žiadne</div>';
+ const H=['IČ DPH','Číslo','Dátum','Základ','Daň','%','Odpočet'];
+ $('print').innerHTML=`<div class="inv"><h2>Daňové priznanie k DPH – podklad (DPHv25)</h2>${hd}<table style="width:100%"><thead><tr><th>r.</th><th style="text-align:left">Položka</th><th class="r">€</th></tr></thead><tbody>${rows}</tbody></table>
+  <h2 style="margin-top:16px">Kontrolný výkaz – podklad</h2><h3 style="font-size:12px;margin:8px 0 2px">A.1.</h3>${L(D.KV.A1,H)}<h3 style="font-size:12px;margin:8px 0 2px">B.1.</h3>${L(D.KV.B1,H)}<h3 style="font-size:12px;margin:8px 0 2px">B.2.</h3>${L(D.KV.B2,H)}
+  <h3 style="font-size:12px;margin:8px 0 2px">B.3.1.</h3><div style="font-size:11px">základ ${n2(D.KV.B31.z)} · daň ${n2(D.KV.B31.d)} · odpočet ${n2(D.KV.B31.o)}</div><h3 style="font-size:12px;margin:8px 0 2px">C.1.</h3>${L(D.KV.C1,H)}
+  <h2 style="margin-top:16px">Súhrnný výkaz – podklad</h2>${D.SV.length?'<table style="width:100%"><thead><tr><th>Štát</th><th>IČ DPH</th><th>Kód</th><th class="r">Hodnota €</th></tr></thead><tbody>'+D.SV.map(s=>`<tr><td>${esc(s.k)}</td><td>${esc(s.ic)}</td><td>${s.kod}</td><td class="r">${n0(s.v)}</td></tr>`).join('')+'</tbody></table>':'<div style="font-size:11px">nepodáva sa</div>'}
+  ${D.W.length?'<div style="font-size:10px;margin-top:8px"><b>Upozornenia:</b> '+D.W.map(esc).join('; ')+'</div>':''}
+  <div style="font-size:10px;margin-top:8px">Podklad na prepis do eDane (DPHv25, KVDPHv25, SVDPH). Zdroje: poučenie MF SR č. MF/007833/2025-731 (priznanie), opatrenie MF/015393/2020-731 + dodatok MF/018205/2024-731 (KV). Pred podaním skontroluje účtovník.</div></div>`;
  window.print()}
 
 // ---- utils ----
