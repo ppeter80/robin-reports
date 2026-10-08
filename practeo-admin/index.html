@@ -58,7 +58,7 @@ th{color:var(--mut);font-weight:600;font-size:.72rem}
 </style>
 
 <header>
-  <h1>📊 Practeo Admin <span class="tag">Faktúry · cloud</span><span id="syncdot" title="ukladám do cloudu…" style="margin-left:auto;font-size:.6rem;color:var(--gold);opacity:0;transition:.3s">● sync</span><button onclick="logout()" class="mini" style="color:var(--mut);font-size:.72rem">Odhlásiť</button></h1>
+  <h1>📊 Practeo Admin <span class="tag">Faktúry · účtovníctvo · cloud</span><span id="syncdot" title="ukladám do cloudu…" style="margin-left:auto;font-size:.6rem;color:var(--gold);opacity:0;transition:.3s">● sync</span><button onclick="logout()" class="mini" style="color:var(--mut);font-size:.72rem">Odhlásiť</button></h1>
   <nav>
     <button id="t-dash" onclick="tab('dash')">📈 Dashboard</button>
     <button id="t-fak" class="on" onclick="tab('fak')">🧾 Faktúry</button>
@@ -68,6 +68,7 @@ th{color:var(--mut);font-weight:600;font-size:.72rem}
     <button id="t-ces" onclick="tab('ces')">🚗 Kniha jázd</button>
     <button id="t-doh" onclick="tab('doh')">🧑‍🎓 Dohodári</button>
     <button id="t-maj" onclick="tab('maj')">🏢 Majetok</button>
+    <button id="t-uct" onclick="tab('uct')">📒 Účtovníctvo</button>
     <button id="t-zml" onclick="tab('zml')">📄 Zmluvy</button>
     <button id="t-cli" onclick="tab('cli')">👥 Klienti</button>
     <button id="t-set" onclick="tab('set')">⚙️ Nastavenia</button>
@@ -82,6 +83,7 @@ th{color:var(--mut);font-weight:600;font-size:.72rem}
   <div id="s-ces" style="display:none"></div>
   <div id="s-doh" style="display:none"></div>
   <div id="s-maj" style="display:none"></div>
+  <div id="s-uct" style="display:none"></div>
   <div id="s-zml" style="display:none"></div>
   <div id="s-cli" style="display:none"></div>
   <div id="s-set" style="display:none"></div>
@@ -125,7 +127,7 @@ async function cloudPush(k,v){
 function syncBadge(){const n=Object.values(_sync).reduce((a,b)=>a+Math.max(0,b),0);const el=$('syncdot');if(el)el.style.opacity=n>0?'1':'0'}
 async function cloudLoadAll(){const {data,error}=await sb.from('practeo_data').select('key,value');if(error){toast('⚠️ Načítanie zlyhalo');return}CACHE={};(data||[]).forEach(r=>{CACHE[r.key]=r.value})}
 async function migrateLocalIfNeeded(){
-  const keys=['supplier','clients','invoices','expenses','vehicles','trips','dohodari','assets','counters','cprikazy','rates','firmdocs'];
+  const keys=['supplier','clients','invoices','expenses','vehicles','trips','dohodari','assets','counters','cprikazy','rates','firmdocs','uct'];
   if(!keys.every(k=>CACHE[k]===undefined))return;
   let any=false;
   for(const k of keys){const raw=localStorage.getItem('practeo_'+k);if(raw!=null){try{CACHE[k]=JSON.parse(raw);await cloudPush(k,CACHE[k]);any=true}catch(e){}}}
@@ -135,10 +137,10 @@ function loadGlobals(){
   SUP=LS.get('supplier',SUP);CLI=LS.get('clients',CLI);INV=LS.get('invoices',INV);
   EXP=LS.get('expenses',EXP);VOZ=LS.get('vehicles',VOZ);JAZ=LS.get('trips',JAZ);
   DOH=LS.get('dohodari',DOH);MAJ=LS.get('assets',MAJ);CNT=LS.get('counters',CNT);
-  CP=LS.get('cprikazy',CP);RATES=LS.get('rates',null)||RATES;FD=LS.get('firmdocs',FD);
+  CP=LS.get('cprikazy',CP);RATES=LS.get('rates',null)||RATES;FD=LS.get('firmdocs',FD);UCT=LS.get('uct',UCT);
 }
 function localMode(){sb=null;CACHE={};
- ['supplier','clients','invoices','expenses','vehicles','trips','dohodari','assets','counters','cprikazy','rates','firmdocs'].forEach(k=>{const raw=localStorage.getItem('practeo_'+k);if(raw!=null){try{CACHE[k]=JSON.parse(raw)}catch(e){}}});
+ ['supplier','clients','invoices','expenses','vehicles','trips','dohodari','assets','counters','cprikazy','rates','firmdocs','uct'].forEach(k=>{const raw=localStorage.getItem('practeo_'+k);if(raw!=null){try{CACHE[k]=JSON.parse(raw)}catch(e){}}});
  $('login').style.display='none';loadGlobals();const tg=document.querySelector('.tag');if(tg)tg.textContent='Faktúry · lokálne';renderFak()}
 async function doLogin(){
   const email=$('lg_email').value.trim(),pass=$('lg_pass').value;$('lg_err').textContent='';
@@ -210,8 +212,8 @@ const TYPLBL={'faktúra':'FAKTÚRA','zálohová':'ZÁLOHOVÁ FAKTÚRA','dobropis
 function peekNo(typ){const k=TYPPFX[typ]||'F';return `${k}${new Date().getFullYear()}${String((CNT[k]||0)+1).padStart(3,'0')}`}
 function nextNo(typ){const k=TYPPFX[typ]||'F';CNT[k]=(CNT[k]||0)+1;LS.set('counters',CNT);return `${k}${new Date().getFullYear()}${String(CNT[k]).padStart(3,'0')}`}
 
-function tab(t){for(const k of ['dash','fak','new','nak','cp','ces','doh','maj','zml','cli','set']){$('s-'+k).style.display=k===t?'':'none';$('t-'+k).classList.toggle('on',k===t)}
- if(t==='dash')renderDash();if(t==='fak')renderFak();if(t==='new')renderNew();if(t==='nak')renderNak();if(t==='cp')renderCP();if(t==='ces')renderCes();if(t==='doh')renderDoh();if(t==='maj')renderMaj();if(t==='zml')renderZml();if(t==='cli')renderCli();if(t==='set')renderSet()}
+function tab(t){for(const k of ['dash','fak','new','nak','cp','ces','doh','maj','uct','zml','cli','set']){$('s-'+k).style.display=k===t?'':'none';$('t-'+k).classList.toggle('on',k===t)}
+ if(t==='dash')renderDash();if(t==='fak')renderFak();if(t==='new')renderNew();if(t==='nak')renderNak();if(t==='cp')renderCP();if(t==='ces')renderCes();if(t==='doh')renderDoh();if(t==='maj')renderMaj();if(t==='uct')renderUct();if(t==='zml')renderZml();if(t==='cli')renderCli();if(t==='set')renderSet()}
 
 // ===== NASTAVENIA =====
 function renderSet(){
@@ -266,6 +268,7 @@ function renderNew(){
   ${cur.typ==='dobropis'?`<label>Opravuje faktúru č.</label><input id="f_ref" value="${esc(cur.ref||'')}" placeholder="napr. F2026001"><div class="help">Dobropis opravuje pôvodnú faktúru — sumy zadaj so znamienkom mínus (napr. -100).</div>`:''}
   ${cur.typ==='zálohová'?'<div class="help">Zálohová faktúra je výzva na úhradu — NIE je daňový doklad. Po zaplatení vystavíš riadnu faktúru.</div>':''}
   <div><label>Klient</label><select id="f_cli" onchange="cur.cli=this.value===''?null:+this.value"><option value="">— vyber —</option>${opt}</select></div>
+  ${cur.typ==='faktúra'&&INV.some(z=>z.typ==='zálohová'&&!z.draft)?`<div><label>Zúčtovať zálohovú faktúru (účtovníctvo 324/311)</label><select id="f_zal" onchange="cur.zal=this.value||null"><option value="">— žiadna —</option>${INV.filter(z=>z.typ==='zálohová'&&!z.draft).map(z=>`<option value="${z.id}" ${String(cur.zal||'')===String(z.id)?'selected':''}>${esc(z.no)} · ${eur(totals(z).total)}${z.paid?'':' (nezaplatená)'}</option>`).join('')}</select></div>`:''}
   <div class="row"><div><label>Dátum vystavenia</label><input type="date" id="f_dvyst" value="${cur.dvyst}"></div>
   <div><label>Dátum dodania</label><input type="date" id="f_ddod" value="${cur.ddod}"></div>
   <div><label>Splatnosť</label><input type="date" id="f_dspl" value="${cur.dspl}"></div></div>
@@ -317,13 +320,14 @@ function renderFak(){
  if(!INV.length)h+='<p class="mut">Zatiaľ žiadne. Vytvor v „➕ Faktúra".</p>';
  else{h+='<table><thead><tr><th>Číslo</th><th>Klient</th><th class="r">Suma</th><th></th></tr></thead><tbody>';
  INV.forEach(i=>{const c=CLI[i.cli];const pill=i.draft?'<span class="pill" style="background:rgba(230,200,106,.15);color:var(--gold)">návrh</span>':`<span class="pill ${i.paid?'pd':'un'}">${i.paid?'zaplatená':'nezaplatená'}</span>`;
-  h+=`<tr><td>${i.draft?'<span class="mut">NÁVRH</span>':esc(i.no)}<br><span class="mut">${esc(i.dvyst)}</span></td><td>${esc(c?c.meno:'—')}<br>${pill}</td><td class="r"><b>${eur(totals(i).total)}</b></td>
+  h+=`<tr><td>${i.draft?'<span class="mut">NÁVRH</span>':esc(i.no)}<br><span class="mut">${esc(i.dvyst)}</span></td><td>${esc(c?c.meno:'—')}<br>${pill}${i.paid&&!i.draft?`<br><input type="date" value="${esc(i.dpaid||'')}" title="dátum úhrady (účtovníctvo)" style="width:auto;font-size:.72rem;padding:3px 4px;margin-top:3px" onchange="setPaidDate(${i.id},this.value)">`:''}</td><td class="r"><b>${eur(totals(i).total)}</b></td>
  <td class="r"><button class="mini" onclick="previewInv(INV.find(x=>x.id===${i.id}))">👁️</button><button class="mini" onclick="editInv(${i.id})">✏️</button>${i.draft?`<button class="mini" onclick="issueDraft(${i.id})" title="Vystaviť naostro">✅</button>`:`<button class="mini" onclick="togglePaid(${i.id})">${i.paid?'↺':'✓'}</button>`}<button class="mini" onclick="delInv(${i.id})">✕</button></td></tr>`});
  h+='</tbody></table>'}
  h+='</div>';$('s-fak').innerHTML=h;
 }
 function editInv(id){cur=JSON.parse(JSON.stringify(INV.find(i=>i.id===id)));tab('new')}
-function togglePaid(id){const i=INV.find(x=>x.id===id);i.paid=!i.paid;LS.set('invoices',INV);renderFak()}
+function togglePaid(id){const i=INV.find(x=>x.id===id);i.paid=!i.paid;i.dpaid=i.paid?today():null;LS.set('invoices',INV);renderFak()}
+function setPaidDate(id,v){const i=INV.find(x=>x.id===id);if(!i)return;i.dpaid=v||null;LS.set('invoices',INV)}
 function delInv(id){if(!confirm('Zmazať tento doklad?\n\nČíslo sa už znova nepoužije (žiadne duplikáty). Pri už odoslanej/zaúčtovanej faktúre je správnejšie vystaviť DOBROPIS (storno) než mazať — číslovanie má byť súvislé.'))return;INV=INV.filter(i=>i.id!==id);LS.set('invoices',INV);renderFak()}
 
 // ===== NÁHĽAD / PDF =====
@@ -369,8 +373,10 @@ function renderNak(){
   <div><label>Suma spolu (€)</label><input type="number" step="0.01" id="e_sum"></div></div>
   <label>Dodávateľ</label><input id="e_dod">
   <label>Popis</label><input id="e_pop">
-  <div class="row"><div><label>Kategória</label><select id="e_kat">${KAT.map(k=>`<option>${esc(k)}</option>`).join('')}</select></div>
+  <div class="row"><div><label>Kategória</label><select id="e_kat" onchange="if($('e_ucet'))$('e_ucet').value=KAT_UCET[this.value]||'548'">${KAT.map(k=>`<option>${esc(k)}</option>`).join('')}</select></div>
   <div><label>DPH na vstupe</label><select id="e_dph"><option value="none">bez DPH</option><option value="23">23 %</option><option value="5">5 %</option><option value="19">19 %</option></select></div></div>
+  <div class="row"><div><label>Platené z</label><select id="e_plat">${PLAT_ORD.map(k=>`<option value="${k}">${esc(PLAT[k])}</option>`).join('')}</select></div>
+  <div><label>Účet (účtovníctvo)</label><select id="e_ucet">${OSN.filter(a=>a[2]==='N').map(a=>`<option value="${a[0]}">${a[0]} ${esc(a[1])}</option>`).join('')}</select></div></div>
   <label style="margin-top:8px"><input type="checkbox" id="e_uzn" checked style="width:auto;margin-right:6px;vertical-align:middle">Uznateľný náklad</label>
   <label>Doklad (foto alebo PDF) — povinný do účtovníctva; fotku appka prečíta a predvyplní</label><input type="file" accept="image/*,application/pdf" id="e_foto" onchange="loadFoto(this)">
   <div id="e_fotoprev"></div>
@@ -379,9 +385,9 @@ function renderNak(){
   <div class="card"><b>Náklady (${EXP.length})</b>`;
  if(!EXP.length)h+='<p class="mut">Zatiaľ žiadne.</p>';
  else{h+='<table><thead><tr><th>Dátum</th><th>Dodávateľ / kategória</th><th class="r">Suma</th><th></th></tr></thead><tbody>';
-  EXP.forEach(e=>{h+=`<tr><td>${esc(e.dat)}</td><td>${esc(e.dod||'—')}<br><span class="mut">${esc(e.kat)}${e.uzn?'':' · NEuzn.'}</span></td><td class="r"><b>${eur(e.sum)}</b>${e.dph!=='none'?`<br><span class="mut">DPH ${esc(e.dph)}%</span>`:''}</td><td class="r">${(e.foto||e.pdf)?`<button class="mini" onclick="viewExpDoc(${e.id})">🖼️</button>`:`<button class="ghost" style="padding:3px 8px;font-size:.75rem;color:var(--red)" onclick="this.nextElementSibling.click()">⚠️ doklad</button><input type="file" accept="image/*,application/pdf" style="display:none" onchange="addExpDoc(${e.id},this)">`}<button class="mini" onclick="delExp(${e.id})">✕</button></td></tr>`});
+  EXP.forEach(e=>{h+=`<tr><td>${esc(e.dat)}</td><td>${esc(e.dod||'—')}<br><span class="mut">${esc(e.kat)}${e.uzn?'':' · NEuzn.'} · ${esc(e.ucet||KAT_UCET[e.kat]||'548')}/${esc(e.plat||'221')}</span></td><td class="r"><b>${eur(e.sum)}</b>${e.dph!=='none'?`<br><span class="mut">DPH ${esc(e.dph)}%</span>`:''}</td><td class="r">${(e.foto||e.pdf)?`<button class="mini" onclick="viewExpDoc(${e.id})">🖼️</button>`:`<button class="ghost" style="padding:3px 8px;font-size:.75rem;color:var(--red)" onclick="this.nextElementSibling.click()">⚠️ doklad</button><input type="file" accept="image/*,application/pdf" style="display:none" onchange="addExpDoc(${e.id},this)">`}<button class="mini" onclick="delExp(${e.id})">✕</button></td></tr>`});
   h+='</tbody></table>'}
- h+='</div>';$('s-nak').innerHTML=h;curExpFoto=null;curExpPdf=null;
+ h+='</div>';$('s-nak').innerHTML=h;curExpFoto=null;curExpPdf=null;if($('e_ucet'))$('e_ucet').value=KAT_UCET[$('e_kat').value]||'548';
 }
 let curExpPdf=null;
 function loadFoto(inp){const f=inp.files[0];if(!f)return;if(!/^image\//.test(f.type||'')){readDoc(f,d=>{curExpPdf=d;curExpFoto=null;$('e_fotoprev').innerHTML='📎 '+esc(d.name)+' priložený (PDF – sumu zadaj ručne)'});return}curExpPdf=null;const r=new FileReader();r.onload=ev=>{const img=new Image();img.onload=()=>{
@@ -411,7 +417,7 @@ function parseDoklad(t){
  if(line)res.dod=line;
  return res;
 }
-function addExp(){const s=+$('e_sum').value;if(!s){toast('Zadaj sumu');return}try{EXP.unshift({id:uid(),dat:$('e_dat').value,dod:$('e_dod').value,pop:$('e_pop').value,kat:$('e_kat').value,sum:s,dph:$('e_dph').value,uzn:$('e_uzn').checked,foto:curExpFoto,pdf:curExpPdf});LS.set('expenses',EXP)}catch(e){toast('Chyba: fotka je asi priveľká');return}toast('Náklad pridaný ✅');renderNak()}
+function addExp(){const s=+$('e_sum').value;if(!s){toast('Zadaj sumu');return}try{EXP.unshift({id:uid(),dat:$('e_dat').value,dod:$('e_dod').value,pop:$('e_pop').value,kat:$('e_kat').value,sum:s,dph:$('e_dph').value,uzn:$('e_uzn').checked,plat:($('e_plat')||{}).value||'221',ucet:($('e_ucet')||{}).value||KAT_UCET[$('e_kat').value]||'548',foto:curExpFoto,pdf:curExpPdf});LS.set('expenses',EXP)}catch(e){toast('Chyba: fotka je asi priveľká');return}toast('Náklad pridaný ✅');renderNak()}
 function delExp(id){EXP=EXP.filter(e=>e.id!==id);LS.set('expenses',EXP);renderNak()}
 function viewFoto(id){const e=EXP.find(x=>x.id===id);if(e&&e.foto){const w=window.open();w.document.write('<img src="'+e.foto+'" style="max-width:100%">')}}
 
@@ -648,13 +654,14 @@ function renderDoh(){
   <label>Meno</label><input id="d_meno">
   <div class="row"><div><label>Typ</label><select id="d_typ" onchange="dohPrev()"><option value="študent">Študent (DoBPŠ)</option><option value="dôchodca">Dôchodca</option><option value="iný">Iný dohodár (DPČ/DoVP)</option></select></div>
   <div><label>Odmena mesačne (€)</label><input type="number" step="1" id="d_odm" oninput="dohPrev()"></div></div>
+  <div class="row"><div><label>Dohoda od (mesiac)</label><input type="month" id="d_od" value="${today().slice(0,7)}"></div><div><label>do (mesiac, voliteľné)</label><input type="month" id="d_do"></div></div>
   <label style="margin-top:8px"><input type="checkbox" id="d_oop" checked style="width:auto;margin-right:6px;vertical-align:middle" onchange="dohPrev()">Uplatňuje odvodovú výnimku (OOP 200 €) — študent/dôchodca</label>
   <div id="d_prev" class="help" style="display:none"></div>
   <div style="margin-top:8px"><button class="act" onclick="addDoh()">Uložiť dohodára</button></div></div>
   <div class="card"><b>Dohodári (${DOH.length})</b>`;
  if(!DOH.length)h+='<p class="mut">Zatiaľ žiadni.</p>';
  else{h+='<table><thead><tr><th>Meno</th><th>Typ / odmena</th><th class="r">Čistá / náklad</th><th></th></tr></thead><tbody>';
-  DOH.forEach(d=>{const c=dohCalc(d);h+=`<tr><td>${esc(d.meno)}</td><td>${esc(d.typ)}<br><span class="mut">${eur(d.odmena)}/mes</span></td><td class="r">čistá <b>${eur(c.cista)}</b><br><span class="mut">náklad ${eur(c.naklad)}</span></td><td class="r"><button class="mini" onclick="genDohoda(${d.id})" title="Vygenerovať dohodu (PDF)">📄</button><button class="mini" onclick="delDoh(${d.id})">✕</button></td></tr>`});
+  DOH.forEach(d=>{const c=dohCalc(d);h+=`<tr><td>${esc(d.meno)}</td><td>${esc(d.typ)}<br><span class="mut">${eur(d.odmena)}/mes${d.od?' · od '+esc(d.od)+(d.do?' do '+esc(d.do):''):' · <span style="color:var(--red)">bez obdobia</span>'}</span></td><td class="r">čistá <b>${eur(c.cista)}</b><br><span class="mut">náklad ${eur(c.naklad)}</span></td><td class="r"><button class="mini" onclick="genDohoda(${d.id})" title="Vygenerovať dohodu (PDF)">📄</button><button class="mini" onclick="delDoh(${d.id})">✕</button></td></tr>`});
   h+='</tbody></table><p class="mut" style="margin-top:6px">„Čistá" = čo dostane dohodár; „náklad" = odmena + odvody zamestnávateľa (mesačne).</p>'}
  h+='</div>';$('s-doh').innerHTML=h;dohPrev();
 }
@@ -662,7 +669,7 @@ function dohPrev(){const t=$('d_typ');if(!t)return;const d={typ:t.value,odmena:+
  if(!d.odmena){p.style.display='none';return}p.style.display='';
  p.innerHTML=`Odvody zamestnanca: <b>${eur(c.ee)}</b> · Daň: <b>${eur(c.dan)}</b> → <b>Čistá odmena: ${eur(c.cista)}</b><br>Odvody zamestnávateľa: <b>${eur(c.er)}</b> → <b>Tvoj náklad: ${eur(c.naklad)}</b>${d.typ==='študent'&&d.odmena<=200?' · 🎯 do 200 € bez odvodov aj dane':''}`;
 }
-function addDoh(){const m=$('d_meno').value.trim();if(!m){toast('Zadaj meno');return}const o=+$('d_odm').value;if(!o){toast('Zadaj odmenu');return}DOH.unshift({id:uid(),meno:m,typ:$('d_typ').value,odmena:o,oop:$('d_oop').checked});LS.set('dohodari',DOH);toast('Dohodár uložený ✅');renderDoh()}
+function addDoh(){const m=$('d_meno').value.trim();if(!m){toast('Zadaj meno');return}const o=+$('d_odm').value;if(!o){toast('Zadaj odmenu');return}DOH.unshift({id:uid(),meno:m,typ:$('d_typ').value,odmena:o,oop:$('d_oop').checked,od:($('d_od')||{}).value||'',do:($('d_do')||{}).value||''});LS.set('dohodari',DOH);toast('Dohodár uložený ✅');renderDoh()}
 function delDoh(id){DOH=DOH.filter(d=>d.id!==id);LS.set('dohodari',DOH);renderDoh()}
 
 // ===== MAJETOK + ODPISY =====
@@ -671,6 +678,7 @@ function renderMaj(){
   <label>Názov</label><input id="m_naz" placeholder="napr. motorka, notebook, byt…">
   <div class="row"><div><label>Obstarávacia cena (€)</label><input type="number" step="1" id="m_cena" oninput="majPrev()"></div>
   <div><label>Dátum obstarania</label><input type="date" id="m_dat" value="${today()}"></div></div>
+  <label>Platené z</label><select id="m_plat">${PLAT_ORD.map(k=>`<option value="${k}">${esc(PLAT[k])}</option>`).join('')}</select>
   <label>Odpisová skupina</label><select id="m_sk" onchange="majPrev()">${Object.keys(ODS).map(k=>`<option value="${k}">${esc(ODS[k].d)}</option>`).join('')}</select>
   <div id="m_prev" class="help" style="display:none"></div>
   <div class="help">Pozn.: majetok do <b>1 700 €</b> = priamy náklad (neodpisuje sa). <b>Pozemok</b> sa neodpisuje nikdy (eviduj len stavbu).</div>
@@ -684,7 +692,7 @@ function renderMaj(){
 }
 function majPrev(){const c=+($('m_cena')||{}).value||0;const sk=($('m_sk')||{}).value||'1';const o=majOdpis({cena:c,sk});const p=$('m_prev');if(!p)return;if(!c){p.style.display='none';return}p.style.display='';
  p.innerHTML=o.drobny?`Do 1 700 € → <b>priamy náklad ${eur(c)}</b> (neodpisuje sa)`:`Odpisuje sa <b>${o.roky} rokov</b> → ročný odpis <b>${eur(o.rocny)}</b>`;}
-function addMaj(){const n=$('m_naz').value.trim();if(!n){toast('Zadaj názov');return}const c=+$('m_cena').value;if(!c){toast('Zadaj cenu');return}MAJ.unshift({id:uid(),naz:n,cena:c,dat:$('m_dat').value,sk:$('m_sk').value});LS.set('assets',MAJ);toast('Majetok pridaný ✅');renderMaj()}
+function addMaj(){const n=$('m_naz').value.trim();if(!n){toast('Zadaj názov');return}const c=+$('m_cena').value;if(!c){toast('Zadaj cenu');return}MAJ.unshift({id:uid(),naz:n,cena:c,dat:$('m_dat').value,sk:$('m_sk').value,plat:($('m_plat')||{}).value||'221'});LS.set('assets',MAJ);toast('Majetok pridaný ✅');renderMaj()}
 function delMaj(id){MAJ=MAJ.filter(m=>m.id!==id);LS.set('assets',MAJ);renderMaj()}
 
 // ===== DASHBOARD / DPH PREHĽAD =====
@@ -799,10 +807,208 @@ function dl(name,content,type){const b=new Blob([content],{type:type||'text/plai
 function csvEsc(v){v=String(v==null?'':v);return /[",;\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v}
 function exportFakCSV(){const R=[['Cislo','Typ','Datum','Klient','Zaklad','DPH','Spolu','Rezim','Stav']];INV.filter(i=>!i.draft).forEach(i=>{const t=totals(i);const c=CLI[i.cli]||{};R.push([i.no,i.typ,i.dvyst,c.meno,t.base.toFixed(2),t.dph.toFixed(2),t.total.toFixed(2),i.dph,i.paid?'zaplatena':'nezaplatena'])});dl('Practeo_faktury.csv','﻿'+R.map(r=>r.map(csvEsc).join(';')).join('\n'),'text/csv');toast('Export faktúr ✅')}
 function exportNakCSV(){const R=[['Datum','Dodavatel','Popis','Kategoria','Suma','DPH_vstup','Uznatelny']];EXP.forEach(e=>R.push([e.dat,e.dod,e.pop,e.kat,(+e.sum||0).toFixed(2),e.dph,e.uzn?'ano':'nie']));dl('Practeo_naklady.csv','﻿'+R.map(r=>r.map(csvEsc).join(';')).join('\n'),'text/csv');toast('Export nákladov ✅')}
-function exportJSON(){const all={supplier:SUP,clients:CLI,invoices:INV,expenses:EXP,vehicles:VOZ,trips:JAZ,dohodari:DOH,assets:MAJ,counters:CNT,cprikazy:CP,rates:RATES,firmdocs:FD};dl('Practeo_zaloha.json',JSON.stringify(all,null,1),'application/json');toast('Kompletná záloha ✅')}
+function exportJSON(){const all={supplier:SUP,clients:CLI,invoices:INV,expenses:EXP,vehicles:VOZ,trips:JAZ,dohodari:DOH,assets:MAJ,counters:CNT,cprikazy:CP,rates:RATES,firmdocs:FD,uct:UCT};dl('Practeo_zaloha.json',JSON.stringify(all,null,1),'application/json');toast('Kompletná záloha ✅')}
 function importJSON(inp){const f=inp.files[0];if(!f)return;const r=new FileReader();r.onload=e=>{try{const d=JSON.parse(e.target.result);if(!confirm('Nahradiť súčasné dáta obsahom zálohy?'))return;
- if(d.supplier){SUP=d.supplier;LS.set('supplier',SUP)}if(d.clients){CLI=d.clients;LS.set('clients',CLI)}if(d.invoices){INV=d.invoices;LS.set('invoices',INV)}if(d.expenses){EXP=d.expenses;LS.set('expenses',EXP)}if(d.vehicles){VOZ=d.vehicles;LS.set('vehicles',VOZ)}if(d.trips){JAZ=d.trips;LS.set('trips',JAZ)}if(d.dohodari){DOH=d.dohodari;LS.set('dohodari',DOH)}if(d.assets){MAJ=d.assets;LS.set('assets',MAJ)}if(d.counters){CNT=d.counters;LS.set('counters',CNT)}if(d.cprikazy){CP=d.cprikazy;LS.set('cprikazy',CP)}if(d.rates){RATES=d.rates;LS.set('rates',RATES)}if(d.firmdocs){FD=d.firmdocs;LS.set('firmdocs',FD)}
+ if(d.supplier){SUP=d.supplier;LS.set('supplier',SUP)}if(d.clients){CLI=d.clients;LS.set('clients',CLI)}if(d.invoices){INV=d.invoices;LS.set('invoices',INV)}if(d.expenses){EXP=d.expenses;LS.set('expenses',EXP)}if(d.vehicles){VOZ=d.vehicles;LS.set('vehicles',VOZ)}if(d.trips){JAZ=d.trips;LS.set('trips',JAZ)}if(d.dohodari){DOH=d.dohodari;LS.set('dohodari',DOH)}if(d.assets){MAJ=d.assets;LS.set('assets',MAJ)}if(d.counters){CNT=d.counters;LS.set('counters',CNT)}if(d.cprikazy){CP=d.cprikazy;LS.set('cprikazy',CP)}if(d.rates){RATES=d.rates;LS.set('rates',RATES)}if(d.firmdocs){FD=d.firmdocs;LS.set('firmdocs',FD)}if(d.uct){UCT=d.uct;LS.set('uct',UCT)}
  toast('Dáta obnovené ✅');renderSet()}catch(err){toast('Chyba: neplatný súbor')}};r.readAsText(f)}
+
+// ===== ÚČTOVNÍCTVO – podvojné účtovníctvo mikro účtovnej jednotky =====
+// Denník sa generuje priamo z dokladov (faktúry, náklady, cestovné príkazy, kniha jázd, dohodári, majetok) + ručné zápisy.
+// Výkazy: Súvaha Úč MÚJ 1-01 a Výkaz ziskov a strát Úč MÚJ 2-01 (vzor MF SR č. 18008/2014, príloha č. 1 k opatreniu MF/15464/2013-74).
+let UCT=LS.get('uct',{man:[],ps:[],psRok:''}); // man = ručné zápisy, ps = počiatočné stavy (cez 701), psRok = rok, ku ktorého 1. 1. platia
+const OSN=[ // rámcová účtová osnova – syntetické účty používané v appke (typ: A aktívny, P pasívny, N náklad, V výnos, S súvahový uzávierkový)
+ ['021','Stavby','A'],['022','Samostatné hnuteľné veci a súbory hnuteľných vecí','A'],['031','Pozemky','A'],['042','Obstaranie dlhodobého hmotného majetku','A'],
+ ['081','Oprávky k stavbám','A'],['082','Oprávky k samostatným hnuteľným veciam','A'],
+ ['211','Pokladnica','A'],['221','Bankové účty','A'],['261','Peniaze na ceste','A'],
+ ['311','Odberatelia','A'],['314','Poskytnuté preddavky','A'],['315','Ostatné pohľadávky','A'],['321','Dodávatelia','P'],['324','Prijaté preddavky','P'],['325','Ostatné záväzky','P'],
+ ['331','Zamestnanci','P'],['333','Ostatné záväzky voči zamestnancom','P'],['335','Pohľadávky voči zamestnancom','A'],['336','Zúčtovanie s orgánmi sociálneho a zdravotného poistenia','P'],
+ ['341','Daň z príjmov','P'],['342','Ostatné priame dane','P'],['343','Daň z pridanej hodnoty','P'],['345','Ostatné dane a poplatky','P'],
+ ['353','Pohľadávky za upísané vlastné imanie','A'],['365','Ostatné záväzky voči spoločníkom a členom','P'],['379','Iné záväzky','P'],['381','Náklady budúcich období','A'],['383','Výdavky budúcich období','P'],
+ ['411','Základné imanie','P'],['421','Zákonný rezervný fond','P'],['428','Nerozdelený zisk minulých rokov','P'],['429','Neuhradená strata minulých rokov','P'],
+ ['501','Spotreba materiálu','N'],['502','Spotreba energie','N'],['511','Opravy a udržiavanie','N'],['512','Cestovné','N'],['513','Náklady na reprezentáciu','N'],['518','Ostatné služby','N'],
+ ['521','Mzdové náklady','N'],['524','Zákonné sociálne poistenie','N'],['527','Zákonné sociálne náklady','N'],['531','Daň z motorových vozidiel','N'],['538','Ostatné dane a poplatky','N'],
+ ['548','Ostatné náklady na hospodársku činnosť','N'],['551','Odpisy dlhodobého nehmotného a hmotného majetku','N'],['562','Nákladové úroky','N'],['563','Kurzové straty','N'],['568','Ostatné finančné náklady','N'],['591','Splatná daň z príjmov','N'],
+ ['602','Tržby z predaja služieb','V'],['648','Ostatné výnosy z hospodárskej činnosti','V'],['662','Úroky','V'],['663','Kurzové zisky','V'],
+ ['701','Začiatočný účet súvahový','S']];
+const OSN_MAP=Object.fromEntries(OSN.map(a=>[a[0],{n:a[1],t:a[2]}]));
+const KAT_UCET={'Nájom / sídlo':'518','Účtovníctvo / právne':'518','Technika a softvér / AI':'518','Auto / PHM / servis':'501','Telefón / internet':'518','Cestovné / diéty':'512','Marketing / web':'518','Vzdelávanie / knihy':'518','Poistenie':'548','Bankové poplatky':'568','Materiál / kancelária':'501','Nehnuteľnosti (náklady)':'518','Ostatné':'548'};
+const PLAT={'221':'firemný účet (221)','365':'konateľ súkromne (365)','211':'pokladnica (211)','321':'neuhradená faktúra dodávateľa (321)'};const PLAT_ORD=['221','365','211','321']; // poradie v selecte (Object.keys by číselné kľúče zoradil)
+const UCT_SRC={inv:'Faktúra',exp:'Náklad',cp:'Cestovný príkaz',jaz:'Kniha jázd',doh:'Dohodár',maj:'Majetok',man:'Ručný zápis',ps:'Počiatočný stav'};
+function uctE(dat,dok,pop,md,d,suma,src,sid,extra){suma=Math.round((+suma||0)*100)/100;if(!suma)return null;if(suma<0){const t=md;md=d;d=t;suma=-suma}return Object.assign({dat:(dat||'').slice(0,10),dok:dok||'',pop,md,d,suma,src,sid},extra||{})}
+function uctLastDay(y,m){return y+'-'+String(m).padStart(2,'0')+'-'+String(new Date(y,m,0).getDate()).padStart(2,'0')}
+function uctAuto(){const E=[];const push=x=>{if(x)E.push(x)};
+ // počiatočné stavy
+ if(UCT.psRok)(UCT.ps||[]).forEach((p,i)=>{const md=+p.md||0,d=+p.d||0;if(md)push(uctE(UCT.psRok+'-01-01','PS','Počiatočný stav '+p.ucet,p.ucet,'701',md,'ps',i));if(d)push(uctE(UCT.psRok+'-01-01','PS','Počiatočný stav '+p.ucet,'701',p.ucet,d,'ps',i))});
+ // faktúry (len vystavené, nie návrhy)
+ INV.filter(i=>!i.draft&&i.no).forEach(i=>{const t=totals(i);const c=CLI[i.cli]||{};const who=c.meno?' – '+c.meno:'';
+  if(i.typ==='zálohová'){if(i.paid)push(uctE(i.dpaid||i.dvyst,i.no,'Úhrada zálohovej faktúry '+i.no+who,'221','324',t.total,'inv',i.id));return}
+  const lbl=i.typ==='dobropis'?'Dobropis ':'Faktúra ';
+  push(uctE(i.dvyst,i.no,lbl+i.no+who,'311','602',t.base,'inv',i.id));
+  if(t.dph)push(uctE(i.dvyst,i.no,'DPH '+Math.round(t.rate*100)+' % '+i.no,'311','343',t.dph,'inv',i.id));
+  let zal=0;if(i.zal){const z=INV.find(x=>x.id===+i.zal);if(z){zal=Math.min(totals(z).total,t.total);push(uctE(i.dvyst,i.no,'Zúčtovanie zálohy '+z.no+' k '+i.no,'324','311',zal,'inv',i.id))}}
+  if(i.paid)push(uctE(i.dpaid||i.dvyst,i.no,'Úhrada '+i.no+who,'221','311',t.total-zal,'inv',i.id,{odhad:!i.dpaid}))});
+ // náklady
+ EXP.forEach(x=>{const tot=+x.sum||0;if(!tot)return;const uc=x.ucet||KAT_UCET[x.kat]||'548';const r=VRATE[x.dph]||0;const pl=x.plat||'221';
+  const odp=r>0&&SUP.dphOd&&x.dat>=SUP.dphOd;const base=odp?tot/(1+r):tot;const dph=tot-base;const pop=(x.dod||'')+(x.pop?' – '+x.pop:'')+(x.uzn===false?' (nedaňový)':'');
+  push(uctE(x.dat,'ND'+String(x.id).slice(-5),pop,uc,pl,base,'exp',x.id));if(dph>0.004)push(uctE(x.dat,'ND'+String(x.id).slice(-5),'DPH '+x.dph+' % '+(x.dod||''),'343',pl,dph,'exp',x.id))});
+ // cestovné príkazy (uložené)
+ CP.forEach(cp=>{const k=cpCalc(cp);const dat=(cp.uk||cp.na||'').slice(0,10);const pop=cp.no+' '+(cp.miesto||'')+' – '+(cp.ucel||'');
+  push(uctE(dat,cp.no,'Stravné '+pop,'512','365',k.strav,'cp',cp.id));if(k.auto)push(uctE(dat,cp.no,'Náhrada za vozidlo '+pop,'512','365',k.auto,'cp',cp.id));
+  if(k.vKon)push(uctE(dat,cp.no,'Výdavky zaplatené konateľom '+cp.no,'512','365',k.vKon,'cp',cp.id));if(k.vFir)push(uctE(dat,cp.no,'Výdavky zaplatené firmou '+cp.no,'512','221',k.vFir,'cp',cp.id));
+  if(+cp.pred)push(uctE((cp.na||'').slice(0,10),cp.no,'Preddavok na cestu '+cp.no,'365','221',+cp.pred,'cp',cp.id))});
+ // kniha jázd (náhrady za vlastné vozidlo)
+ JAZ.forEach(j=>{const n=nahrada(j);const dat=(j.od||'').slice(0,10);if(!dat)return;const v=VOZ[j.voz]||{};
+  push(uctE(dat,'KJ'+String(j.id).slice(-5),'Náhrada za použitie vozidla '+(v.naz||'')+' '+(j.from||'')+'–'+(j.to||'')+' '+(j.km||0)+' km','512','365',n.zakl+n.phm,'jaz',j.id));
+  if(n.diet)push(uctE(dat,'KJ'+String(j.id).slice(-5),'Stravné (tuzemsko) '+(j.ucel||''),'512','365',n.diet,'jaz',j.id))});
+ // dohodári – mesačne od mesiaca „od“ po „do“ (alebo aktuálny mesiac)
+ const nowM=today().slice(0,7);
+ DOH.forEach(d=>{if(!d.od)return;const c=dohCalc(d);let m=d.od.slice(0,7);const end=(d.do||nowM).slice(0,7);let g=0;
+  while(m<=end&&g++<120){const y=+m.slice(0,4),mo=+m.slice(5,7);const dat=uctLastDay(y,mo);const dok='MZ'+m.replace('-','');const n=d.meno+' '+mo+'/'+y;
+   push(uctE(dat,dok,'Odmena dohodár '+n,'521','331',c.o,'doh',d.id));if(c.er)push(uctE(dat,dok,'Odvody zamestnávateľa '+n,'524','336',c.er,'doh',d.id));
+   if(c.ee)push(uctE(dat,dok,'Odvody zamestnanca '+n,'331','336',c.ee,'doh',d.id));if(c.dan)push(uctE(dat,dok,'Preddavok na daň zo závislej činnosti '+n,'331','342',c.dan,'doh',d.id));
+   m=mo===12?(y+1)+'-01':y+'-'+String(mo+1).padStart(2,'0')}});
+ // majetok – obstaranie + odpisy (rovnomerné, od mesiaca obstarania; 31. 12. každého roka)
+ const curY=new Date().getFullYear();
+ MAJ.forEach(mj=>{const o=majOdpis(mj);const dat=(mj.dat||'').slice(0,10);if(!dat)return;const pl=mj.plat||'221';const dok='DM'+String(mj.id).slice(-5);
+  if(o.drobny){push(uctE(dat,dok,'Drobný majetok '+mj.naz,'501',pl,mj.cena,'maj',mj.id));return}
+  const bud=mj.sk==='5'||mj.sk==='6';const uc=bud?'021':'022',opr=bud?'081':'082';push(uctE(dat,dok,'Obstaranie '+mj.naz,uc,pl,mj.cena,'maj',mj.id));
+  const y0=+dat.slice(0,4),m0=+dat.slice(5,7);let zost=+mj.cena||0;
+  for(let y=y0;y<=curY&&zost>0.004;y++){let od=y===y0?o.rocny*(13-m0)/12:o.rocny;od=Math.min(od,zost);zost-=od;push(uctE(y+'-12-31',dok,'Odpis '+y+' '+mj.naz,'551',opr,od,'maj',mj.id))}});
+ // ručné zápisy
+ (UCT.man||[]).forEach(m=>push(uctE(m.dat,m.dok,m.pop,m.md,m.d,m.suma,'man',m.id)));
+ E.sort((a,b)=>a.dat<b.dat?-1:a.dat>b.dat?1:(a.dok<b.dok?-1:a.dok>b.dok?1:0));
+ return E}
+function uctRok(E,y){let n=0;return E.filter(e=>e.dat.slice(0,4)===String(y)).map(e=>Object.assign({},e,{c:++n}))}
+function uctZost(E,to,from){const Z={};E.forEach(e=>{if(e.dat>to)return;if(from&&e.dat<from)return;(Z[e.md]=Z[e.md]||{md:0,d:0}).md+=e.suma;(Z[e.d]=Z[e.d]||{md:0,d:0}).d+=e.suma});return Z}
+function uctTyp(a){return (OSN_MAP[a]||{}).t||(/^[0-4]/.test(a)?'A':/^5/.test(a)?'N':/^6/.test(a)?'V':'S')}
+function uctVhMin(E,y){let v=0;const Zm=uctZost(E,(y-1)+'-12-31');Object.keys(Zm).forEach(a=>{const t=uctTyp(a);if(t==='V')v+=Zm[a].d-Zm[a].md;else if(t==='N')v-=Zm[a].md-Zm[a].d});return v} // VH minulých rokov (bez uzávierkových zápisov)
+function uctHK(E,y){const from=y+'-01-01',to=y+'-12-31';const Z=uctZost(E,to),Zp=uctZost(E,(y-1)+'-12-31'),Zo=uctZost(E,to,from);
+ const accs=Array.from(new Set([].concat(Object.keys(Z),Object.keys(Zo)))).sort();
+ const R=accs.map(a=>{const p=Zp[a]||{md:0,d:0},o=Zo[a]||{md:0,d:0},k=Z[a]||{md:0,d:0};const t=uctTyp(a);
+  const ps=(t==='N'||t==='V')?0:p.md-p.d;const ks=(t==='N'||t==='V')?o.md-o.d:k.md-k.d; // náklady/výnosy sa v novom roku začínajú od nuly
+  return{a,n:(OSN_MAP[a]||{}).n||'(neznámy účet)',t,ps,omd:o.md,od:o.d,ks}}).filter(r=>Math.abs(r.ps)>0.004||r.omd>0.004||r.od>0.004);
+ const vm=uctVhMin(E,y);if(Math.abs(vm)>0.004)R.push({a:'428/429',n:'Výsledok hospodárenia minulých rokov (automatický prenos)',t:'P',ps:-vm,omd:0,od:0,ks:-vm});
+ return R}
+// ---- výkazy mikro ÚJ ----
+const SUV_MAP={'021':{a:5},'031':{a:5},'042':{a:5},'081':{a:5},'022':{a:6},'082':{a:6},'025':{a:7},'029':{a:7},'032':{a:7},'085':{a:7},'089':{a:7},'061':{a:10},'062':{a:10},'063':{a:10},'112':{a:15},'132':{a:15},
+ '211':{a:22},'221':{a:22,p:44},'261':{a:22},'311':{a:18,p:39},'312':{a:18},'314':{a:18},'315':{a:18},'316':{a:18,p:39},'321':{p:39},'322':{p:39},'324':{p:39},'325':{p:39},'326':{p:39},'323':{p:43},'331':{p:40},'333':{p:40},'335':{a:20},'336':{a:19,p:40},
+ '341':{a:19,p:41},'342':{a:19,p:41},'343':{a:19,p:41},'345':{a:19,p:41},'346':{a:19,p:41},'347':{a:19,p:41},'353':{p:28},'364':{p:42},'365':{p:42},'366':{p:42},'367':{p:42},'379':{p:42},'381':{a:20},'382':{a:20},'383':{p:42},'384':{p:42},'385':{a:20},
+ '411':{p:27},'412':{p:29},'413':{p:29},'417':{p:29},'418':{p:29},'419':{p:27},'421':{p:30},'422':{p:30},'423':{p:30},'427':{p:30},'428':{p:32},'429':{p:32},'431':{p:32},'451':{p:36},'459':{p:36},'461':{p:37},'471':{p:35},'472':{p:35},'473':{p:35},'474':{p:35},'479':{p:35},'231':{p:44},'232':{p:44},'241':{p:45},'249':{p:45}};
+const SUV_ROWS=[[1,'SPOLU MAJETOK (r. 02 + r. 14)',1],[2,'A. Neobežný majetok (r. 03 + r. 04 + r. 09)',1],[3,'A.I. Dlhodobý nehmotný majetok'],[4,'A.II. Dlhodobý hmotný majetok súčet (r. 05 až r. 08)',1],[5,'A.II.1. Pozemky a stavby'],[6,'2. Samostatné hnuteľné veci a súbory hnuteľných vecí'],[7,'3. Ostatný dlhodobý hmotný majetok'],[8,'4. Opravná položka k nadobudnutému majetku'],
+ [9,'A.III. Dlhodobý finančný majetok súčet (r. 10 až r. 13)',1],[10,'A.III.1. Podielové cenné papiere'],[11,'2. Ostatný dlhodobý finančný majetok'],[12,'3. Účty v bankách s dobou viazanosti dlhšou ako jeden rok'],[13,'4. Ostatný dlhodobý finančný majetok so zostatkovou dobou splatnosti najviac jeden rok'],
+ [14,'B. Obežný majetok (r. 15 + r. 16 + r. 17 + r. 21)',1],[15,'B.I. Zásoby'],[16,'B.II. Dlhodobé pohľadávky'],[17,'B.III. Krátkodobé pohľadávky súčet (r. 18 až r. 20)',1],[18,'B.III.1. Pohľadávky z obchodného styku'],[19,'2. Sociálne poistenie, daňové pohľadávky a dotácie'],[20,'3. Ostatné pohľadávky'],
+ [21,'B.IV. Finančný majetok (r. 22 + r. 23)',1],[22,'B.IV.1. Peniaze a účty v bankách'],[23,'2. Ostatné finančné účty'],
+ [24,'SPOLU VLASTNÉ IMANIE A ZÁVÄZKY (r. 25 + r. 34)',1],[25,'A. Vlastné imanie (r. 26 + r. 29 + r. 30 + r. 31 + r. 32 + r. 33)',1],[26,'A.I. Základné imanie (r. 27 + r. 28)',1],[27,'A.I.1. Základné imanie a zmeny základného imania'],[28,'2. Pohľadávky za upísané vlastné imanie'],[29,'A.II. Kapitálové fondy'],[30,'A.III. Fondy zo zisku'],[31,'A.IV. Oceňovacie rozdiely'],[32,'A.V. Nerozdelený zisk alebo neuhradená strata minulých rokov'],[33,'A.VI. Výsledok hospodárenia za účtovné obdobie po zdanení'],
+ [34,'B. Záväzky (r. 35 + r. 36 + r. 37 + r. 38 + r. 43 + r. 44 + r. 45)',1],[35,'B.I. Dlhodobé záväzky okrem rezerv a úverov'],[36,'B.II. Dlhodobé rezervy'],[37,'B.III. Dlhodobé bankové úvery'],[38,'B.IV. Krátkodobé záväzky okrem rezerv, úverov a výpomoci súčet (r. 39 až r. 42)',1],[39,'B.IV.1. Krátkodobé záväzky z obchodného styku'],[40,'2. Záväzky voči zamestnancom a zo sociálneho poistenia'],[41,'3. Daňové záväzky a dotácie'],[42,'4. Ostatné krátkodobé záväzky'],[43,'B.V. Krátkodobé rezervy'],[44,'B.VI. Bežné bankové úvery'],[45,'B.VII. Krátkodobé finančné výpomoci']];
+const VZS_MAP={'604':2,'607':2,'601':3,'602':3,'606':3,'61':4,'62':5,'641':6,'642':6,'644':7,'645':7,'646':7,'648':7,'655':7,'657':7,'504':9,'505':9,'507':9,'501':10,'502':10,'503':10,'51':11,'52':12,'53':13,'551':14,'553':14,'541':15,'542':15,'547':16,'543':17,'544':17,'545':17,'546':17,'548':17,'549':17,'555':17,'557':17,
+ '661':21,'665':22,'666':23,'662':24,'663':25,'668':26,'561':28,'566':29,'565':30,'562':31,'563':32,'568':33,'569':33,'591':36,'595':36,'596':37};
+const VZS_ROWS=[[1,'* Výnosy z hospodárskej činnosti spolu (r. 02 až r. 07)',1],[2,'I. Tržby z predaja tovaru'],[3,'II. Tržby z predaja vlastných výrobkov a služieb'],[4,'III. Zmena stavu vnútroorganizačných zásob'],[5,'IV. Aktivácia'],[6,'V. Tržby z predaja dlhodobého majetku a materiálu'],[7,'VI. Ostatné výnosy z hospodárskej činnosti'],
+ [8,'* Náklady na hospodársku činnosť spolu (r. 09 až r. 17)',1],[9,'A. Náklady vynaložené na obstaranie predaného tovaru'],[10,'B. Spotreba materiálu, energie a ostatných neskladovateľných dodávok'],[11,'C. Služby'],[12,'D. Osobné náklady'],[13,'E. Dane a poplatky'],[14,'F. Odpisy a opravné položky k dlhodobému majetku'],[15,'G. Zostatková cena predaného dlhodobého majetku a materiálu'],[16,'H. Opravné položky k pohľadávkam'],[17,'I. Ostatné náklady na hospodársku činnosť'],
+ [18,'** Výsledok hospodárenia z hospodárskej činnosti (r. 01 − r. 08)',1],[19,'* Pridaná hodnota (r. 02 − r. 09) + (r. 03 + r. 04 + r. 05) − (r. 10 + r. 11)',1],[20,'* Výnosy z finančnej činnosti spolu (r. 21 až r. 26)',1],[21,'VII. Tržby z predaja cenných papierov a podielov'],[22,'VIII. Výnosy z dlhodobého finančného majetku'],[23,'IX. Výnosy z krátkodobého finančného majetku'],[24,'X. Výnosové úroky'],[25,'XI. Kurzové zisky'],[26,'XII. Ostatné výnosy z finančnej činnosti'],
+ [27,'* Náklady na finančnú činnosť spolu (r. 28 až r. 33)',1],[28,'J. Predané cenné papiere a podiely'],[29,'K. Náklady na krátkodobý finančný majetok'],[30,'L. Opravné položky k finančnému majetku'],[31,'M. Nákladové úroky'],[32,'N. Kurzové straty'],[33,'O. Ostatné náklady na finančnú činnosť'],
+ [34,'** Výsledok hospodárenia z finančnej činnosti (r. 20 − r. 27)',1],[35,'** Výsledok hospodárenia za účtovné obdobie pred zdanením (r. 18 + r. 34)',1],[36,'P. Daň z príjmov'],[37,'Q. Prevod podielov na výsledku hospodárenia spoločníkom'],[38,'*** Výsledok hospodárenia za účtovné obdobie po zdanení (r. 35 − r. 36 − r. 37)',1]];
+function vzsRow(a){return VZS_MAP[a]||VZS_MAP[a.slice(0,2)]||null}
+function uctVZS(E,y){const Zo=uctZost(E,y+'-12-31',y+'-01-01');const R={};const bad=[];
+ Object.keys(Zo).forEach(a=>{const t=uctTyp(a);if(t!=='N'&&t!=='V')return;const v=t==='V'?Zo[a].d-Zo[a].md:Zo[a].md-Zo[a].d;const r=vzsRow(a);if(!r){if(Math.abs(v)>0.004)bad.push(a);return}R[r]=(R[r]||0)+v});
+ const s=(f,t)=>{let x=0;for(let i=f;i<=t;i++)x+=R[i]||0;return x};
+ R[1]=s(2,7);R[8]=s(9,17);R[18]=R[1]-R[8];R[19]=((R[2]||0)-(R[9]||0))+((R[3]||0)+(R[4]||0)+(R[5]||0))-((R[10]||0)+(R[11]||0));R[20]=s(21,26);R[27]=s(28,33);R[34]=R[20]-R[27];R[35]=R[18]+R[34];R[38]=R[35]-(R[36]||0)-(R[37]||0);
+ return{R,bad}}
+function uctSUV(E,y){const Z=uctZost(E,y+'-12-31');const R={};const bad=[];let vhMin=0;
+ Object.keys(Z).forEach(a=>{const t=uctTyp(a);const b=Z[a].md-Z[a].d;if(Math.abs(b)<0.004)return;
+  if(t==='N')return;if(t==='V')return;if(a==='701'){if(Math.abs(b)>0.004)bad.push('701 (musí byť 0)');return}
+  const m=SUV_MAP[a];if(!m){bad.push(a);return}
+  if(m.a&&m.p){if(b>0)R[m.a]=(R[m.a]||0)+b;else R[m.p]=(R[m.p]||0)-b}else if(m.a)R[m.a]=(R[m.a]||0)+b;else R[m.p]=(R[m.p]||0)-b});
+ // výsledky hospodárenia: minulé roky (nezaúčtované uzávierky) → r. 32, bežný rok → r. 33 (nezávisle z VZaS)
+ vhMin=uctVhMin(E,y);
+ R[32]=(R[32]||0)+vhMin;const vz=uctVZS(E,y);R[33]=vz.R[38]||0;
+ const s=(f,t)=>{let x=0;for(let i=f;i<=t;i++)x+=R[i]||0;return x};
+ R[4]=s(5,8);R[9]=s(10,13);R[2]=(R[3]||0)+R[4]+R[9];R[17]=s(18,20);R[21]=(R[22]||0)+(R[23]||0);R[14]=(R[15]||0)+(R[16]||0)+R[17]+R[21];R[1]=R[2]+R[14];
+ R[26]=(R[27]||0)+(R[28]||0);R[25]=R[26]+(R[29]||0)+(R[30]||0)+(R[31]||0)+(R[32]||0)+(R[33]||0);R[38]=s(39,42);R[34]=(R[35]||0)+(R[36]||0)+(R[37]||0)+R[38]+(R[43]||0)+(R[44]||0)+(R[45]||0);R[24]=R[25]+R[34];
+ return{R,bad:bad.concat(vz.bad.map(a=>a+' (VZaS)')),vhMin}}
+function uctKontroly(E,y){const K=[];const Ey=uctRok(E,y);
+ const hk=uctHK(E,y);
+ const smd=hk.reduce((s,r)=>s+r.omd,0),sd=Ey.reduce((s,e)=>s+e.suma,0);K.push({ok:Math.abs(smd-sd)<0.005,t:'Denník '+y+': obraty MD v hlavnej knihe '+eur(smd)+' = súčet denníka (strana D) '+eur(sd)});const pMD=hk.reduce((s,r)=>s+(r.ks>0?r.ks:0),0),pD=hk.reduce((s,r)=>s+(r.ks<0?-r.ks:0),0);K.push({ok:Math.abs(pMD-pD)<0.005,t:'Predvaha: zostatky MD '+eur(pMD)+' = zostatky D '+eur(pD)});
+ const S=uctSUV(E,y);K.push({ok:Math.abs(S.R[1]-S.R[24])<0.005,t:'Súvaha: majetok '+eur(S.R[1])+' = vlastné imanie a záväzky '+eur(S.R[24])+' (VH r. 33 nezávisle z VZaS r. 38)'});
+ K.push({ok:!S.bad.length,t:S.bad.length?'Nezaradené účty vo výkazoch: '+S.bad.join(', '):'Všetky účty so zostatkom sú zaradené do riadkov výkazov'});
+ const bezObd=DOH.filter(d=>!d.od).map(d=>d.meno);if(bezObd.length)K.push({ok:false,t:'Dohodári bez obdobia „od“ (nezaúčtovaní): '+bezObd.join(', ')});
+ const odh=Ey.filter(e=>e.odhad).length;if(odh)K.push({ok:false,t:odh+' úhrad faktúr bez dátumu úhrady – zaúčtované dňom vystavenia (doplň dátum vo Faktúrach)'});
+ const nez=E.filter(e=>!OSN_MAP[e.md]||!OSN_MAP[e.d]);if(nez.length)K.push({ok:false,t:'Zápisy s účtom mimo osnovy: '+nez.slice(0,3).map(e=>e.md+'/'+e.d).join(', ')});
+ if(!UCT.psRok&&y>Math.min.apply(null,E.map(e=>+e.dat.slice(0,4)).concat([y])))K.push({ok:true,t:'Počiatočné stavy '+y+' = zostatky z predchádzajúceho roka (bez uzávierkových zápisov)'});
+ return K}
+// ---- UI ----
+let uctView='den',uctRokSel=null,uctMes='';
+function uctRoky(E){const ys=new Set(E.map(e=>+e.dat.slice(0,4)));ys.add(new Date().getFullYear());return Array.from(ys).filter(Boolean).sort()}
+function n2(x){return (Math.round((+x||0)*100)/100).toLocaleString('sk-SK',{minimumFractionDigits:2,maximumFractionDigits:2})}
+function n0(x){return Math.round(+x||0).toLocaleString('sk-SK')}
+function renderUct(){const E=uctAuto();const ys=uctRoky(E);if(!uctRokSel||!ys.includes(uctRokSel))uctRokSel=ys[ys.length-1];const y=uctRokSel;
+ const K=uctKontroly(E,y);const okAll=K.every(k=>k.ok);
+ const V=[['den','📒 Denník'],['hk','📗 Hlavná kniha'],['pred','⚖️ Predvaha'],['suv','🏦 Súvaha'],['vzs','📈 VZaS'],['nast','⚙️ Zápisy a nastavenia']];
+ let h=`<div class="card"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><b>📒 Účtovníctvo (podvojné, mikro ÚJ)</b><select id="u_rok" style="width:auto" onchange="uctRokSel=+this.value;renderUct()">${ys.map(r=>`<option ${r===y?'selected':''}>${r}</option>`).join('')}</select><span class="mut">${E.length} zápisov spolu</span></div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">${V.map(v=>`<button class="${uctView===v[0]?'act':'ghost'}" style="padding:6px 10px;font-size:.8rem" onclick="uctView='${v[0]}';renderUct()">${v[1]}</button>`).join('')}</div>
+  <div class="box" style="margin-top:8px;border-color:${okAll?'var(--green,#3a3)':'var(--red)'}"><b>${okAll?'✅ Kontroly v poriadku':'⚠️ Kontroly'}</b>${K.map(k=>`<div class="mut" style="padding:2px 0">${k.ok?'✅':'❌'} ${esc(k.t)}</div>`).join('')}</div></div>`;
+ if(uctView==='den')h+=uctDenHtml(E,y);else if(uctView==='hk')h+=uctHKHtml(E,y);else if(uctView==='pred')h+=uctPredHtml(E,y);else if(uctView==='suv')h+=uctSuvHtml(E,y);else if(uctView==='vzs')h+=uctVzsHtml(E,y);else h+=uctNastHtml(E,y);
+ $('s-uct').innerHTML=h}
+function uctDenHtml(E,y){const Ey=uctRok(E,y);const ms=Array.from(new Set(Ey.map(e=>e.dat.slice(0,7)))).sort();const rows=Ey.filter(e=>!uctMes||e.dat.slice(0,7)===uctMes);
+ let h=`<div class="card"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><b>Účtovný denník ${y}</b><select style="width:auto" onchange="uctMes=this.value;renderUct()"><option value="">všetky mesiace</option>${ms.map(m=>`<option ${m===uctMes?'selected':''}>${m}</option>`).join('')}</select><button class="ghost" style="padding:5px 10px;font-size:.78rem" onclick="exportDenCSV(${y})">⬇️ CSV</button></div>
+  <p class="mut">Zápisy vznikajú automaticky z dokladov (faktúra, náklad, cestovný príkaz, kniha jázd, dohodár, majetok) a z ručných zápisov. Zmena dokladu sa prejaví hneď.</p>`;
+ if(!rows.length)h+='<p class="mut">Žiadne zápisy.</p>';else{h+='<table><thead><tr><th>#</th><th>Dátum / doklad</th><th>Popis</th><th>MD</th><th>D</th><th class="r">Suma</th></tr></thead><tbody>';
+  rows.forEach(e=>{h+=`<tr><td>${e.c}</td><td>${esc(e.dat.slice(8,10))}.${esc(e.dat.slice(5,7))}.<br><span class="mut">${esc(e.dok)}</span></td><td>${esc(e.pop)}<br><span class="mut">${UCT_SRC[e.src]||''}${e.odhad?' · dátum úhrady odhadnutý':''}</span></td><td title="${esc((OSN_MAP[e.md]||{}).n||'')}">${e.md}</td><td title="${esc((OSN_MAP[e.d]||{}).n||'')}">${e.d}</td><td class="r"><b>${n2(e.suma)}</b></td></tr>`});
+  h+=`</tbody><tfoot><tr><td colspan="5"><b>Spolu MD = D</b></td><td class="r"><b>${n2(rows.reduce((s,e)=>s+e.suma,0))}</b></td></tr></tfoot></table>`}
+ return h+'</div>'}
+function uctHKHtml(E,y){const hk=uctHK(E,y);const Ey=uctRok(E,y);
+ let h=`<div class="card"><b>Hlavná kniha ${y}</b><p class="mut">Pri každom účte: začiatočný stav k 1. 1., obraty za rok, konečný zostatok k 31. 12. (kladný = MD, záporný = D). Rozklik = zápisy na účte.</p>`;
+ hk.forEach(r=>{const zap=Ey.filter(e=>e.md===r.a||e.d===r.a);h+=`<details style="border-top:1px solid var(--line);padding:4px 0"><summary style="cursor:pointer;display:flex;justify-content:space-between;gap:6px;font-size:.85rem"><span><b>${r.a}</b> ${esc(r.n)}</span><span>${r.ps?'<span class="mut">PS '+n2(r.ps)+'</span> ':''}<span class="mut">MD ${n2(r.omd)} · D ${n2(r.od)}</span> → <b>${n2(r.ks)}</b></span></summary>
+  <table style="margin-top:4px"><tbody>${zap.map(e=>`<tr><td>${esc(e.dat.slice(8,10))}.${esc(e.dat.slice(5,7))}. ${esc(e.dok)}</td><td>${esc(e.pop)}</td><td class="r">${e.md===r.a?n2(e.suma):''}</td><td class="r">${e.d===r.a?n2(e.suma):''}</td></tr>`).join('')}</tbody></table></details>`});
+ if(!hk.length)h+='<p class="mut">Žiadne účty s pohybom.</p>';return h+'</div>'}
+function uctPredHtml(E,y){const hk=uctHK(E,y);const S=o=>hk.reduce((s,r)=>s+o(r),0);
+ let h=`<div class="card"><b>Obratová predvaha ${y}</b><table><thead><tr><th>Účet</th><th class="r">PS MD</th><th class="r">PS D</th><th class="r">Obrat MD</th><th class="r">Obrat D</th><th class="r">KS MD</th><th class="r">KS D</th></tr></thead><tbody>`;
+ hk.forEach(r=>{h+=`<tr><td><b>${r.a}</b><br><span class="mut">${esc(r.n)}</span></td><td class="r">${r.ps>0?n2(r.ps):''}</td><td class="r">${r.ps<0?n2(-r.ps):''}</td><td class="r">${n2(r.omd)}</td><td class="r">${n2(r.od)}</td><td class="r">${r.ks>0?n2(r.ks):''}</td><td class="r">${r.ks<0?n2(-r.ks):''}</td></tr>`});
+ h+=`</tbody><tfoot><tr><td><b>Spolu</b></td><td class="r"><b>${n2(S(r=>r.ps>0?r.ps:0))}</b></td><td class="r"><b>${n2(S(r=>r.ps<0?-r.ps:0))}</b></td><td class="r"><b>${n2(S(r=>r.omd))}</b></td><td class="r"><b>${n2(S(r=>r.od))}</b></td><td class="r"><b>${n2(S(r=>r.ks>0?r.ks:0))}</b></td><td class="r"><b>${n2(S(r=>r.ks<0?-r.ks:0))}</b></td></tr></tfoot></table></div>`;return h}
+function uctVykazTbl(ROWS,R,Rp,hdr){let h=`<table><thead><tr><th>Ozn. / položka</th><th class="r">r.</th><th class="r">${esc(hdr[0])}</th><th class="r">${esc(hdr[1])}</th></tr></thead><tbody>`;
+ ROWS.forEach(r=>{const b=r[2];const v=R[r[0]]||0,p=Rp[r[0]]||0;if(!b&&Math.abs(v)<0.5&&Math.abs(p)<0.5)return;h+=`<tr><td>${b?'<b>'+esc(r[1])+'</b>':esc(r[1])}</td><td class="r">${String(r[0]).padStart(2,'0')}</td><td class="r">${b?'<b>'+n0(v)+'</b>':n0(v)}</td><td class="r">${n0(p)}</td></tr>`});
+ return h+'</tbody></table>'}
+function uctSuvHtml(E,y){const S=uctSUV(E,y),Sp=uctSUV(E,y-1);
+ return `<div class="card"><div style="display:flex;justify-content:space-between;gap:6px;flex-wrap:wrap"><b>Súvaha Úč MÚJ 1-01 k 31. 12. ${y}</b><button class="ghost" style="padding:5px 10px;font-size:.78rem" onclick="uctPrint(${y})">🖨️ Tlač / PDF (Súvaha + VZaS)</button></div><p class="mut">V celých eurách (zaokrúhlené); prázdne riadky skryté. Riadok 33 = VH z VZaS r. 38, majetok ${n2(S.R[1])} vs. pasíva ${n2(S.R[24])}.</p>${uctVykazTbl(SUV_ROWS,S.R,Sp.R,['Bežné '+y,'Predch. '+(y-1)])}</div>`}
+function uctVzsHtml(E,y){const V=uctVZS(E,y),Vp=uctVZS(E,y-1);
+ return `<div class="card"><div style="display:flex;justify-content:space-between;gap:6px;flex-wrap:wrap"><b>Výkaz ziskov a strát Úč MÚJ 2-01 za ${y}</b><button class="ghost" style="padding:5px 10px;font-size:.78rem" onclick="uctPrint(${y})">🖨️ Tlač / PDF</button></div><p class="mut">V celých eurách; prázdne riadky skryté. Daň z príjmov (r. 36) sa účtuje ručným zápisom 591/341 po výpočte dane.</p>${uctVykazTbl(VZS_ROWS,V.R,Vp.R,['Bežné '+y,'Predch. '+(y-1)])}</div>`}
+function uctNastHtml(E,y){const opt=OSN.filter(a=>a[2]!=='S').map(a=>`<option value="${a[0]}">${a[0]} ${esc(a[1])}</option>`).join('');
+ let h=`<div class="card"><b>✍️ Ručný účtovný zápis</b><p class="mut">Na všetko, čo appka negeneruje: splatenie základného imania (221/411), bankové poplatky (568/221), úroky, daň z príjmov (591/341), úhrada dodávateľovi (321/221), výplata konateľovi (365/221)…</p>
+  <div class="row"><div><label>Dátum</label><input type="date" id="um_dat" value="${today()}"></div><div><label>Doklad č.</label><input id="um_dok" placeholder="BV1, ID3…"></div></div>
+  <label>Popis</label><input id="um_pop">
+  <div class="row"><div><label>MD (má dať)</label><select id="um_md">${opt}</select></div><div><label>D (dal)</label><select id="um_d">${opt}</select></div><div><label>Suma €</label><input type="number" step="0.01" id="um_suma"></div></div>
+  <div style="margin-top:8px"><button class="act" onclick="addMan()">Zaúčtovať</button></div>`;
+ const man=(UCT.man||[]).slice().sort((a,b)=>a.dat<b.dat?1:-1);if(man.length){h+='<table style="margin-top:8px"><tbody>'+man.map(m=>`<tr><td>${esc(m.dat)}<br><span class="mut">${esc(m.dok)}</span></td><td>${esc(m.pop)}<br><span class="mut">${m.md}/${m.d}</span></td><td class="r"><b>${n2(m.suma)}</b></td><td class="r"><button class="mini" onclick="delMan(${m.id})">✕</button></td></tr>`).join('')+'</tbody></table>'}
+ h+=`</div><div class="card"><b>🔢 Počiatočné stavy</b><p class="mut">Len pri prechode z iného účtovníctva: zostatky účtov k 1. 1. roka (účtujú sa cez 701). Pri firme účtovanej v appke od vzniku nechaj prázdne – stavy sa prenášajú automaticky.</p>
+  <div class="row"><div><label>Rok (stavy k 1. 1.)</label><input type="number" id="ps_rok" value="${esc(UCT.psRok||'')}" placeholder="${new Date().getFullYear()}"></div><div><label>Účet</label><select id="ps_ucet">${opt}</select></div><div><label>MD €</label><input type="number" step="0.01" id="ps_md"></div><div><label>D €</label><input type="number" step="0.01" id="ps_d"></div></div>
+  <div style="margin-top:6px"><button class="ghost" onclick="addPS()">Pridať stav</button></div>
+  ${(UCT.ps||[]).length?'<table style="margin-top:8px"><tbody>'+UCT.ps.map((p,i)=>`<tr><td>${p.ucet} ${esc((OSN_MAP[p.ucet]||{}).n||'')}</td><td class="r">${p.md?'MD '+n2(p.md):''} ${p.d?'D '+n2(p.d):''}</td><td class="r"><button class="mini" onclick="delPS(${i})">✕</button></td></tr>`).join('')+'</tbody></table>':''}</div>
+  <div class="card"><b>🧾 Platiteľ DPH</b><p class="mut">Od tohto dátumu sa DPH na vstupe účtuje na 343 (odpočet); pred ním je súčasťou nákladu. Practeo: platiteľ od 7. 10. 2026 (rozhodnutie DÚ 2. 10. 2026).</p>
+  <div class="row"><div><label>Platiteľ DPH od</label><input type="date" id="u_dphod" value="${esc(SUP.dphOd||'')}"></div><div><label>&nbsp;</label><button class="ghost" onclick="SUP.dphOd=$('u_dphod').value;LS.set('supplier',SUP);toast('Uložené ✅');renderUct()">Uložiť</button></div></div></div>
+  <div class="card"><b>📘 Predkontácie (ako appka účtuje)</b><table><tbody>
+   <tr><td>Faktúra (vystavená)</td><td>311 / 602 základ, 311 / 343 DPH (reverse charge bez DPH); úhrada 221 / 311</td></tr>
+   <tr><td>Zálohová faktúra</td><td>pri úhrade 221 / 324; zúčtovanie na riadnej faktúre 324 / 311</td></tr>
+   <tr><td>Dobropis</td><td>602 / 311 (mínusové sumy obracajú strany)</td></tr>
+   <tr><td>Náklad (doklad)</td><td>5xx podľa kategórie alebo zvoleného účtu / 221 · 365 · 211 · 321 podľa „platené z“; DPH 343 len od dátumu platiteľa</td></tr>
+   <tr><td>Cestovný príkaz</td><td>stravné, vozidlo, výdavky konateľa 512 / 365; výdavky firmy 512 / 221; preddavok 365 / 221</td></tr>
+   <tr><td>Kniha jázd</td><td>náhrada za vozidlo + tuzemské stravné 512 / 365</td></tr>
+   <tr><td>Dohodár (mesačne)</td><td>521 / 331 odmena, 524 / 336 odvody zamestnávateľa, 331 / 336 odvody zamestnanca, 331 / 342 preddavok na daň; výplata ručne 331 / 221</td></tr>
+   <tr><td>Majetok</td><td>022 (021 pri stavbách) / platené z; drobný do 1 700 € 501; odpisy 31. 12. 551 / 082 (081)</td></tr></tbody></table>
+   <p class="mut">Kategórie nákladov → účty: ${Object.keys(KAT_UCET).map(k=>esc(k)+' → '+KAT_UCET[k]).join(' · ')}.</p></div>`;
+ return h}
+function addMan(){const dat=$('um_dat').value,md=$('um_md').value,d=$('um_d').value,suma=+$('um_suma').value;if(!dat||!suma){toast('Zadaj dátum a sumu');return}if(md===d){toast('MD a D nemôžu byť rovnaké');return}
+ UCT.man=UCT.man||[];UCT.man.push({id:uid(),dat,dok:$('um_dok').value,pop:$('um_pop').value,md,d,suma});LS.set('uct',UCT);toast('Zaúčtované ✅');renderUct()}
+function delMan(id){UCT.man=(UCT.man||[]).filter(m=>m.id!==id);LS.set('uct',UCT);renderUct()}
+function addPS(){const rok=$('ps_rok').value.trim(),ucet=$('ps_ucet').value,md=+$('ps_md').value||0,d=+$('ps_d').value||0;if(!rok||!(md||d)){toast('Zadaj rok a sumu');return}
+ UCT.psRok=rok;UCT.ps=(UCT.ps||[]).filter(p=>p.ucet!==ucet);UCT.ps.push({ucet,md,d});LS.set('uct',UCT);toast('Počiatočný stav uložený ✅');renderUct()}
+function delPS(i){UCT.ps.splice(i,1);if(!UCT.ps.length)UCT.psRok='';LS.set('uct',UCT);renderUct()}
+function exportDenCSV(y){const Ey=uctRok(uctAuto(),y);const R=[['Por','Datum','Doklad','Popis','MD','D','Suma','Zdroj']];Ey.forEach(e=>R.push([e.c,e.dat,e.dok,e.pop,e.md,e.d,e.suma.toFixed(2),UCT_SRC[e.src]||e.src]));dl('Practeo_dennik_'+y+'.csv','﻿'+R.map(r=>r.map(csvEsc).join(';')).join('\n'),'text/csv');toast('Export denníka ✅')}
+function uctPrint(y){const E=uctAuto();const S=uctSUV(E,y),Sp=uctSUV(E,y-1),V=uctVZS(E,y),Vp=uctVZS(E,y-1);
+ const tb=(ROWS,R,Rp)=>'<table style="width:100%">'+'<thead><tr><th style="text-align:left">Označenie / položka</th><th>r.</th><th class="r">Bežné obdobie</th><th class="r">Predchádzajúce</th></tr></thead><tbody>'+ROWS.map(r=>{const b=r[2];const v=R[r[0]]||0,p=Rp[r[0]]||0;return `<tr><td>${b?'<b>'+esc(r[1])+'</b>':esc(r[1])}</td><td class="r">${String(r[0]).padStart(2,'0')}</td><td class="r">${b?'<b>'+n0(v)+'</b>':n0(v)}</td><td class="r">${n0(p)}</td></tr>`}).join('')+'</tbody></table>';
+ const hd=`<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:6px"><div><b>${esc(SUP.meno)}</b><br>${esc(SUP.sidlo)}<br>IČO ${esc(SUP.ico)} · DIČ ${esc(SUP.dic)}</div><div style="text-align:right">Účtovná závierka mikro účtovnej jednotky<br>za obdobie 1. 1. ${y} – 31. 12. ${y}<br>v celých eurách · zostavená ${new Date().toLocaleDateString('sk-SK')}</div></div>`;
+ $('print').innerHTML=`<div class="inv"><h2>Súvaha Úč MÚJ 1-01</h2>${hd}${tb(SUV_ROWS,S.R,Sp.R)}<div style="font-size:10px;margin-top:6px">Kontrola: r. 01 ${n2(S.R[1])} = r. 24 ${n2(S.R[24])} ${Math.abs(S.R[1]-S.R[24])<0.005?'✓':'✗ NESEDÍ'}; VH r. 33 prevzatý z VZaS r. 38.</div>
+  <div style="page-break-before:always"></div><h2>Výkaz ziskov a strát Úč MÚJ 2-01</h2>${hd}${tb(VZS_ROWS,V.R,Vp.R)}
+  <div style="font-size:10px;margin-top:8px">Vzor výkazov: príloha č. 1 k opatreniu MF SR č. MF/15464/2013-74 (MF SR č. 18008/2014). Podklad z Practeo Admin – pred podaním skontroluje účtovník; poznámky (Úč MÚJ 3-01) sa zostavujú samostatne.</div></div>`;
+ window.print()}
 
 // ---- utils ----
 function today(){return new Date().toISOString().slice(0,10)}
