@@ -125,7 +125,7 @@ async function cloudPush(k,v){
 function syncBadge(){const n=Object.values(_sync).reduce((a,b)=>a+Math.max(0,b),0);const el=$('syncdot');if(el)el.style.opacity=n>0?'1':'0'}
 async function cloudLoadAll(){const {data,error}=await sb.from('practeo_data').select('key,value');if(error){toast('⚠️ Načítanie zlyhalo');return}CACHE={};(data||[]).forEach(r=>{CACHE[r.key]=r.value})}
 async function migrateLocalIfNeeded(){
-  const keys=['supplier','clients','invoices','expenses','vehicles','trips','dohodari','assets','counters','cprikazy','rates'];
+  const keys=['supplier','clients','invoices','expenses','vehicles','trips','dohodari','assets','counters','cprikazy','rates','firmdocs'];
   if(!keys.every(k=>CACHE[k]===undefined))return;
   let any=false;
   for(const k of keys){const raw=localStorage.getItem('practeo_'+k);if(raw!=null){try{CACHE[k]=JSON.parse(raw);await cloudPush(k,CACHE[k]);any=true}catch(e){}}}
@@ -135,10 +135,10 @@ function loadGlobals(){
   SUP=LS.get('supplier',SUP);CLI=LS.get('clients',CLI);INV=LS.get('invoices',INV);
   EXP=LS.get('expenses',EXP);VOZ=LS.get('vehicles',VOZ);JAZ=LS.get('trips',JAZ);
   DOH=LS.get('dohodari',DOH);MAJ=LS.get('assets',MAJ);CNT=LS.get('counters',CNT);
-  CP=LS.get('cprikazy',CP);RATES=LS.get('rates',null)||RATES;
+  CP=LS.get('cprikazy',CP);RATES=LS.get('rates',null)||RATES;FD=LS.get('firmdocs',FD);
 }
 function localMode(){sb=null;CACHE={};
- ['supplier','clients','invoices','expenses','vehicles','trips','dohodari','assets','counters','cprikazy','rates'].forEach(k=>{const raw=localStorage.getItem('practeo_'+k);if(raw!=null){try{CACHE[k]=JSON.parse(raw)}catch(e){}}});
+ ['supplier','clients','invoices','expenses','vehicles','trips','dohodari','assets','counters','cprikazy','rates','firmdocs'].forEach(k=>{const raw=localStorage.getItem('practeo_'+k);if(raw!=null){try{CACHE[k]=JSON.parse(raw)}catch(e){}}});
  $('login').style.display='none';loadGlobals();const tg=document.querySelector('.tag');if(tg)tg.textContent='Faktúry · lokálne';renderFak()}
 async function doLogin(){
   const email=$('lg_email').value.trim(),pass=$('lg_pass').value;$('lg_err').textContent='';
@@ -187,6 +187,7 @@ let DOH=LS.get('dohodari',[]);
 let MAJ=LS.get('assets',[]);
 let CP=LS.get('cprikazy',[]);
 let RATES=LS.get('rates',null)||defaultRates();
+let FD=LS.get('firmdocs',{}); // firemné doklady (rozhodnutie spoločníka o náhradách…)
 const ODS={1:{r:4,d:'1 – 4 roky (autá, motorky, PC, technika)'},2:{r:6,d:'2 – 6 rokov (nábytok, stroje)'},3:{r:8,d:'3 – 8 rokov'},4:{r:12,d:'4 – 12 rokov'},5:{r:20,d:'5 – 20 rokov (priemyselné budovy)'},6:{r:40,d:'6 – 40 rokov (admin/bytové budovy)'}};
 function majOdpis(m){const c=+m.cena||0;if(c<=1700)return{rocny:c,roky:1,drobny:true};const roky=(ODS[m.sk]||ODS[1]).r;return{rocny:c/roky,roky,drobny:false}}
 const NCZD_M=5966.73/12;   // mesačná nezdaniteľná časť
@@ -221,6 +222,8 @@ function renderSet(){
  <div class="row"><div><label>IČ DPH</label><input id="su_icdph" value="${esc(SUP.icdph)}" placeholder="SK..."></div><div><label>IBAN</label><input id="su_iban" value="${esc(SUP.iban)}"></div></div>
  <label>Konateľ</label><input id="su_kon" value="${esc(SUP.konatel)}">
  <div style="margin-top:12px"><button class="act" onclick="saveSup()">Uložiť</button></div></div>
+ <div class="card"><b>📁 Firemné doklady</b><p class="mut">Jednorazové doklady, ktoré účtovník potrebuje k cestovným náhradám.</p>
+  <div class="box" style="display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap"><span style="font-size:.82rem">${FD.rozhodnutie?'✅':'⚠️'} Rozhodnutie jediného spoločníka o cestovných náhradách konateľa (§ 1 ods. 2 zák. 283/2002)</span><span>${FD.rozhodnutie?docBtn(FD.rozhodnutie,"docView(FD.rozhodnutie)")+`<button class="mini" onclick="delFirmDoc('rozhodnutie')">✕</button>`:`<button class="ghost" style="padding:4px 10px;font-size:.8rem" onclick="this.nextElementSibling.click()">📎 nahrať</button><input type="file" accept="image/*,application/pdf" style="display:none" onchange="setFirmDoc('rozhodnutie',this)">`}</span></div></div>
  <div class="card"><b>📤 Export pre účtovníka</b><p class="mut">Stiahni prehľady a pošli účtovníkovi.</p>
   <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="ghost" onclick="exportFakCSV()">🧾 Faktúry (CSV)</button><button class="ghost" onclick="exportNakCSV()">💸 Náklady (CSV)</button><button class="ghost" onclick="exportCPCSV()">✈️ Cestovné príkazy (CSV)</button></div></div>
  <div class="card"><b>💱 Kurzy ECB pre stravné</b><p class="mut">Zákon 283/2002 § 36 ods. 6: kurz ECB platný k 1. dňu mesiaca, v ktorom sa cesta začala (jednotiek meny za 1 €, ecb.europa.eu). Doplň pre každý nový mesiac so zahraničnou cestou.</p>
@@ -369,18 +372,19 @@ function renderNak(){
   <div class="row"><div><label>Kategória</label><select id="e_kat">${KAT.map(k=>`<option>${esc(k)}</option>`).join('')}</select></div>
   <div><label>DPH na vstupe</label><select id="e_dph"><option value="none">bez DPH</option><option value="23">23 %</option><option value="5">5 %</option><option value="19">19 %</option></select></div></div>
   <label style="margin-top:8px"><input type="checkbox" id="e_uzn" checked style="width:auto;margin-right:6px;vertical-align:middle">Uznateľný náklad</label>
-  <label>Doklad (foto) — appka ho prečíta a predvyplní</label><input type="file" accept="image/*" id="e_foto" onchange="loadFoto(this)">
+  <label>Doklad (foto alebo PDF) — povinný do účtovníctva; fotku appka prečíta a predvyplní</label><input type="file" accept="image/*,application/pdf" id="e_foto" onchange="loadFoto(this)">
   <div id="e_fotoprev"></div>
   <div class="help">📸 Odfoť doklad → appka prečíta <b>sumu a dátum</b>, ty len skontroluj a oprav. (Prvé čítanie chvíľu trvá — sťahuje slovenský slovník; potom je rýchle.)</div>
   <div style="margin-top:8px"><button class="act" onclick="addExp()">Pridať náklad</button></div></div>
   <div class="card"><b>Náklady (${EXP.length})</b>`;
  if(!EXP.length)h+='<p class="mut">Zatiaľ žiadne.</p>';
  else{h+='<table><thead><tr><th>Dátum</th><th>Dodávateľ / kategória</th><th class="r">Suma</th><th></th></tr></thead><tbody>';
-  EXP.forEach(e=>{h+=`<tr><td>${esc(e.dat)}</td><td>${esc(e.dod||'—')}<br><span class="mut">${esc(e.kat)}${e.uzn?'':' · NEuzn.'}</span></td><td class="r"><b>${eur(e.sum)}</b>${e.dph!=='none'?`<br><span class="mut">DPH ${esc(e.dph)}%</span>`:''}</td><td class="r">${e.foto?`<button class="mini" onclick="viewFoto(${e.id})">🖼️</button>`:''}<button class="mini" onclick="delExp(${e.id})">✕</button></td></tr>`});
+  EXP.forEach(e=>{h+=`<tr><td>${esc(e.dat)}</td><td>${esc(e.dod||'—')}<br><span class="mut">${esc(e.kat)}${e.uzn?'':' · NEuzn.'}</span></td><td class="r"><b>${eur(e.sum)}</b>${e.dph!=='none'?`<br><span class="mut">DPH ${esc(e.dph)}%</span>`:''}</td><td class="r">${(e.foto||e.pdf)?`<button class="mini" onclick="viewExpDoc(${e.id})">🖼️</button>`:`<button class="ghost" style="padding:3px 8px;font-size:.75rem;color:var(--red)" onclick="this.nextElementSibling.click()">⚠️ doklad</button><input type="file" accept="image/*,application/pdf" style="display:none" onchange="addExpDoc(${e.id},this)">`}<button class="mini" onclick="delExp(${e.id})">✕</button></td></tr>`});
   h+='</tbody></table>'}
- h+='</div>';$('s-nak').innerHTML=h;curExpFoto=null;
+ h+='</div>';$('s-nak').innerHTML=h;curExpFoto=null;curExpPdf=null;
 }
-function loadFoto(inp){const f=inp.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{const img=new Image();img.onload=()=>{
+let curExpPdf=null;
+function loadFoto(inp){const f=inp.files[0];if(!f)return;if(!/^image\//.test(f.type||'')){readDoc(f,d=>{curExpPdf=d;curExpFoto=null;$('e_fotoprev').innerHTML='📎 '+esc(d.name)+' priložený (PDF – sumu zadaj ručne)'});return}curExpPdf=null;const r=new FileReader();r.onload=ev=>{const img=new Image();img.onload=()=>{
   const cv=document.createElement('canvas');const mx=1200;let w=img.width,ht=img.height;if(w>mx){ht=Math.round(ht*mx/w);w=mx}cv.width=w;cv.height=ht;cv.getContext('2d').drawImage(img,0,0,w,ht);
   try{curExpFoto=cv.toDataURL('image/jpeg',0.6)}catch(e){curExpFoto=null}
   $('e_fotoprev').innerHTML=(curExpFoto?`<img src="${curExpFoto}" style="max-width:150px;border-radius:8px;margin-top:6px">`:'')+'<div id="ocrst" class="mut" style="margin-top:6px">📸 Čítam doklad… (prvýkrát to chvíľu trvá)</div>';
@@ -407,7 +411,7 @@ function parseDoklad(t){
  if(line)res.dod=line;
  return res;
 }
-function addExp(){const s=+$('e_sum').value;if(!s){toast('Zadaj sumu');return}try{EXP.unshift({id:uid(),dat:$('e_dat').value,dod:$('e_dod').value,pop:$('e_pop').value,kat:$('e_kat').value,sum:s,dph:$('e_dph').value,uzn:$('e_uzn').checked,foto:curExpFoto});LS.set('expenses',EXP)}catch(e){toast('Chyba: fotka je asi priveľká');return}toast('Náklad pridaný ✅');renderNak()}
+function addExp(){const s=+$('e_sum').value;if(!s){toast('Zadaj sumu');return}try{EXP.unshift({id:uid(),dat:$('e_dat').value,dod:$('e_dod').value,pop:$('e_pop').value,kat:$('e_kat').value,sum:s,dph:$('e_dph').value,uzn:$('e_uzn').checked,foto:curExpFoto,pdf:curExpPdf});LS.set('expenses',EXP)}catch(e){toast('Chyba: fotka je asi priveľká');return}toast('Náklad pridaný ✅');renderNak()}
 function delExp(id){EXP=EXP.filter(e=>e.id!==id);LS.set('expenses',EXP);renderNak()}
 function viewFoto(id){const e=EXP.find(x=>x.id===id);if(e&&e.foto){const w=window.open();w.document.write('<img src="'+e.foto+'" style="max-width:100%">')}}
 
@@ -462,6 +466,33 @@ function cestPrikaz(id){const j=JAZ.find(x=>x.id===id);const v=VOZ[j.voz]||{};co
   <div style="margin-top:24px;font-size:12px">Dátum a podpis: ......................................</div></div>`;
  window.print();
 }
+
+// ===== DOKLADY (elektronická stopa pre účtovníctvo) =====
+const DOC_MAX=2*1024*1024;
+function readDoc(file,cb){ // obrázok → zmenšený JPEG (+ väčší na OCR), PDF/iné → dataURL do 2 MB
+ if(!file)return;
+ if(/^image\//.test(file.type||'')){fotoResize(file,(small,big)=>cb({name:file.name||'foto.jpg',mime:'image/jpeg',data:small},big));return}
+ if(file.size>DOC_MAX){toast('Súbor má viac než 2 MB – odfoť doklad alebo ho zmenši');return}
+ const r=new FileReader();r.onload=e=>cb({name:file.name||'doklad',mime:file.type||'application/pdf',data:e.target.result},null);r.readAsDataURL(file)}
+function docView(d){if(!d||!d.data)return;const w=window.open();if(!w)return;w.document.write(/^image\//.test(d.mime||'')?'<img src="'+d.data+'" style="max-width:100%">':'<iframe src="'+d.data+'" style="border:0;width:100%;height:100vh"></iframe>')}
+function docBtn(d,fn){return d?`<button class="mini" onclick="${fn}">🖼️ ${esc((d.name||'doklad').slice(0,18))}</button>`:''}
+function cpDocReq(cp){const R=[];
+ // doklady o ČASE (dôkaz hodín v zahraničí pre stravné) – nie faktúra; faktúru/účet treba len k výdavku, ktorý platil konateľ alebo firma (rieši sa pri výdavkoch)
+ if(cp.dopr==='lietadlo')R.push({k:'letenka',t:'potvrdenie letov s časmi odletu a príletu (itinerár / palubný lístok – faktúru netreba, ak let hradil niekto iný)'});
+ if(cp.dopr==='vlak/bus')R.push({k:'listok',t:'cestovné lístky s časmi odchodu a príchodu'});
+ return R}
+function cpOpen(cp){const o=[];cpDocReq(cp).forEach(r=>{if(!(cp.dokl||{})[r.k])o.push('chýba '+r.t)});
+ (cp.vyd||[]).forEach((x,i)=>{if(x.kto&&x.kto!=='tretia strana'&&!x.foto&&!x.pdf)o.push('chýba doklad k výdavku „'+(x.pop||('č. '+(i+1)))+'“')});return o}
+function openTasks(){const T=[];
+ CP.forEach(c=>cpOpen(c).forEach(t=>T.push({tab:'cp',id:c.id,t:c.no+' ('+c.miesto+'): '+t})));
+ EXP.forEach(e=>{if(!e.foto&&!e.pdf)T.push({tab:'nak',t:'Náklad '+(e.dat||'')+' '+(e.dod||'')+' '+eur(e.sum)+': chýba doklad'})});
+ if(!FD.rozhodnutie)T.push({tab:'set',t:'Nahrať rozhodnutie jediného spoločníka o cestovných náhradách konateľa (raz, Nastavenia)'});
+ return T}
+function openTasksHtml(){const OT=openTasks();return `<div class="card"><b>📋 Otvorené úlohy – doklady do účtovníctva (${OT.length})</b>${OT.length?OT.map(t=>`<div class="mut" style="border-top:1px solid var(--line);padding:4px 0;display:flex;justify-content:space-between;gap:6px"><span>⚠️ ${esc(t.t)}</span><button class="mini" onclick="${t.tab==='cp'&&t.id?`tab('cp');editCP(${t.id})`:`tab('${t.tab}')`}">→</button></div>`).join(''):'<p class="mut">Všetko doložené ✅</p>'}</div>`}
+function setFirmDoc(k,inp){readDoc(inp.files[0],d=>{FD[k]=d;LS.set('firmdocs',FD);toast('Doklad uložený ✅');renderSet()})}
+function delFirmDoc(k){delete FD[k];LS.set('firmdocs',FD);renderSet()}
+function addExpDoc(id,inp){const e=EXP.find(x=>x.id===id);if(!e)return;readDoc(inp.files[0],d=>{if(/^image\//.test(d.mime))e.foto=d.data;else e.pdf=d;try{LS.set('expenses',EXP)}catch(err){toast('Chyba: súbor je priveľký');return}toast('Doklad priložený ✅');renderNak()})}
+function viewExpDoc(id){const e=EXP.find(x=>x.id===id);if(!e)return;docView(e.foto?{mime:'image/jpeg',data:e.foto}:e.pdf)}
 
 // ===== CESTOVNÉ PRÍKAZY (zákon 283/2002 Z. z.) =====
 const CP_COUNTRIES=[ // zahraničné sadzby: opatrenie MF SR č. 401/2012 Z. z. (UK overené 8. 10. 2026, ostatné 22. 9. 2026)
@@ -526,17 +557,25 @@ function renderCP(){if(!curCP)curCP=newCP();const cp=curCP;
   <div id="cp_autobox" style="display:${cp.dopr==='auto'?'':'none'}"><label>Vozidlo + km</label><div class="row"><select id="cp_voz" onchange="cpSet('voz',+this.value)">${vopt||'<option value="0">— pridaj v Knihe jázd —</option>'}</select><input type="number" id="cp_km" value="${cp.km||''}" oninput="cpSet('km',+this.value)" placeholder="km"></div></div></div>
   <div class="row"><div><label>Ubytovanie</label><input id="cp_ubyt" value="${esc(cp.ubyt)}" oninput="cpSet('ubyt',this.value)" placeholder="hotel, 2 noci, raňajky v cene"></div>
   <div><label>Preddavok (€)</label><input type="number" step="0.01" id="cp_pred" value="${cp.pred||''}" oninput="cpSet('pred',+this.value)"></div></div>
-  <div id="cp_days"></div><div id="cp_vyd"></div>
+  <div id="cp_days"></div><div id="cp_vyd"></div><div id="cp_dokl"></div>
   <label>Poznámka</label><input id="cp_pozn" value="${esc(cp.pozn)}" oninput="cpSet('pozn',this.value)">
   <div id="cp_sum" class="help"></div>
   <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap"><button class="act" onclick="saveCP()">💾 Uložiť cestovný príkaz</button>${cp.id?'<button class="ghost" onclick="curCP=null;renderCP()">Zrušiť úpravu</button>':''}</div></div>`;
  h+=`<div class="card"><b>Cestovné príkazy (${CP.length})</b>`;
  if(!CP.length)h+='<p class="mut">Zatiaľ žiadne.</p>';
  else{h+='<table><thead><tr><th>Číslo</th><th>Cesta</th><th class="r">Na vyplatenie</th><th></th></tr></thead><tbody>';
-  CP.forEach(c=>{const k=cpCalc(c);h+=`<tr><td>${esc(c.no)}</td><td>${esc(c.miesto)} · ${esc(c.kraj)}<br><span class="mut">${esc((c.na||'').slice(0,10))} – ${esc((c.uk||'').slice(0,10))} · ${esc(c.ucel)}${(c.vyd||[]).some(x=>x.foto)?' · 📎':''}</span></td><td class="r"><b>${eur(k.naVypl)}</b><br><span class="mut">stravné ${eur(k.strav)}</span></td><td class="r"><button class="mini" onclick="cpPrint(${c.id})">📄</button><button class="mini" onclick="editCP(${c.id})">✏️</button><button class="mini" onclick="delCP(${c.id})">✕</button></td></tr>`});
+  CP.forEach(c=>{const k=cpCalc(c);h+=`<tr><td>${esc(c.no)}</td><td>${esc(c.miesto)} · ${esc(c.kraj)}<br><span class="mut">${esc((c.na||'').slice(0,10))} – ${esc((c.uk||'').slice(0,10))} · ${esc(c.ucel)}${cpOpen(c).length?' · <span style="color:var(--red)">⚠️ '+cpOpen(c).length+' doklad(y) chýba</span>':' · ✅ doklady'}</span></td><td class="r"><b>${eur(k.naVypl)}</b><br><span class="mut">stravné ${eur(k.strav)}</span></td><td class="r"><button class="mini" onclick="cpPrint(${c.id})">📄</button><button class="mini" onclick="editCP(${c.id})">✏️</button><button class="mini" onclick="delCP(${c.id})">✕</button></td></tr>`});
   h+='</tbody></table>'}
- h+='</div>';$('s-cp').innerHTML=h;cpDaysRender();cpVydRender();cpRefresh()}
-function cpSet(k,v){curCP[k]=v;if(k==='dopr'){const b=$('cp_autobox');if(b)b.style.display=v==='auto'?'':'none'}if(['na','uk','od','pr','kraj'].includes(k))cpDaysRender();cpRefresh()}
+ h+='</div>';$('s-cp').innerHTML=h;cpDaysRender();cpVydRender();cpDoklRender();cpRefresh()}
+function cpDoklRender(){const el=$('cp_dokl');if(!el)return;const cp=curCP;const R=cpDocReq(cp);
+ let h='<label style="margin-top:8px">Doklady k ceste (elektronicky, do účtovníctva)</label>';
+ if(!R.length)h+='<p class="mut">Pri lietadle/vlaku sa tu objaví doklad o časoch cesty. Účty za hotel, taxi a pod. sa prikladajú pri výdavkoch (len ak ich platil konateľ alebo firma).</p>';
+ R.forEach(r=>{const d=(cp.dokl||{})[r.k];h+=`<div class="box" style="margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap"><span style="font-size:.82rem">${d?'✅':'⚠️'} ${esc(r.t)}</span><span>${d?docBtn(d,`docView(curCP.dokl['${r.k}'])`)+`<button class="mini" onclick="cpDoklDel('${r.k}')">✕</button>`:`<button class="ghost" style="padding:4px 10px;font-size:.8rem" onclick="this.nextElementSibling.click()">📎 nahrať</button><input type="file" accept="image/*,application/pdf" style="display:none" onchange="cpDoklSet('${r.k}',this)">`}</span></div>`});
+ const o=cpOpen(cp);h+=o.length?`<div class="help" style="border-color:var(--red)">📋 Otvorené úlohy k tomuto príkazu (${o.length}): ${o.map(esc).join(' · ')}. Uložiť môžeš aj bez nich – zostanú na Dashboarde, kým ich nedoložíš.</div>`:'<div class="help">✅ Všetky doklady priložené.</div>';
+ el.innerHTML=h}
+function cpDoklSet(k,inp){readDoc(inp.files[0],d=>{curCP.dokl=curCP.dokl||{};curCP.dokl[k]=d;cpDoklRender();cpRefresh()})}
+function cpDoklDel(k){if(curCP.dokl)delete curCP.dokl[k];cpDoklRender();cpRefresh()}
+function cpSet(k,v){curCP[k]=v;if(k==='dopr'){const b=$('cp_autobox');if(b)b.style.display=v==='auto'?'':'none'}if(['na','uk','od','pr','kraj'].includes(k))cpDaysRender();if(k==='dopr')cpDoklRender();cpRefresh()}
 function cpDaysRender(){const el=$('cp_days');if(!el)return;const ds=cpDays(curCP);if(!ds.length){el.innerHTML='<p class="mut">Zadaj nástup a ukončenie – objaví sa tabuľka dní.</p>';return}
  let h='<label style="margin-top:8px">Bezplatne poskytnuté jedlo (hotelové raňajky, obed od klienta) – za ten deň sa stravné kráti</label><table><thead><tr><th>Deň</th><th class="r">h zahr. / SR</th><th>Raňajky</th><th>Obed</th><th>Večera</th></tr></thead><tbody>';
  ds.forEach(d=>{h+=`<tr><td>${d.key.slice(8,10)}.${d.key.slice(5,7)}.</td><td class="r">${d.hz.toFixed(1)} / ${d.hs.toFixed(1)}</td>${['r','o','v'].map(j=>`<td><input type="checkbox" ${d[j]?'checked':''} onchange="cpJedlo('${d.key}','${j}',this.checked)" style="width:auto"></td>`).join('')}</tr>`});
@@ -546,34 +585,37 @@ function cpVydRender(){const el=$('cp_vyd');if(!el)return;const V=curCP.vyd||[];
  let h='<label style="margin-top:8px">Výdavky podľa dokladov (letenky, hotel, taxi, parkovanie…)</label>';
  V.forEach((x,i)=>{h+=`<div class="box" style="margin-bottom:6px"><div class="row"><div><label>Položka</label><input value="${esc(x.pop)}" oninput="cpVydSet(${i},'pop',this.value)" placeholder="hotel 2 noci"></div><div><label>Suma (€)</label><input type="number" step="0.01" id="cpv_sum_${i}" value="${x.sum||''}" oninput="cpVydSet(${i},'sum',+this.value)"></div></div>
   <div class="row"><div><label>Kto platil</label><select onchange="cpVydSet(${i},'kto',this.value)"><option value="">— vyber —</option>${['konateľ','firma','tretia strana'].map(k=>`<option ${x.kto===k?'selected':''}>${k}</option>`).join('')}</select></div>
-  <div><label>Foto dokladu</label><input type="file" accept="image/*" capture="environment" onchange="cpVydFoto(${i},this)"></div></div>
-  <div id="cpv_st_${i}" class="mut" style="margin-top:4px">${x.foto?'📎 doklad priložený':'⚠️ bez fotky dokladu'}</div>
-  <div style="margin-top:4px">${x.foto?`<button class="mini" onclick="cpVydView(${i})">🖼️</button>`:''}<button class="mini" onclick="cpVydDel(${i})">✕ odstrániť</button></div></div>`});
+  <div><label>Doklad (foto / PDF)</label><input type="file" accept="image/*,application/pdf" capture="environment" onchange="cpVydFoto(${i},this)"></div></div>
+  <div id="cpv_st_${i}" class="mut" style="margin-top:4px">${x.foto?'📎 foto dokladu priložené':x.pdf?'📎 '+esc(x.pdf.name)+' priložený':(x.kto==='tretia strana'?'doklad nie je nutný (hradila tretia strana)':'⚠️ bez dokladu – otvorená úloha')}</div>
+  <div style="margin-top:4px">${(x.foto||x.pdf)?`<button class="mini" onclick="cpVydView(${i})">🖼️</button><button class="mini" onclick="cpVydSet(${i},'foto',null);cpVydSet(${i},'pdf',null);cpVydRender()">odstrániť doklad</button>`:''}<button class="mini" onclick="cpVydDel(${i})">✕ odstrániť výdavok</button></div></div>`});
  h+='<button class="ghost" onclick="cpVydAdd()">➕ Pridať výdavok</button><div class="help">konateľ = preplatí sa ti · firma = platené firemnou kartou (len náklad firmy) · tretia strana = hradil klient, nenahrádza sa. Odfoť doklad – appka skúsi prečítať sumu.</div>';
  el.innerHTML=h}
 function cpVydAdd(){curCP.vyd=curCP.vyd||[];curCP.vyd.push({id:uid(),pop:'',sum:0,kto:'konateľ',foto:null});cpVydRender();cpRefresh()}
 function cpVydDel(i){curCP.vyd.splice(i,1);cpVydRender();cpRefresh()}
-function cpVydSet(i,k,v){curCP.vyd[i][k]=v;cpRefresh()}
-function cpVydView(i){const x=curCP.vyd[i];if(x&&x.foto){const w=window.open();w.document.write('<img src="'+x.foto+'" style="max-width:100%">')}}
+function cpVydSet(i,k,v){curCP.vyd[i][k]=v;if(k==='kto'||k==='foto'||k==='pdf')cpDoklRender();cpRefresh()}
+function cpVydView(i){const x=curCP.vyd[i];if(!x)return;docView(x.foto?{mime:'image/jpeg',data:x.foto}:x.pdf)}
 function fotoResize(file,cb){const r=new FileReader();r.onload=ev=>{const img=new Image();img.onload=()=>{const cv=document.createElement('canvas');const mx=1200;let w=img.width||mx,ht=img.height||mx;if(w>mx){ht=Math.round(ht*mx/w);w=mx}cv.width=w;cv.height=ht;cv.getContext('2d').drawImage(img,0,0,w,ht);let small=null,big=null;try{small=cv.toDataURL('image/jpeg',0.6);big=cv.toDataURL('image/jpeg',0.85)}catch(e){}cb(small,big)};img.src=ev.target.result};r.readAsDataURL(file)}
-function cpVydFoto(i,inp){const f=inp.files[0];if(!f)return;fotoResize(f,(small,big)=>{curCP.vyd[i].foto=small;const st=$('cpv_st_'+i);if(st)st.innerHTML='📎 doklad priložený · čítam sumu…';
- if(typeof Tesseract==='undefined'||!big){if(st)st.innerHTML='📎 doklad priložený';cpVydRender();cpRefresh();return}
- Tesseract.recognize(big,'slk+eng').then(({data})=>{const p=parseDoklad(data.text||'');if(p.sum&&!(+curCP.vyd[i].sum>0))curCP.vyd[i].sum=p.sum;cpVydRender();const s=$('cpv_st_'+i);if(s)s.innerHTML='📎 doklad priložený · ✅ prečítané, skontroluj sumu';cpRefresh()}).catch(()=>{cpVydRender();cpRefresh()})})}
+function cpVydFoto(i,inp){const f=inp.files[0];if(!f)return;readDoc(f,(d,big)=>{if(!/^image\//.test(d.mime)){curCP.vyd[i].pdf=d;curCP.vyd[i].foto=null;cpVydRender();cpDoklRender();cpRefresh();return}
+ curCP.vyd[i].foto=d.data;curCP.vyd[i].pdf=null;const st=$('cpv_st_'+i);if(st)st.innerHTML='📎 doklad priložený · čítam sumu…';
+ if(typeof Tesseract==='undefined'||!big){cpVydRender();cpDoklRender();cpRefresh();return}
+ Tesseract.recognize(big,'slk+eng').then(({data})=>{const p=parseDoklad(data.text||'');if(p.sum&&!(+curCP.vyd[i].sum>0))curCP.vyd[i].sum=p.sum;cpVydRender();cpDoklRender();const s=$('cpv_st_'+i);if(s)s.innerHTML='📎 doklad priložený · ✅ prečítané, skontroluj sumu';cpRefresh()}).catch(()=>{cpVydRender();cpDoklRender();cpRefresh()})})}
 function cpRefresh(){const cp=curCP;if(!cp)return;const m=cpMissing(cp);const el=$('cp_miss');
  if(el)el.innerHTML=m.length?`<div class="box" style="border-color:var(--red);font-size:.8rem"><b style="color:var(--red)">Ešte doplň:</b> ${m.map(esc).join(' · ')}</div>`:'<div class="box" style="font-size:.8rem">✅ Všetko potrebné je vyplnené – môžeš uložiť.</div>';
- const k=cpCalc(cp);const s=$('cp_sum');if(!s)return;const noFoto=(cp.vyd||[]).filter(x=>!x.foto&&x.kto&&x.kto!=='tretia strana').length;
- s.innerHTML=`Stravné: <b>${k.c.cur!=='EUR'?k.stravMena.toFixed(2).replace('.',',')+' '+k.c.cur+' = ':''}${eur(k.stravEur)}</b>${k.tuzEur?' + tuzemské <b>'+eur(k.tuzEur)+'</b>':''}${k.kurz&&k.c.cur!=='EUR'?' (kurz '+k.kurz+')':''}${k.auto?' · auto: <b>'+eur(k.auto)+'</b>':''} · výdavky konateľ: <b>${eur(k.vKon)}</b>${k.vFir?' · firma: '+eur(k.vFir):''}${cp.pred?' · preddavok −'+eur(cp.pred):''} → <b>Na vyplatenie: ${eur(k.naVypl)}</b>${noFoto?'<br>⚠️ '+noFoto+'× výdavok bez fotky dokladu – odfoť ho, nech je vyúčtovanie kompletné.':''}`}
+ const k=cpCalc(cp);const s=$('cp_sum');if(!s)return;const noFoto=cpOpen(cp).length;
+ s.innerHTML=`Stravné: <b>${k.c.cur!=='EUR'?k.stravMena.toFixed(2).replace('.',',')+' '+k.c.cur+' = ':''}${eur(k.stravEur)}</b>${k.tuzEur?' + tuzemské <b>'+eur(k.tuzEur)+'</b>':''}${k.kurz&&k.c.cur!=='EUR'?' (kurz '+k.kurz+')':''}${k.auto?' · auto: <b>'+eur(k.auto)+'</b>':''} · výdavky konateľ: <b>${eur(k.vKon)}</b>${k.vFir?' · firma: '+eur(k.vFir):''}${cp.pred?' · preddavok −'+eur(cp.pred):''} → <b>Na vyplatenie: ${eur(k.naVypl)}</b>${noFoto?'<br>📋 Otvorené úlohy: '+noFoto+' (chýbajúce doklady – viď vyššie).':''}`}
 function saveCP(){const cp=curCP;const m=cpMissing(cp);if(m.length){toast('Doplň: '+m[0]);cpRefresh();return}
  if(!cp.id){cp.id=uid();CNT.CP=(CNT.CP||0)+1;LS.set('counters',CNT);cp.no='CP'+new Date(cp.na).getFullYear()+String(CNT.CP).padStart(3,'0');CP.unshift(cp)}
  else{const i=CP.findIndex(x=>x.id===cp.id);if(i>-1)CP[i]=cp;else CP.unshift(cp)}
  try{LS.set('cprikazy',CP)}catch(e){toast('Chyba: fotky sú asi priveľké');return}
- toast('Cestovný príkaz '+cp.no+' uložený ✅');curCP=null;renderCP()}
+ const o=cpOpen(cp).length;toast('Cestovný príkaz '+cp.no+' uložený ✅'+(o?' · otvorené úlohy: '+o:''));curCP=null;renderCP()}
 function editCP(id){const c=CP.find(x=>x.id===id);if(!c)return;curCP=JSON.parse(JSON.stringify(c));renderCP();if(window.scrollTo)window.scrollTo(0,0)}
 function delCP(id){if(!confirm('Zmazať cestovný príkaz?'))return;CP=CP.filter(x=>x.id!==id);LS.set('cprikazy',CP);renderCP()}
 function cpPrint(id){const cp=CP.find(x=>x.id===id);if(!cp)return;const k=cpCalc(cp);const f=s=>esc((s||'').replace('T',' '));const v=VOZ[cp.voz]||{};const n2=x=>(+x||0).toFixed(2).replace('.',',');
  const dd=k.days.map(d=>`<tr><td>${d.key.slice(8,10)}.${d.key.slice(5,7)}.${d.key.slice(0,4)}</td><td class="r">${d.hz.toFixed(1)}</td><td class="r">${d.hs.toFixed(1)}</td><td class="r">${Math.round(d.pct*100)} %</td><td>${[d.r?'R':'',d.o?'O':'',d.v?'V':''].filter(Boolean).join(', ')||'–'}</td><td class="r">${Math.round(d.kr*100)} %</td><td class="r">${n2(d.sm)}</td><td class="r">${n2(d.se)}</td><td class="r">${n2(d.tz)}</td></tr>`).join('');
- const vv=(cp.vyd||[]).map((x,i)=>`<tr><td>${i+1}. ${esc(x.pop)}</td><td>${esc(x.kto)}</td><td class="r">${n2(x.sum)}</td><td class="r">${x.kto==='konateľ'?n2(x.sum):'–'}</td><td>${x.foto?'príloha '+(i+1):'bez dokladu'}</td></tr>`).join('');
- const fotos=(cp.vyd||[]).map((x,i)=>x.foto?`<div style="page-break-before:always"><h3 style="font-size:13px">Príloha ${i+1} – ${esc(x.pop)} (${n2(x.sum)} €, platil ${esc(x.kto)})</h3><img src="${x.foto}" style="max-width:100%;max-height:900px"></div>`:'').join('');
+ const vv=(cp.vyd||[]).map((x,i)=>`<tr><td>${i+1}. ${esc(x.pop)}</td><td>${esc(x.kto)}</td><td class="r">${n2(x.sum)}</td><td class="r">${x.kto==='konateľ'?n2(x.sum):'–'}</td><td>${x.foto?'príloha '+(i+1):x.pdf?'PDF: '+esc(x.pdf.name):(x.kto==='tretia strana'?'–':'<b>CHÝBA</b>')}</td></tr>`).join('');
+ const req=cpDocReq(cp).map(r=>{const d=(cp.dokl||{})[r.k];return `<tr><td>${esc(r.t)}</td><td>${d?'✅ '+esc(d.name||'')+(/^image\//.test(d.mime||'')?' (príloha)':' (PDF v appke)'):'<b>CHÝBA – otvorená úloha</b>'}</td></tr>`}).join('');
+ const fotos=cpDocReq(cp).map(r=>{const d=(cp.dokl||{})[r.k];return d&&/^image\//.test(d.mime||'')?`<div style="page-break-before:always"><h3 style="font-size:13px">Príloha – ${esc(r.t)}</h3><img src="${d.data}" style="max-width:100%;max-height:900px"></div>`:''}).join('')
+  +(cp.vyd||[]).map((x,i)=>x.foto?`<div style="page-break-before:always"><h3 style="font-size:13px">Príloha ${i+1} – ${esc(x.pop)} (${n2(x.sum)} €, platil ${esc(x.kto)})</h3><img src="${x.foto}" style="max-width:100%;max-height:900px"></div>`:'').join('');
  $('print').innerHTML=`<div class="inv"><h2>CESTOVNÝ PRÍKAZ A VYÚČTOVANIE č. ${esc(cp.no)}</h2>
   <div style="font-size:11px;margin:4px 0 8px">${esc(SUP.meno)}, ${esc(SUP.sidlo)}${SUP.ico?', IČO '+esc(SUP.ico):''} · zákon č. 283/2002 Z. z. o cestovných náhradách</div>
   <table style="width:100%"><tr><td style="width:32%">Vyslaná osoba</td><td><b>${esc(SUP.konatel)}</b> (konateľ – náhrady na základe rozhodnutia jediného spoločníka, § 1 ods. 2)</td></tr>
@@ -591,7 +633,8 @@ function cpPrint(id){const cp=CP.find(x=>x.id===id);if(!cp)return;const k=cpCalc
   <h3 style="font-size:13px;margin:14px 0 4px">C. Rekapitulácia</h3>
   <div style="display:flex;justify-content:flex-end"><table style="min-width:320px"><tr><td>Stravné</td><td class="r">${eur(k.strav)}</td></tr>${k.auto?`<tr><td>Náhrada za vozidlo</td><td class="r">${eur(k.auto)}</td></tr>`:''}<tr><td>Výdavky zaplatené konateľom</td><td class="r">${eur(k.vKon)}</td></tr><tr><td>Výdavky zaplatené firmou (nevyplácajú sa)</td><td class="r">${eur(k.vFir)}</td></tr><tr><td>Preddavok</td><td class="r">− ${eur(cp.pred||0)}</td></tr><tr><td><b>NA VYPLATENIE</b></td><td class="r"><b>${eur(k.naVypl)}</b></td></tr><tr><td>Celkový náklad firmy</td><td class="r">${eur(k.naklad)}</td></tr></table></div>
   <div style="display:flex;justify-content:space-between;margin-top:30px;font-size:11px"><div>Vyúčtovanie predložil dňa ..............<br><br>........................................<br>${esc(SUP.konatel)}</div><div>Schválil a výplatu nariadil dňa ..............<br><br>........................................<br>${esc(SUP.konatel)}, konateľ</div></div>
-  <div style="font-size:10px;margin-top:10px">Prílohy: letenky/palubné lístky, doklady k výdavkom (fotky nižšie), rozhodnutie jediného spoločníka o cestovných náhradách.</div>${fotos}</div>`;
+  ${req?`<h3 style="font-size:13px;margin:14px 0 4px">D. Doklady k ceste</h3><table style="width:100%">${req}</table>`:''}
+  <div style="font-size:10px;margin-top:10px">Prílohy: doklady podľa tabuliek D a B (fotky nižšie, PDF v appke), rozhodnutie jediného spoločníka o cestovných náhradách${FD.rozhodnutie?' (v appke: '+esc(FD.rozhodnutie.name||'')+')':' – <b>CHÝBA</b>'}.</div>${fotos}</div>`;
  window.print()}
 function exportCPCSV(){const R=[['Cislo','Krajina','Miesto','Ucel','Nastup','Ukoncenie','Stravne_mena','Mena','Kurz','Stravne_EUR','Vydavky_konatel','Vydavky_firma','Auto','Preddavok','Na_vyplatenie','Naklad_firmy']];
  CP.forEach(c=>{const k=cpCalc(c);R.push([c.no,c.kraj,c.miesto,c.ucel,c.na,c.uk,k.stravMena.toFixed(2),k.c.cur,k.kurz||'',k.strav.toFixed(2),k.vKon.toFixed(2),k.vFir.toFixed(2),k.auto.toFixed(2),(+c.pred||0).toFixed(2),k.naVypl.toFixed(2),k.naklad.toFixed(2)])});
@@ -656,7 +699,7 @@ function renderDash(){
  const naklUzn=naklE+nahr+odp;
  const dphIn=EXP.reduce((s,e)=>{const r=VRATE[e.dph]||0;const t=+e.sum||0;return s+(t-t/(1+r))},0);
  const zisk=trzby-naklUzn;const danPO=Math.max(zisk*0.10,0);const saldo=dphOut-dphIn;
- $('s-dash').innerHTML=`<div class="card"><b>📈 Prehľad</b> <span class="mut">(všetky doklady)</span>
+ $('s-dash').innerHTML=openTasksHtml()+`<div class="card"><b>📈 Prehľad</b> <span class="mut">(všetky doklady)</span>
   <div class="tot"><span>Tržby (základ faktúr)</span><b>${eur(trzby)}</b></div>
   <div class="tot"><span>Náklady – doklady</span><b>${eur(naklE)}</b></div>
   <div class="tot"><span>Náklady – cestovné náhrady</span><b>${eur(nahr)}</b></div>
@@ -756,9 +799,9 @@ function dl(name,content,type){const b=new Blob([content],{type:type||'text/plai
 function csvEsc(v){v=String(v==null?'':v);return /[",;\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v}
 function exportFakCSV(){const R=[['Cislo','Typ','Datum','Klient','Zaklad','DPH','Spolu','Rezim','Stav']];INV.filter(i=>!i.draft).forEach(i=>{const t=totals(i);const c=CLI[i.cli]||{};R.push([i.no,i.typ,i.dvyst,c.meno,t.base.toFixed(2),t.dph.toFixed(2),t.total.toFixed(2),i.dph,i.paid?'zaplatena':'nezaplatena'])});dl('Practeo_faktury.csv','﻿'+R.map(r=>r.map(csvEsc).join(';')).join('\n'),'text/csv');toast('Export faktúr ✅')}
 function exportNakCSV(){const R=[['Datum','Dodavatel','Popis','Kategoria','Suma','DPH_vstup','Uznatelny']];EXP.forEach(e=>R.push([e.dat,e.dod,e.pop,e.kat,(+e.sum||0).toFixed(2),e.dph,e.uzn?'ano':'nie']));dl('Practeo_naklady.csv','﻿'+R.map(r=>r.map(csvEsc).join(';')).join('\n'),'text/csv');toast('Export nákladov ✅')}
-function exportJSON(){const all={supplier:SUP,clients:CLI,invoices:INV,expenses:EXP,vehicles:VOZ,trips:JAZ,dohodari:DOH,assets:MAJ,counters:CNT,cprikazy:CP,rates:RATES};dl('Practeo_zaloha.json',JSON.stringify(all,null,1),'application/json');toast('Kompletná záloha ✅')}
+function exportJSON(){const all={supplier:SUP,clients:CLI,invoices:INV,expenses:EXP,vehicles:VOZ,trips:JAZ,dohodari:DOH,assets:MAJ,counters:CNT,cprikazy:CP,rates:RATES,firmdocs:FD};dl('Practeo_zaloha.json',JSON.stringify(all,null,1),'application/json');toast('Kompletná záloha ✅')}
 function importJSON(inp){const f=inp.files[0];if(!f)return;const r=new FileReader();r.onload=e=>{try{const d=JSON.parse(e.target.result);if(!confirm('Nahradiť súčasné dáta obsahom zálohy?'))return;
- if(d.supplier){SUP=d.supplier;LS.set('supplier',SUP)}if(d.clients){CLI=d.clients;LS.set('clients',CLI)}if(d.invoices){INV=d.invoices;LS.set('invoices',INV)}if(d.expenses){EXP=d.expenses;LS.set('expenses',EXP)}if(d.vehicles){VOZ=d.vehicles;LS.set('vehicles',VOZ)}if(d.trips){JAZ=d.trips;LS.set('trips',JAZ)}if(d.dohodari){DOH=d.dohodari;LS.set('dohodari',DOH)}if(d.assets){MAJ=d.assets;LS.set('assets',MAJ)}if(d.counters){CNT=d.counters;LS.set('counters',CNT)}if(d.cprikazy){CP=d.cprikazy;LS.set('cprikazy',CP)}if(d.rates){RATES=d.rates;LS.set('rates',RATES)}
+ if(d.supplier){SUP=d.supplier;LS.set('supplier',SUP)}if(d.clients){CLI=d.clients;LS.set('clients',CLI)}if(d.invoices){INV=d.invoices;LS.set('invoices',INV)}if(d.expenses){EXP=d.expenses;LS.set('expenses',EXP)}if(d.vehicles){VOZ=d.vehicles;LS.set('vehicles',VOZ)}if(d.trips){JAZ=d.trips;LS.set('trips',JAZ)}if(d.dohodari){DOH=d.dohodari;LS.set('dohodari',DOH)}if(d.assets){MAJ=d.assets;LS.set('assets',MAJ)}if(d.counters){CNT=d.counters;LS.set('counters',CNT)}if(d.cprikazy){CP=d.cprikazy;LS.set('cprikazy',CP)}if(d.rates){RATES=d.rates;LS.set('rates',RATES)}if(d.firmdocs){FD=d.firmdocs;LS.set('firmdocs',FD)}
  toast('Dáta obnovené ✅');renderSet()}catch(err){toast('Chyba: neplatný súbor')}};r.readAsText(f)}
 
 // ---- utils ----
